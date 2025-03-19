@@ -96,27 +96,6 @@ export const HomePage: React.FC = () => {
 					</div>
 				))}
 			</div>
-
-			{/* Additional resources */}
-			<div className="bg-muted/40 dark:bg-muted-dark/40 rounded-xl p-6">
-				<h3 className="text-lg font-medium mb-4 text-foreground dark:text-foreground-dark">
-					About Post-Quantum Cryptography
-				</h3>
-				<p className="text-sm text-muted-foreground dark:text-muted-foreground-dark mb-4">
-					Post-quantum cryptography refers to cryptographic algorithms that are
-					believed to be secure against attacks by quantum computers. This tool
-					helps you benchmark various algorithms to understand their performance
-					characteristics.
-				</p>
-				<div className="text-sm text-muted-foreground dark:text-muted-foreground-dark">
-					Algorithms covered include:
-					<ul className="mt-2 space-y-1 list-disc list-inside">
-						<li>Key Encapsulation Mechanisms: Kyber, McEliece</li>
-						<li>Digital Signatures: Dilithium, Falcon, SPHINCS+</li>
-						<li>Classical Algorithms: RSA, ECC, AES</li>
-					</ul>
-				</div>
-			</div>
 		</div>
 	);
 };

@@ -6,21 +6,25 @@ import { BenchmarkRunner } from '../components/BenchmarkRunner';
  */
 export const RunBenchmarkPage: React.FC = () => {
 	return (
-		<div>
-			<div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
-				<h2 className="text-xl font-semibold mb-4">Run Benchmark</h2>
-				<p className="mb-4">
-					Configure and run benchmarks for post-quantum and classical
-					cryptography algorithms.
-				</p>
-				<p className="text-gray-600 dark:text-gray-400">
-					Select an algorithm and security parameters below to start a
-					benchmark.
-				</p>
+		<div className="space-y-8">
+			<div className="bg-card dark:bg-card-dark rounded-xl border border-border/40 dark:border-border-dark/40 shadow-sm p-6">
+				<h2 className="text-xl font-medium mb-4 text-foreground dark:text-foreground-dark">
+					Run Benchmark
+				</h2>
+				<div className="space-y-3 text-muted-foreground dark:text-muted-foreground-dark">
+					<p>
+						Configure and run benchmarks for post-quantum and classical
+						cryptography algorithms.
+					</p>
+					<p>
+						Select an algorithm and security parameters below to start a
+						benchmark.
+					</p>
+				</div>
 			</div>
 
 			{/* Use the existing BenchmarkRunner component */}
-			<div className="bg-white dark:bg-gray-800 rounded-lg shadow">
+			<div className="bg-card dark:bg-card-dark rounded-xl border border-border/40 dark:border-border-dark/40 shadow-sm">
 				<BenchmarkRunner />
 			</div>
 		</div>
