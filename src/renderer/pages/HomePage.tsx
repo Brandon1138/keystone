@@ -1,5 +1,8 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import RocketLaunchIcon from '@mui/icons-material/RocketLaunch';
+import BarChartIcon from '@mui/icons-material/BarChart';
+import BalanceIcon from '@mui/icons-material/Balance';
 
 /**
  * Home Page Component
@@ -11,21 +14,21 @@ export const HomePage: React.FC = () => {
 			title: 'Run Benchmarks',
 			description:
 				'Execute benchmarks for Kyber, Dilithium, McEliece, and classic algorithms like RSA and ECC.',
-			icon: '🚀',
+			icon: <RocketLaunchIcon className="h-6 w-6" />,
 			link: '/run-benchmark',
 		},
 		{
 			title: 'Visualize Results',
 			description:
 				'View detailed charts and graphs of your benchmark results, comparing different metrics.',
-			icon: '📊',
+			icon: <BarChartIcon className="h-6 w-6" />,
 			link: '/visualization',
 		},
 		{
 			title: 'Compare Algorithms',
 			description:
 				'Compare post-quantum algorithms against each other or against classical algorithms.',
-			icon: '⚖️',
+			icon: <BalanceIcon className="h-6 w-6" />,
 			link: '/compare',
 		},
 	];
@@ -54,7 +57,9 @@ export const HomePage: React.FC = () => {
 						key={index}
 						className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 hover:shadow-lg transition-shadow duration-200"
 					>
-						<div className="text-3xl mb-4">{card.icon}</div>
+						<div className="mb-4 text-blue-600 dark:text-blue-400">
+							{card.icon}
+						</div>
 						<h3 className="text-lg font-semibold mb-2">{card.title}</h3>
 						<p className="text-gray-600 dark:text-gray-400 mb-4">
 							{card.description}
