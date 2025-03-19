@@ -3,20 +3,6 @@ import ReactDOM from 'react-dom/client';
 import './styles.css';
 import App from './App';
 
-// Type declaration for window.process
-declare global {
-	interface Window {
-		process?: {
-			versions: {
-				chrome: string;
-				node: string;
-				electron: string;
-				[key: string]: string;
-			};
-		};
-	}
-}
-
 // Wait for DOM to be ready
 document.addEventListener('DOMContentLoaded', () => {
 	console.log('Renderer process started');

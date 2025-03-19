@@ -5,20 +5,12 @@ import {
 	SUPPORTED_ALGORITHMS,
 	SECURITY_PARAMS,
 } from '../../types/benchmark';
-
-// Declare the electron interface on the window object
-declare global {
-	interface Window {
-		electron: {
-			ipcRenderer: {
-				invoke(channel: string, ...args: any[]): Promise<any>;
-				on(channel: string, func: (...args: any[]) => void): void;
-				once(channel: string, func: (...args: any[]) => void): void;
-				removeListener(channel: string, func: (...args: any[]) => void): void;
-			};
-		};
-	}
-}
+import { benchmarkStoreUtils } from '../utils/benchmark-store-utils';
+import {
+	getAlgorithmInfo,
+	getCategoryColorClass,
+} from '../utils/algorithm-categories';
+import { BenchmarkResultCard } from './BenchmarkResultCard';
 
 export const BenchmarkRunner: React.FC = () => {
 	const initialAlgorithm = SUPPORTED_ALGORITHMS[0];
@@ -45,18 +37,25 @@ export const BenchmarkRunner: React.FC = () => {
 
 	const runBenchmark = async () => {
 		setIsRunning(true);
+		setCurrentBenchmark(null); // Clear previous results
 		try {
 			const params: BenchmarkParams = {
 				algorithm: selectedAlgorithm,
 				securityParam: selectedParam,
 			};
-			const result = await window.electron.ipcRenderer.invoke(
-				'run-benchmark',
-				params
-			);
+			const result = await benchmarkStoreUtils.runBenchmark(params);
 			setCurrentBenchmark(result);
 		} catch (error) {
 			console.error('Benchmark failed:', error);
+			// If the error is already a BenchmarkResult (from the main process), use it
+			if (
+				error &&
+				typeof error === 'object' &&
+				'id' in error &&
+				'status' in error
+			) {
+				setCurrentBenchmark(error as BenchmarkResult);
+			}
 		} finally {
 			setIsRunning(false);
 		}
@@ -64,48 +63,41 @@ export const BenchmarkRunner: React.FC = () => {
 
 	const stopBenchmark = async () => {
 		if (currentBenchmark?.id) {
-			await window.electron.ipcRenderer.invoke(
-				'stop-benchmark',
-				currentBenchmark.id
-			);
+			await benchmarkStoreUtils.stopBenchmark(currentBenchmark.id);
 			setIsRunning(false);
 		}
-	};
-
-	const renderMetrics = () => {
-		if (!currentBenchmark?.metrics) return null;
-		return (
-			<div className="mt-4 p-4 bg-gray-100 dark:bg-gray-700 rounded-lg">
-				<h3 className="text-xl font-semibold mb-2">Results:</h3>
-				{Object.entries(currentBenchmark.metrics).map(([key, value]) => (
-					<div key={key} className="flex justify-between py-1">
-						<span className="capitalize">{key}:</span>
-						<span>{value} ms</span>
-					</div>
-				))}
-			</div>
-		);
 	};
 
 	return (
 		<div className="p-6">
 			<h2 className="text-2xl font-bold mb-6">Run Benchmark</h2>
-
 			<div className="space-y-4">
 				<div>
 					<label className="block text-sm font-medium mb-2">Algorithm</label>
-					<select
-						className="w-full p-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md"
-						value={selectedAlgorithm}
-						onChange={handleAlgorithmChange}
-						disabled={isRunning}
-					>
-						{SUPPORTED_ALGORITHMS.map((algo) => (
-							<option key={algo} value={algo}>
-								{algo.charAt(0).toUpperCase() + algo.slice(1)}
-							</option>
-						))}
-					</select>
+					<div className="flex space-x-2">
+						<select
+							className="w-full p-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md"
+							value={selectedAlgorithm}
+							onChange={handleAlgorithmChange}
+							disabled={isRunning}
+						>
+							{SUPPORTED_ALGORITHMS.map((algo) => {
+								const { displayName, category } = getAlgorithmInfo(algo);
+								return (
+									<option key={algo} value={algo}>
+										{displayName} ({category})
+									</option>
+								);
+							})}
+						</select>
+						<div
+							className={`flex items-center px-2 ${getCategoryColorClass(
+								getAlgorithmInfo(selectedAlgorithm).category
+							)}`}
+						>
+							{getAlgorithmInfo(selectedAlgorithm).icon}
+						</div>
+					</div>
 				</div>
 
 				<div>
@@ -138,7 +130,6 @@ export const BenchmarkRunner: React.FC = () => {
 					>
 						Run Benchmark
 					</button>
-
 					{isRunning && (
 						<button
 							className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md"
@@ -177,12 +168,10 @@ export const BenchmarkRunner: React.FC = () => {
 					</div>
 				)}
 
-				{currentBenchmark && renderMetrics()}
-
-				{currentBenchmark?.error && (
-					<div className="mt-4 p-4 bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 rounded-lg">
-						<h3 className="text-xl font-semibold mb-2">Error:</h3>
-						<p>{currentBenchmark.error}</p>
+				{currentBenchmark && !isRunning && (
+					<div className="mt-6">
+						<h3 className="text-xl font-semibold mb-2">Benchmark Result:</h3>
+						<BenchmarkResultCard benchmark={currentBenchmark} />
 					</div>
 				)}
 			</div>
