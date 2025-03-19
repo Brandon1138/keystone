@@ -297,3 +297,79 @@ We have implemented the following changes:
 ## Conclusion
 
 The implementation of algorithm categorization with visual indicators significantly improves the user experience by providing clear visual cues for different algorithm types. The reusable components ensure consistent display of benchmark results across the application, while the enhanced parsing logic makes the application more robust. These improvements set a solid foundation for the visualization and comparison features planned for future development phases.
+
+### ADR-006: UI Redesign with shadcn-inspired Styling and Modern Component Patterns
+
+## Status
+
+Accepted
+
+## Context
+
+The initial UI of our application used a mix of Tailwind utility classes and Material UI components with emojis as feature icons. While functional, this approach had several limitations:
+
+- Emoji icons lacked visual consistency and professional appearance
+- The UI did not follow modern design trends and aesthetics
+- Styling patterns were inconsistent across different components
+- Dark mode implementation required manual class definitions for each component
+
+To create a more cohesive and modern user experience, we needed to establish a consistent design system that:
+
+- Uses proper icons instead of emojis
+- Follows modern UI trends like those found in shadcn
+- Provides consistent spacing, typography, and color patterns
+- Functions well in both light and dark modes
+- Maintains compatibility with our technology stack (Electron, React, Tailwind, Material UI)
+
+## Decision
+
+We've implemented a comprehensive UI redesign that includes:
+
+1. **shadcn-inspired Color System**:
+
+   - Created a custom color palette with semantic naming in the Tailwind configuration
+   - Established primary, background, foreground, muted, and border color tokens
+   - Implemented proper dark mode variants for all color tokens
+
+2. **Icon System Overhaul**:
+
+   - Replaced all emoji icons with proper Material UI icons
+   - Used semantically appropriate icons (SpeedIcon for benchmarks, InsightsIcon for visualization, CompareIcon for comparison)
+   - Applied consistent sizing and styling to icons across the application
+
+3. **Card Component Redesign**:
+
+   - Implemented a more modern card layout with rounded corners, subtle borders, and shadow
+   - Created consistent spacing patterns within cards
+   - Added visual feedback for interactive elements (hover states, transitions)
+
+4. **Typography Refinement**:
+
+   - Standardized heading sizes and weights
+   - Applied proper text colors for different content hierarchies
+   - Added appropriate spacing between text elements
+
+5. **Enhanced Information Architecture**:
+   - Added an informational section about post-quantum cryptography
+   - Organized feature cards into a more visually appealing grid layout
+   - Improved navigation flow with clear call-to-action links
+
+## Consequences
+
+### Pros
+
+- **Enhanced Visual Cohesion**: The application now has a consistent, professional visual identity
+- **Improved User Experience**: Better spacing, hierarchy, and interactive feedback make the app more intuitive
+- **Streamlined Development**: Semantic color tokens and consistent patterns will make future UI development more efficient
+- **Better Accessibility**: Improved contrast ratios and clear visual hierarchy enhance readability
+- **Future-Proof Styling**: The shadcn-inspired approach aligns with modern web styling best practices
+
+### Cons
+
+- **Increased Complexity**: The styling system is more sophisticated, requiring deeper understanding of the token system
+- **Potential Browser Compatibility Considerations**: Some advanced CSS features may require testing across different Electron versions
+- **Maintenance Overhead**: The more refined design system requires discipline to maintain consistency
+
+## Conclusion
+
+The UI redesign significantly improves the application's visual appeal and usability while establishing a foundation for consistent styling across all future components. By adopting shadcn-inspired design principles and replacing emojis with proper icons, we've created a more professional, cohesive interface that better represents the sophisticated nature of our post-quantum cryptography benchmarking tool. This redesign enhances not only aesthetics but also information architecture and user flow, making the application more intuitive and engaging.

@@ -6,6 +6,8 @@ import {
 	Link,
 	useLocation,
 } from 'react-router-dom';
+import LightModeIcon from '@mui/icons-material/LightMode';
+import DarkModeIcon from '@mui/icons-material/DarkMode';
 
 // Pages
 import {
@@ -37,11 +39,11 @@ const App: React.FC = () => {
 		<Router>
 			<div className="container mx-auto p-4">
 				{/* Header */}
-				<header className="mb-8">
-					<h1 className="text-3xl font-bold mb-2">
+				<header className="mb-6">
+					<h1 className="text-2xl font-bold mb-2 text-foreground dark:text-foreground-dark">
 						Post-Quantum Cryptography Benchmark
 					</h1>
-					<p className="text-gray-600 dark:text-gray-400">
+					<p className="text-muted-foreground dark:text-muted-foreground-dark">
 						A tool for benchmarking post-quantum cryptography algorithms
 					</p>
 				</header>
@@ -62,7 +64,7 @@ const App: React.FC = () => {
 				</main>
 
 				{/* Footer */}
-				<footer className="mt-8 text-center text-gray-600 dark:text-gray-400 text-sm">
+				<footer className="mt-8 text-center text-muted-foreground dark:text-muted-foreground-dark text-sm">
 					<p>PQC Benchmark Tool - Version 1.0.0</p>
 					<p>
 						Running on Electron <span id="electron-version"></span>, Node{' '}
@@ -92,14 +94,14 @@ const Navigation: React.FC<{
 	];
 
 	return (
-		<nav className="flex space-x-6 mb-8 items-center">
+		<nav className="flex flex-wrap gap-x-6 gap-y-2 mb-6 items-center border-b border-border dark:border-border-dark pb-3">
 			{navItems.map((item) => {
 				const isActive =
 					location.pathname === item.href ||
 					(item.href === '/home' && location.pathname === '/');
 				const linkClasses = isActive
-					? 'text-blue-600 dark:text-blue-400 font-medium'
-					: 'text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400';
+					? 'text-primary font-medium'
+					: 'text-foreground dark:text-foreground-dark hover:text-primary dark:hover:text-primary';
 
 				return (
 					<Link key={item.href} to={item.href} className={linkClasses}>
@@ -110,11 +112,15 @@ const Navigation: React.FC<{
 
 			{/* Dark mode toggle */}
 			<button
-				className="ml-auto text-gray-600 dark:text-gray-400"
+				className="ml-auto p-2 rounded-md bg-muted dark:bg-muted-dark text-foreground dark:text-foreground-dark hover:bg-muted/80 dark:hover:bg-muted-dark/80 transition-colors"
 				onClick={toggleDarkMode}
 				aria-label="Toggle dark mode"
 			>
-				{darkMode ? '🌙' : '☀️'} Toggle Theme
+				{darkMode ? (
+					<LightModeIcon className="h-5 w-5" />
+				) : (
+					<DarkModeIcon className="h-5 w-5" />
+				)}
 			</button>
 		</nav>
 	);

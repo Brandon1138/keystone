@@ -1,8 +1,8 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import RocketLaunchIcon from '@mui/icons-material/RocketLaunch';
-import BarChartIcon from '@mui/icons-material/BarChart';
-import BalanceIcon from '@mui/icons-material/Balance';
+import SpeedIcon from '@mui/icons-material/Speed';
+import InsightsIcon from '@mui/icons-material/Insights';
+import CompareIcon from '@mui/icons-material/Compare';
 
 /**
  * Home Page Component
@@ -14,64 +14,108 @@ export const HomePage: React.FC = () => {
 			title: 'Run Benchmarks',
 			description:
 				'Execute benchmarks for Kyber, Dilithium, McEliece, and classic algorithms like RSA and ECC.',
-			icon: <RocketLaunchIcon className="h-6 w-6" />,
+			icon: <SpeedIcon />,
 			link: '/run-benchmark',
 		},
 		{
 			title: 'Visualize Results',
 			description:
 				'View detailed charts and graphs of your benchmark results, comparing different metrics.',
-			icon: <BarChartIcon className="h-6 w-6" />,
+			icon: <InsightsIcon />,
 			link: '/visualization',
 		},
 		{
 			title: 'Compare Algorithms',
 			description:
 				'Compare post-quantum algorithms against each other or against classical algorithms.',
-			icon: <BalanceIcon className="h-6 w-6" />,
+			icon: <CompareIcon />,
 			link: '/compare',
 		},
 	];
 
 	return (
-		<div>
+		<div className="space-y-8">
 			{/* Welcome section */}
-			<div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
-				<h2 className="text-xl font-semibold mb-4">
+			<div className="bg-card dark:bg-card-dark rounded-xl border border-border/40 dark:border-border-dark/40 shadow-sm p-6">
+				<h2 className="text-xl font-medium mb-4 text-foreground dark:text-foreground-dark">
 					Welcome to PQC Benchmark Tool
 				</h2>
-				<p className="mb-4">
-					This application allows you to run, visualize and compare benchmarks
-					for post-quantum cryptography algorithms.
-				</p>
-				<p>
-					To get started, go to the "Run Benchmark" page and select an
-					algorithm.
-				</p>
+				<div className="space-y-3 text-muted-foreground dark:text-muted-foreground-dark">
+					<p>
+						This application allows you to run, visualize and compare benchmarks
+						for post-quantum cryptography algorithms.
+					</p>
+					<p>
+						To get started, go to the "Run Benchmark" page and select an
+						algorithm.
+					</p>
+				</div>
 			</div>
 
-			{/* Quick features overview section */}
-			<div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+			{/* Feature cards section */}
+			<div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 				{featureCards.map((card, index) => (
 					<div
 						key={index}
-						className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 hover:shadow-lg transition-shadow duration-200"
+						className="group bg-card dark:bg-card-dark rounded-xl border border-border/40 dark:border-border-dark/40 shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden"
 					>
-						<div className="mb-4 text-blue-600 dark:text-blue-400">
-							{card.icon}
+						<div className="p-6">
+							<div className="flex items-center gap-4 mb-4">
+								<div className="flex items-center justify-center w-10 h-10 rounded-full bg-primary/10 text-primary">
+									{card.icon}
+								</div>
+								<h3 className="text-lg font-medium text-foreground dark:text-foreground-dark">
+									{card.title}
+								</h3>
+							</div>
+							<p className="text-sm text-muted-foreground dark:text-muted-foreground-dark mb-6 line-clamp-3">
+								{card.description}
+							</p>
+							<Link
+								to={card.link}
+								className="inline-flex items-center text-sm font-medium text-primary hover:text-primary/80 transition-colors"
+							>
+								Get started
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									width="16"
+									height="16"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									strokeWidth="2"
+									strokeLinecap="round"
+									strokeLinejoin="round"
+									className="ml-1 h-4 w-4 transition-transform group-hover:translate-x-1"
+								>
+									<path d="M5 12h14"></path>
+									<path d="m12 5 7 7-7 7"></path>
+								</svg>
+							</Link>
 						</div>
-						<h3 className="text-lg font-semibold mb-2">{card.title}</h3>
-						<p className="text-gray-600 dark:text-gray-400 mb-4">
-							{card.description}
-						</p>
-						<Link
-							to={card.link}
-							className="text-blue-600 dark:text-blue-400 font-medium hover:underline"
-						>
-							Get started →
-						</Link>
 					</div>
 				))}
+			</div>
+
+			{/* Additional resources */}
+			<div className="bg-muted/40 dark:bg-muted-dark/40 rounded-xl p-6">
+				<h3 className="text-lg font-medium mb-4 text-foreground dark:text-foreground-dark">
+					About Post-Quantum Cryptography
+				</h3>
+				<p className="text-sm text-muted-foreground dark:text-muted-foreground-dark mb-4">
+					Post-quantum cryptography refers to cryptographic algorithms that are
+					believed to be secure against attacks by quantum computers. This tool
+					helps you benchmark various algorithms to understand their performance
+					characteristics.
+				</p>
+				<div className="text-sm text-muted-foreground dark:text-muted-foreground-dark">
+					Algorithms covered include:
+					<ul className="mt-2 space-y-1 list-disc list-inside">
+						<li>Key Encapsulation Mechanisms: Kyber, McEliece</li>
+						<li>Digital Signatures: Dilithium, Falcon, SPHINCS+</li>
+						<li>Classical Algorithms: RSA, ECC, AES</li>
+					</ul>
+				</div>
 			</div>
 		</div>
 	);
