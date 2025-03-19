@@ -18,7 +18,7 @@ export const BenchmarkResultCard: React.FC<BenchmarkResultCardProps> = ({
 	const categoryColor = getCategoryColorClass(algorithmInfo.category);
 
 	return (
-		<div className="p-4 bg-white dark:bg-gray-800 rounded-lg shadow hover:shadow-md transition-shadow">
+		<div className="card hover:shadow-md">
 			<div className="flex justify-between items-start">
 				<div className="flex items-center">
 					<div className={`mr-2 ${categoryColor}`}>{algorithmInfo.icon}</div>
@@ -26,11 +26,11 @@ export const BenchmarkResultCard: React.FC<BenchmarkResultCardProps> = ({
 						<h4 className="font-medium">
 							{algorithmInfo.displayName} ({benchmark.securityParam})
 						</h4>
-						<p className="text-sm text-gray-500 dark:text-gray-400">
+						<p className="text-sm text-muted-foreground">
 							{new Date(benchmark.timestamp).toLocaleString()}
 						</p>
 						{!compact && (
-							<p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+							<p className="text-xs text-muted-foreground mt-1">
 								Category: {algorithmInfo.category}
 							</p>
 						)}
@@ -39,8 +39,8 @@ export const BenchmarkResultCard: React.FC<BenchmarkResultCardProps> = ({
 				<span
 					className={`px-2 py-1 rounded-full text-xs ${
 						benchmark.status === 'completed'
-							? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-							: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+							? 'bg-green-800/20 text-green-400'
+							: 'bg-red-800/20 text-red-400'
 					}`}
 				>
 					{benchmark.status}
@@ -59,9 +59,7 @@ export const BenchmarkResultCard: React.FC<BenchmarkResultCardProps> = ({
 						<div
 							key={key}
 							className={`${
-								compact
-									? 'text-sm'
-									: 'text-base p-2 bg-gray-50 dark:bg-gray-700 rounded'
+								compact ? 'text-sm' : 'text-base p-2 bg-muted rounded-md'
 							}`}
 						>
 							<span className="capitalize">{key}: </span>
@@ -71,14 +69,14 @@ export const BenchmarkResultCard: React.FC<BenchmarkResultCardProps> = ({
 				</div>
 			) : (
 				benchmark.status === 'completed' && (
-					<div className="mt-2 text-sm text-amber-600 dark:text-amber-400">
+					<div className="mt-2 text-sm text-amber-400">
 						No metrics data available
 					</div>
 				)
 			)}
 
 			{benchmark.status === 'failed' && benchmark.error && (
-				<div className="mt-2 text-sm text-red-600 dark:text-red-400">
+				<div className="mt-2 text-sm text-red-400">
 					Error: {benchmark.error}
 				</div>
 			)}

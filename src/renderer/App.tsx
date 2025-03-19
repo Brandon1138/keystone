@@ -19,59 +19,64 @@ import {
 } from './pages';
 
 const App: React.FC = () => {
-	const [darkMode, setDarkMode] = useState(true);
+	// Start with dark mode by default
+	const [lightMode, setLightMode] = useState(false);
 
-	// Initialize dark mode
+	// Initialize theme mode
 	useEffect(() => {
-		if (darkMode) {
-			document.documentElement.classList.add('dark');
-		} else {
+		if (lightMode) {
+			document.documentElement.classList.add('light');
 			document.documentElement.classList.remove('dark');
+		} else {
+			document.documentElement.classList.add('dark');
+			document.documentElement.classList.remove('light');
 		}
-	}, [darkMode]);
+	}, [lightMode]);
 
-	// Toggle dark mode
-	const toggleDarkMode = () => {
-		setDarkMode(!darkMode);
+	// Toggle light/dark mode
+	const toggleTheme = () => {
+		setLightMode(!lightMode);
 	};
 
 	return (
 		<Router>
-			<div className="container mx-auto p-4">
-				{/* Header */}
-				<header className="mb-6">
-					<h1 className="text-2xl font-bold mb-2 text-foreground dark:text-foreground-dark">
-						Post-Quantum Cryptography Benchmark
-					</h1>
-					<p className="text-muted-foreground dark:text-muted-foreground-dark">
-						A tool for benchmarking post-quantum cryptography algorithms
-					</p>
-				</header>
+			<div className="min-h-screen bg-background text-foreground">
+				<div className="container mx-auto p-4">
+					{/* Header */}
+					<header className="mb-6">
+						<h1 className="text-2xl font-bold mb-2">
+							Post-Quantum Cryptography Benchmark
+						</h1>
+						<p className="text-muted-foreground">
+							A tool for benchmarking post-quantum cryptography algorithms
+						</p>
+					</header>
 
-				{/* Navigation */}
-				<Navigation toggleDarkMode={toggleDarkMode} darkMode={darkMode} />
+					{/* Navigation */}
+					<Navigation toggleTheme={toggleTheme} lightMode={lightMode} />
 
-				{/* Main Content */}
-				<main>
-					<Routes>
-						<Route path="/" element={<HomePage />} />
-						<Route path="/home" element={<HomePage />} />
-						<Route path="/run-benchmark" element={<RunBenchmarkPage />} />
-						<Route path="/visualization" element={<VisualizationPage />} />
-						<Route path="/compare" element={<ComparePage />} />
-						<Route path="/export" element={<ExportPage />} />
-					</Routes>
-				</main>
+					{/* Main Content */}
+					<main>
+						<Routes>
+							<Route path="/" element={<HomePage />} />
+							<Route path="/home" element={<HomePage />} />
+							<Route path="/run-benchmark" element={<RunBenchmarkPage />} />
+							<Route path="/visualization" element={<VisualizationPage />} />
+							<Route path="/compare" element={<ComparePage />} />
+							<Route path="/export" element={<ExportPage />} />
+						</Routes>
+					</main>
 
-				{/* Footer */}
-				<footer className="mt-8 text-center text-muted-foreground dark:text-muted-foreground-dark text-sm">
-					<p>PQC Benchmark Tool - Version 1.0.0</p>
-					<p>
-						Running on Electron <span id="electron-version"></span>, Node{' '}
-						<span id="node-version"></span>, and Chromium{' '}
-						<span id="chrome-version"></span>
-					</p>
-				</footer>
+					{/* Footer */}
+					<footer className="mt-8 text-center text-muted-foreground text-sm">
+						<p>PQC Benchmark Tool - Version 1.0.0</p>
+						<p>
+							Running on Electron <span id="electron-version"></span>, Node{' '}
+							<span id="node-version"></span>, and Chromium{' '}
+							<span id="chrome-version"></span>
+						</p>
+					</footer>
+				</div>
 			</div>
 		</Router>
 	);
@@ -79,9 +84,9 @@ const App: React.FC = () => {
 
 // Navigation component
 const Navigation: React.FC<{
-	toggleDarkMode: () => void;
-	darkMode: boolean;
-}> = ({ toggleDarkMode, darkMode }) => {
+	toggleTheme: () => void;
+	lightMode: boolean;
+}> = ({ toggleTheme, lightMode }) => {
 	const location = useLocation();
 
 	// Navigation items
@@ -94,14 +99,14 @@ const Navigation: React.FC<{
 	];
 
 	return (
-		<nav className="flex flex-wrap gap-x-6 gap-y-2 mb-6 items-center border-b border-border dark:border-border-dark pb-3">
+		<nav className="flex flex-wrap gap-x-6 gap-y-2 mb-6 items-center border-b border-border pb-3">
 			{navItems.map((item) => {
 				const isActive =
 					location.pathname === item.href ||
 					(item.href === '/home' && location.pathname === '/');
 				const linkClasses = isActive
 					? 'text-primary font-medium'
-					: 'text-foreground dark:text-foreground-dark hover:text-primary dark:hover:text-primary';
+					: 'text-foreground hover:text-primary transition-colors';
 
 				return (
 					<Link key={item.href} to={item.href} className={linkClasses}>
@@ -110,16 +115,16 @@ const Navigation: React.FC<{
 				);
 			})}
 
-			{/* Dark mode toggle */}
+			{/* Theme toggle */}
 			<button
-				className="ml-auto p-2 rounded-md bg-muted dark:bg-muted-dark text-foreground dark:text-foreground-dark hover:bg-muted/80 dark:hover:bg-muted-dark/80 transition-colors"
-				onClick={toggleDarkMode}
-				aria-label="Toggle dark mode"
+				className="ml-auto btn btn-secondary"
+				onClick={toggleTheme}
+				aria-label="Toggle theme"
 			>
-				{darkMode ? (
-					<LightModeIcon className="h-5 w-5" />
-				) : (
+				{lightMode ? (
 					<DarkModeIcon className="h-5 w-5" />
+				) : (
+					<LightModeIcon className="h-5 w-5" />
 				)}
 			</button>
 		</nav>

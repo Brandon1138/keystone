@@ -4,32 +4,32 @@ module.exports = {
 	theme: {
 		extend: {
 			colors: {
-				// shadcn-inspired color palette
+				// shadcn-inspired color palette with dark as default
 				background: {
-					DEFAULT: '#ffffff',
-					dark: '#09090b', // slate-950
+					DEFAULT: '#09090b', // slate-950 (dark by default)
+					light: '#ffffff',
 				},
 				foreground: {
-					DEFAULT: '#18181b', // slate-900
-					dark: '#e2e8f0', // slate-200
+					DEFAULT: '#f1f5f9', // slate-100 (light text on dark background)
+					light: '#18181b', // slate-900
 				},
 				card: {
-					DEFAULT: '#ffffff',
-					dark: '#1e1e2e', // slate-900
+					DEFAULT: '#1e1e2e', // dark card
+					light: '#ffffff',
 				},
 				border: {
-					DEFAULT: '#e2e8f0', // slate-200
-					dark: '#2e2e3e', // slate-800
+					DEFAULT: '#2e2e3e', // slate-800 dark borders
+					light: '#e2e8f0', // slate-200
 				},
 				primary: {
 					DEFAULT: '#3b82f6', // blue-500
 					foreground: '#ffffff',
 				},
 				muted: {
-					DEFAULT: '#f1f5f9', // slate-100
-					foreground: '#64748b', // slate-500
-					dark: '#1e293b', // slate-800
-					'foreground-dark': '#94a3b8', // slate-400
+					DEFAULT: '#1e293b', // slate-800 (dark muted)
+					foreground: '#94a3b8', // slate-400 (muted text on dark)
+					light: '#f1f5f9', // slate-100
+					'foreground-light': '#64748b', // slate-500
 				},
 			},
 			borderRadius: {

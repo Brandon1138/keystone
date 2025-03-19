@@ -373,3 +373,66 @@ We've implemented a comprehensive UI redesign that includes:
 ## Conclusion
 
 The UI redesign significantly improves the application's visual appeal and usability while establishing a foundation for consistent styling across all future components. By adopting shadcn-inspired design principles and replacing emojis with proper icons, we've created a more professional, cohesive interface that better represents the sophisticated nature of our post-quantum cryptography benchmarking tool. This redesign enhances not only aesthetics but also information architecture and user flow, making the application more intuitive and engaging.
+
+### ADR-007: Shadcn-Inspired UI with Dark Mode Default
+
+## Status
+
+Accepted
+
+## Context
+
+The application's UI needed modernization to match current design trends and improve usability. The existing interface used a mix of Tailwind utility classes and Material UI components with light mode as default and inconsistent styling patterns. We needed to:
+
+1. Adopt a consistent design system inspired by modern UI libraries like shadcn/ui
+2. Implement a sleek, dark-by-default theme that enhances readability and reduces eye strain
+3. Ensure proper integration between Tailwind CSS and Material UI
+4. Create reusable component styles for maintainability
+
+## Decision
+
+We've implemented a comprehensive UI redesign with the following key components:
+
+1. **Dark Mode as Default**:
+
+   - Modified the color scheme to use dark mode by default
+   - Updated the Tailwind configuration to provide dark-first semantic color tokens
+   - Inverted the theme toggle logic to switch to light mode instead of dark mode
+
+2. **shadcn-Inspired Component System**:
+
+   - Created reusable component classes like `.card` and `.btn` in the Tailwind layer system
+   - Adopted consistent styling patterns for spacing, borders, and shadows
+   - Applied subtle backgrounds, border radiuses, and transitions for a modern feel
+
+3. **Material UI Theme Integration**:
+
+   - Set up a ThemeProvider with a complementary dark theme
+   - Configured the MUI theme to match our Tailwind color palette
+   - Added CssBaseline for consistent baseline styling
+   - Customized core components like buttons to match the shadcn aesthetic
+
+4. **Consistent Color Tokens**:
+   - Established semantic color names (background, foreground, muted, etc.)
+   - Used consistent text colors for primary, secondary, and muted text
+   - Implemented unified styling for interactive elements
+
+## Consequences
+
+### Pros
+
+- **Modern Aesthetic**: The application now follows current design trends with a clean, dark interface
+- **Improved Readability**: Dark theme reduces eye strain during extended benchmarking sessions
+- **Better Maintainability**: The component system makes it easier to maintain consistent styling
+- **Enhanced UX**: Subtle animations, consistent spacing, and visual hierarchy improve user experience
+- **Future-Proof**: The approach allows for easy theme extension and customization
+
+### Cons
+
+- **Additional Complexity**: The theme system is more sophisticated, requiring deeper understanding
+- **Minor Learning Curve**: Developers need to understand the semantic color system
+- **Potential Conflicts**: Need to carefully manage the interaction between Tailwind and Material UI
+
+## Conclusion
+
+The adoption of a shadcn-inspired UI with dark mode as default significantly modernizes our application while improving maintainability and user experience. The refined design system provides a solid foundation for future UI development and ensures visual consistency across all components.

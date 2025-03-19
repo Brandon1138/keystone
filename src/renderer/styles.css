@@ -2,7 +2,11 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Custom styles can go here */
+/* Base styles with dark theme by default */
+:root {
+	color-scheme: dark;
+}
+
 body {
 	margin: 0;
 	padding: 0;
@@ -11,9 +15,30 @@ body {
 		sans-serif;
 	-webkit-font-smoothing: antialiased;
 	-moz-osx-font-smoothing: grayscale;
-	@apply bg-gray-900 text-white;
+	@apply bg-background text-foreground;
 }
 
 .container {
-	@apply p-8 mx-auto max-w-screen-xl;
+	@apply p-6 mx-auto max-w-screen-xl;
+}
+
+/* shadcn-inspired components */
+@layer components {
+	/* Card styling */
+	.card {
+		@apply rounded-lg border border-border bg-card p-4 shadow transition-all;
+	}
+
+	/* Button styling */
+	.btn {
+		@apply inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50;
+	}
+
+	.btn-primary {
+		@apply bg-primary text-primary-foreground hover:bg-primary/90;
+	}
+
+	.btn-secondary {
+		@apply bg-muted text-muted-foreground hover:bg-muted/80;
+	}
 }
