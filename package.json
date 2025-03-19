@@ -1,0 +1,43 @@
+{
+	"name": "pqcbenchgui4",
+	"version": "1.0.0",
+	"main": "dist/main.js",
+	"directories": {
+		"doc": "docs"
+	},
+	"scripts": {
+		"start": "npm run build && electron .",
+		"build": "webpack --config webpack.config.js && npm run copy-files",
+		"copy-files": "copy src\\renderer\\index.html dist\\index.html",
+		"watch": "webpack --config webpack.config.js --watch",
+		"dev": "set NODE_ENV=development && concurrently \"npm run watch\" \"electron .\"",
+		"package": "electron-builder build --win --publish never",
+		"test": "echo \"Error: no test specified\" && exit 1"
+	},
+	"keywords": [],
+	"author": "",
+	"license": "ISC",
+	"description": "",
+	"dependencies": {
+		"@emotion/react": "^11.14.0",
+		"@emotion/styled": "^11.14.0",
+		"@mui/material": "^6.4.8",
+		"autoprefixer": "^10.4.21",
+		"css-loader": "^7.1.2",
+		"electron": "^35.0.2",
+		"electron-builder": "^25.1.8",
+		"electron-reload": "^2.0.0-alpha.1",
+		"plotly.js": "^3.0.1",
+		"style-loader": "^4.0.0",
+		"ts-loader": "^9.5.2",
+		"typescript": "^5.8.2",
+		"webpack": "^5.98.0",
+		"webpack-cli": "^6.0.1"
+	},
+	"devDependencies": {
+		"concurrently": "^9.1.2",
+		"postcss": "^8.4.23",
+		"postcss-loader": "^7.3.0",
+		"tailwindcss": "^3.3.0"
+	}
+}
