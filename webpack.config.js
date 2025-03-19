@@ -8,9 +8,9 @@ module.exports = [
 		module: {
 			rules: [
 				{
-					test: /\.ts$/,
-					include: /src/,
-					use: [{ loader: 'ts-loader' }],
+					test: /\.tsx?$/,
+					use: 'ts-loader',
+					exclude: /node_modules/,
 				},
 			],
 		},
@@ -19,23 +19,41 @@ module.exports = [
 			filename: 'main.js',
 		},
 		resolve: {
-			extensions: ['.ts', '.js'],
+			extensions: ['.tsx', '.ts', '.js'],
 		},
 	},
 	{
 		mode: 'development',
-		entry: './src/renderer/renderer.ts',
+		entry: './src/main/preload.js',
+		target: 'electron-preload',
+		output: {
+			path: path.resolve(__dirname, 'dist'),
+			filename: 'preload.js',
+		},
+	},
+	{
+		mode: 'development',
+		entry: './src/renderer/renderer.tsx',
 		target: 'electron-renderer',
 		module: {
 			rules: [
 				{
-					test: /\.ts(x?)$/,
-					include: /src/,
-					use: [{ loader: 'ts-loader' }],
+					test: /\.tsx?$/,
+					use: 'ts-loader',
+					exclude: /node_modules/,
 				},
 				{
 					test: /\.css$/,
-					use: ['style-loader', 'css-loader', 'postcss-loader'],
+					use: [
+						'style-loader',
+						{
+							loader: 'css-loader',
+							options: {
+								importLoaders: 1,
+							},
+						},
+						'postcss-loader',
+					],
 				},
 			],
 		},
@@ -44,7 +62,7 @@ module.exports = [
 			filename: 'renderer.js',
 		},
 		resolve: {
-			extensions: ['.ts', '.tsx', '.js'],
+			extensions: ['.tsx', '.ts', '.js'],
 		},
 	},
 ];

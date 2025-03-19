@@ -1,8 +1,11 @@
-import { app, BrowserWindow, ipcMain } from 'electron';
+import { app, BrowserWindow } from 'electron';
 import * as path from 'path';
-import * as childProcess from 'child_process';
+import { setupBenchmarkIPC } from './ipc';
+
+let mainWindow: BrowserWindow | null = null;
 
 // Enable live reload in development mode
+/* Commenting out electron-reload for now to fix errors
 if (process.env.NODE_ENV === 'development') {
 	try {
 		require('electron-reload')(__dirname, {
@@ -14,18 +17,15 @@ if (process.env.NODE_ENV === 'development') {
 		console.error('Failed to setup electron-reload:', err);
 	}
 }
-
-let mainWindow: BrowserWindow | null;
-let currentBenchmarkProcess: childProcess.ChildProcess | null = null;
+*/
 
 function createWindow() {
-	// Create the browser window
 	mainWindow = new BrowserWindow({
 		width: 1200,
 		height: 800,
 		webPreferences: {
 			nodeIntegration: true,
-			contextIsolation: false,
+			contextIsolation: true,
 			preload: path.join(__dirname, 'preload.js'),
 		},
 		// Modern UI touches
@@ -38,10 +38,12 @@ function createWindow() {
 		backgroundColor: '#111827', // Dark background color
 	});
 
-	// Load the index.html file
-	mainWindow.loadFile(path.join(__dirname, 'index.html'));
+	// Load the index.html file from the dist directory
+	const indexPath = path.join(__dirname, 'index.html');
+	console.log('Loading index.html from:', indexPath);
+	mainWindow.loadFile(indexPath); // Remove hash: 'home' since React Router handles routing
 
-	// Open DevTools in development mode
+	// Open DevTools in development
 	if (process.env.NODE_ENV === 'development') {
 		mainWindow.webContents.openDevTools();
 	}
@@ -50,11 +52,14 @@ function createWindow() {
 	mainWindow.on('closed', () => {
 		mainWindow = null;
 	});
+
+	return mainWindow;
 }
 
 // This method will be called when Electron has finished initialization
 app.whenReady().then(() => {
 	createWindow();
+	setupBenchmarkIPC();
 
 	app.on('activate', () => {
 		// On macOS, re-create a window when the dock icon is clicked and no other windows are open
@@ -68,60 +73,5 @@ app.whenReady().then(() => {
 app.on('window-all-closed', () => {
 	if (process.platform !== 'darwin') {
 		app.quit();
-	}
-});
-
-// Setup IPC handlers for benchmark execution
-ipcMain.handle('run-benchmark', async (event, { algorithm, params }) => {
-	console.log(`Running benchmark for ${algorithm} with params: ${params}`);
-
-	try {
-		// Path to executables - this will be replaced with actual implementation in Phase 3
-		const executablePath = path.join(
-			'C:\\Users\\brand\\executables',
-			`benchmark_${algorithm}.exe`
-		);
-
-		// Spawn the child process
-		currentBenchmarkProcess = childProcess.spawn(executablePath, [params], {
-			windowsHide: true,
-		});
-
-		// This is a placeholder for now
-		// In Phase 3, we'll implement proper stdout/stderr handling and parsing
-		return {
-			success: true,
-			message: 'Benchmark execution placeholder',
-			algorithm,
-			params,
-		};
-	} catch (error: any) {
-		console.error('Error running benchmark:', error);
-		return {
-			success: false,
-			message: 'Failed to run benchmark',
-			error: error.toString(),
-		};
-	}
-});
-
-// Handler to stop a running benchmark
-ipcMain.handle('stop-benchmark', async (event) => {
-	if (currentBenchmarkProcess) {
-		// Kill the process in Windows
-		try {
-			currentBenchmarkProcess.kill();
-			currentBenchmarkProcess = null;
-			return { success: true, message: 'Benchmark stopped' };
-		} catch (error: any) {
-			console.error('Error stopping benchmark:', error);
-			return {
-				success: false,
-				message: 'Failed to stop benchmark',
-				error: error.toString(),
-			};
-		}
-	} else {
-		return { success: false, message: 'No benchmark running' };
 	}
 });
