@@ -11,6 +11,7 @@ import {
 	getCategoryColorClass,
 } from '../utils/algorithm-categories';
 import { BenchmarkResultCard } from './BenchmarkResultCard';
+import { BenchmarkDashboard } from './BenchmarkDashboard';
 
 export const BenchmarkRunner: React.FC = () => {
 	const initialAlgorithm = SUPPORTED_ALGORITHMS[0];
@@ -19,9 +20,11 @@ export const BenchmarkRunner: React.FC = () => {
 	const [selectedParam, setSelectedParam] = useState<string>(
 		SECURITY_PARAMS[initialAlgorithm][0]
 	);
+	const [iterations, setIterations] = useState<number>(10000); // Default to 10,000 iterations
 	const [currentBenchmark, setCurrentBenchmark] =
 		useState<BenchmarkResult | null>(null);
 	const [isRunning, setIsRunning] = useState(false);
+	const [benchmarkId, setBenchmarkId] = useState<string | null>(null);
 
 	const handleAlgorithmChange = (
 		event: React.ChangeEvent<HTMLSelectElement>
@@ -35,6 +38,15 @@ export const BenchmarkRunner: React.FC = () => {
 		setSelectedParam(event.target.value);
 	};
 
+	const handleIterationsChange = (
+		event: React.ChangeEvent<HTMLInputElement>
+	) => {
+		const value = parseInt(event.target.value);
+		if (!isNaN(value) && value > 0) {
+			setIterations(value);
+		}
+	};
+
 	const runBenchmark = async () => {
 		setIsRunning(true);
 		setCurrentBenchmark(null); // Clear previous results
@@ -42,9 +54,11 @@ export const BenchmarkRunner: React.FC = () => {
 			const params: BenchmarkParams = {
 				algorithm: selectedAlgorithm,
 				securityParam: selectedParam,
+				iterations: iterations,
 			};
 			const result = await benchmarkStoreUtils.runBenchmark(params);
 			setCurrentBenchmark(result);
+			setBenchmarkId(result.id);
 		} catch (error) {
 			console.error('Benchmark failed:', error);
 			// If the error is already a BenchmarkResult (from the main process), use it
@@ -54,7 +68,9 @@ export const BenchmarkRunner: React.FC = () => {
 				'id' in error &&
 				'status' in error
 			) {
-				setCurrentBenchmark(error as BenchmarkResult);
+				const errorResult = error as BenchmarkResult;
+				setCurrentBenchmark(errorResult);
+				setBenchmarkId(errorResult.id);
 			}
 		} finally {
 			setIsRunning(false);
@@ -62,9 +78,14 @@ export const BenchmarkRunner: React.FC = () => {
 	};
 
 	const stopBenchmark = async () => {
-		if (currentBenchmark?.id) {
-			await benchmarkStoreUtils.stopBenchmark(currentBenchmark.id);
-			setIsRunning(false);
+		if (benchmarkId) {
+			try {
+				await benchmarkStoreUtils.stopBenchmark(benchmarkId);
+			} catch (error) {
+				console.error('Failed to stop benchmark:', error);
+			} finally {
+				setIsRunning(false);
+			}
 		}
 	};
 
@@ -72,50 +93,66 @@ export const BenchmarkRunner: React.FC = () => {
 		<div className="p-6">
 			<h2 className="text-2xl font-bold mb-6">Run Benchmark</h2>
 			<div className="space-y-4">
-				<div>
-					<label className="block text-sm font-medium mb-2">Algorithm</label>
-					<div className="flex space-x-2">
+				{/* Algorithm and Security Parameter Selection on the same line */}
+				<div className="flex space-x-4">
+					<div className="flex-1">
+						<label className="block text-sm font-medium mb-2">Algorithm</label>
+						<div className="flex space-x-2">
+							<select
+								className="w-full p-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md"
+								value={selectedAlgorithm}
+								onChange={handleAlgorithmChange}
+								disabled={isRunning}
+							>
+								{SUPPORTED_ALGORITHMS.map((algo) => {
+									const { displayName, category } = getAlgorithmInfo(algo);
+									return (
+										<option key={algo} value={algo}>
+											{displayName} ({category})
+										</option>
+									);
+								})}
+							</select>
+							<div
+								className={`flex items-center px-2 ${getCategoryColorClass(
+									getAlgorithmInfo(selectedAlgorithm).category
+								)}`}
+							>
+								{getAlgorithmInfo(selectedAlgorithm).icon}
+							</div>
+						</div>
+					</div>
+
+					<div className="flex-1">
+						<label className="block text-sm font-medium mb-2">
+							Security Parameter
+						</label>
 						<select
 							className="w-full p-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md"
-							value={selectedAlgorithm}
-							onChange={handleAlgorithmChange}
+							value={selectedParam}
+							onChange={handleParamChange}
 							disabled={isRunning}
 						>
-							{SUPPORTED_ALGORITHMS.map((algo) => {
-								const { displayName, category } = getAlgorithmInfo(algo);
-								return (
-									<option key={algo} value={algo}>
-										{displayName} ({category})
-									</option>
-								);
-							})}
+							{SECURITY_PARAMS[selectedAlgorithm]?.map((param) => (
+								<option key={param} value={param}>
+									{param}
+								</option>
+							))}
 						</select>
-						<div
-							className={`flex items-center px-2 ${getCategoryColorClass(
-								getAlgorithmInfo(selectedAlgorithm).category
-							)}`}
-						>
-							{getAlgorithmInfo(selectedAlgorithm).icon}
-						</div>
 					</div>
 				</div>
 
 				<div>
-					<label className="block text-sm font-medium mb-2">
-						Security Parameter
-					</label>
-					<select
+					<label className="block text-sm font-medium mb-2">Iterations</label>
+					<input
+						type="number"
 						className="w-full p-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md"
-						value={selectedParam}
-						onChange={handleParamChange}
+						value={iterations}
+						onChange={handleIterationsChange}
+						min="1"
+						step="1000"
 						disabled={isRunning}
-					>
-						{SECURITY_PARAMS[selectedAlgorithm]?.map((param) => (
-							<option key={param} value={param}>
-								{param}
-							</option>
-						))}
-					</select>
+					/>
 				</div>
 
 				<div className="flex space-x-4">
@@ -140,31 +177,14 @@ export const BenchmarkRunner: React.FC = () => {
 					)}
 				</div>
 
+				{/* Real-time Dashboard */}
 				{isRunning && (
-					<div className="mt-4">
-						<div className="flex items-center text-blue-600 dark:text-blue-400">
-							<svg
-								className="animate-spin h-5 w-5 mr-2"
-								xmlns="http://www.w3.org/2000/svg"
-								fill="none"
-								viewBox="0 0 24 24"
-							>
-								<circle
-									className="opacity-25"
-									cx="12"
-									cy="12"
-									r="10"
-									stroke="currentColor"
-									strokeWidth="4"
-								></circle>
-								<path
-									className="opacity-75"
-									fill="currentColor"
-									d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-								></path>
-							</svg>
-							<span>Running benchmark...</span>
-						</div>
+					<div className="mt-6">
+						<BenchmarkDashboard
+							isRunning={isRunning}
+							algorithm={selectedAlgorithm}
+							securityParam={selectedParam}
+						/>
 					</div>
 				)}
 

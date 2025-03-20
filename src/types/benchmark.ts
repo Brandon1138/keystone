@@ -1,6 +1,7 @@
 export interface BenchmarkParams {
 	algorithm: string;
 	securityParam: string;
+	iterations?: number;
 }
 
 export interface BenchmarkMetrics {

@@ -4,8 +4,14 @@ import { BenchmarkParams, BenchmarkResult } from '../types/benchmark';
 import { benchmarkStore } from './store';
 
 export function setupBenchmarkIPC() {
-	ipcMain.handle('run-benchmark', async (_, params: BenchmarkParams) => {
+	ipcMain.handle('run-benchmark', async (event, params: BenchmarkParams) => {
 		try {
+			// Set up progress reporting
+			benchmarkManager.onProgress((progressData) => {
+				// Send progress updates to renderer
+				event.sender.send('benchmark-progress', progressData);
+			});
+
 			const result = await benchmarkManager.runBenchmark(params);
 			// Save the benchmark result to the store
 			const savedResult = benchmarkStore.saveBenchmarkResult(result);

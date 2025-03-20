@@ -1,0 +1,413 @@
+/* Dashboard Styles */
+.dashboard {
+	transition: all 0.3s ease-in-out;
+}
+
+.dashboard-metrics {
+	transition: all 0.3s ease-in-out;
+}
+
+.metric-update {
+	animation: pulse 1s ease-in-out;
+}
+
+/* Progress colors */
+.progress-low {
+	color: #f97316 !important; /* orange-500 */
+}
+
+.progress-medium {
+	color: #facc15 !important; /* yellow-400 */
+}
+
+.progress-high {
+	color: #4ade80 !important; /* green-400 */
+}
+
+.progress-bar {
+	transition: width 0.8s ease-in-out;
+}
+
+/* Futuristic Speedometer styles */
+.speedometer-container {
+	position: relative;
+	width: 220px;
+	height: 240px; /* Increased height to accommodate stacked elements */
+	margin: 0 auto;
+}
+
+.speedometer-dial {
+	position: relative;
+	width: 100%;
+	height: 220px; /* Maintaining the circle aspect */
+	border-radius: 50%;
+	background: radial-gradient(
+		circle at center,
+		rgba(30, 41, 59, 0.8) 0%,
+		rgba(15, 23, 42, 0.9) 70%
+	);
+	overflow: hidden;
+	border: 2px solid rgba(148, 163, 184, 0.2);
+	box-shadow: 0 0 15px rgba(0, 0, 0, 0.2), inset 0 0 20px rgba(51, 65, 85, 0.5);
+	transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.speedometer-dial::before {
+	content: '';
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	border-radius: 50%;
+	border: 1px solid rgba(148, 163, 184, 0.1);
+	box-shadow: inset 0 0 10px rgba(51, 65, 85, 0.3);
+	z-index: 1;
+}
+
+.speedometer-ticks {
+	position: absolute;
+	width: 100%;
+	height: 100%;
+	left: 0;
+	top: 0;
+}
+
+.speedometer-tick {
+	position: absolute;
+	width: 2px;
+	height: 15px;
+	background-color: rgba(203, 213, 225, 0.7);
+	transform-origin: center 110px;
+	left: calc(50% - 1px);
+	top: 2px; /* Fine-tuned to align perfectly with the top edge */
+	box-shadow: 0 0 3px rgba(148, 163, 184, 0.5);
+	z-index: 2;
+}
+
+/* Highlight major ticks */
+.speedometer-tick:nth-child(3n + 1) {
+	height: 20px;
+	width: 3px;
+	background-color: rgba(226, 232, 240, 0.9);
+}
+
+/* Number labels for major ticks */
+.speedometer-tick-labels {
+	position: absolute;
+	width: 100%;
+	height: 100%;
+	left: 0;
+	top: 0;
+	z-index: 2;
+}
+
+.speedometer-tick-label {
+	position: absolute;
+	font-size: 12px;
+	color: rgba(203, 213, 225, 0.9);
+	transform-origin: center;
+	text-align: center;
+	width: 30px;
+	height: 20px;
+	left: calc(50% - 15px);
+	top: calc(100% - 26px);
+}
+
+.speedometer-needle {
+	position: absolute;
+	width: 4px;
+	height: 100px;
+	background: linear-gradient(
+		to top,
+		rgba(239, 68, 68, 0.9),
+		rgba(248, 113, 113, 0.7)
+	);
+	top: 10px;
+	left: calc(50% - 2px);
+	transform-origin: bottom center;
+	transform: rotate(-90deg);
+	clip-path: polygon(0 0, 100% 0, 50% 100%);
+	/* Smooth animation */
+	transition: transform 1s cubic-bezier(0.34, 1.56, 0.64, 1);
+	z-index: 10;
+	will-change: transform;
+	filter: drop-shadow(0 0 5px rgba(239, 68, 68, 0.5));
+}
+
+.speedometer-needle::after {
+	content: '';
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	height: 30px;
+	background: linear-gradient(
+		to top,
+		rgba(248, 113, 113, 0.7),
+		rgba(254, 202, 202, 0.9)
+	);
+	clip-path: polygon(0 0, 100% 0, 50% 100%);
+}
+
+.speedometer-center {
+	position: absolute;
+	width: 30px;
+	height: 30px;
+	background: radial-gradient(
+		circle at center,
+		rgba(226, 232, 240, 0.9),
+		rgba(148, 163, 184, 0.7)
+	);
+	border-radius: 50%;
+	top: calc(50% - 15px);
+	left: calc(50% - 15px);
+	z-index: 11;
+	box-shadow: 0 0 10px rgba(51, 65, 85, 0.5),
+		inset 0 0 5px rgba(51, 65, 85, 0.3);
+}
+
+.speedometer-center::after {
+	content: '';
+	position: absolute;
+	width: 16px;
+	height: 16px;
+	background: radial-gradient(
+		circle at center,
+		rgba(248, 113, 113, 0.9),
+		rgba(239, 68, 68, 0.7)
+	);
+	border-radius: 50%;
+	top: 7px;
+	left: 7px;
+	box-shadow: 0 0 8px rgba(239, 68, 68, 0.5);
+}
+
+.speedometer-value {
+	position: absolute;
+	bottom: 85px;
+	width: 100%;
+	text-align: center;
+	font-weight: bold;
+	font-size: 32px;
+	color: rgba(248, 250, 252, 0.9);
+	text-shadow: 0 0 10px rgba(51, 65, 85, 0.8);
+	transition: all 0.3s ease-in-out;
+	z-index: 12;
+}
+
+.speedometer-dial.completed {
+	background: radial-gradient(
+		circle at center,
+		rgba(20, 83, 45, 0.8) 0%,
+		rgba(22, 101, 52, 0.9) 70%
+	);
+	border-color: rgba(134, 239, 172, 0.3);
+	box-shadow: 0 0 15px rgba(0, 0, 0, 0.2), inset 0 0 20px rgba(34, 197, 94, 0.2);
+}
+
+.speedometer-dial.completed .speedometer-needle {
+	background: linear-gradient(
+		to top,
+		rgba(34, 197, 94, 0.9),
+		rgba(74, 222, 128, 0.7)
+	);
+	filter: drop-shadow(0 0 8px rgba(34, 197, 94, 0.5));
+	animation: pulseNeedle 2s infinite alternate;
+}
+
+.speedometer-dial.completed .speedometer-needle::after {
+	background: linear-gradient(
+		to top,
+		rgba(74, 222, 128, 0.7),
+		rgba(134, 239, 172, 0.9)
+	);
+}
+
+.speedometer-dial.completed .speedometer-center::after {
+	background: radial-gradient(
+		circle at center,
+		rgba(134, 239, 172, 0.9),
+		rgba(34, 197, 94, 0.7)
+	);
+	box-shadow: 0 0 8px rgba(34, 197, 94, 0.5);
+	animation: pulse 2s infinite alternate;
+}
+
+.speedometer-dial.completed .speedometer-value {
+	color: rgba(134, 239, 172, 0.9);
+	text-shadow: 0 0 10px rgba(20, 83, 45, 0.8);
+	animation: pulse 2s infinite alternate;
+}
+
+/* Digital percentage display */
+.speedometer-digital {
+	position: absolute;
+	top: 65%;
+	width: 100%;
+	text-align: center;
+	font-family: monospace;
+	font-size: 14px;
+	color: rgba(203, 213, 225, 0.9);
+	letter-spacing: 1px;
+	z-index: 12;
+}
+
+.speedometer-dial.completed .speedometer-digital {
+	color: rgba(134, 239, 172, 0.8);
+}
+
+/* Style for tick labels in completed state */
+.speedometer-dial.completed .speedometer-tick-label {
+	color: rgba(134, 239, 172, 0.8);
+}
+
+/* Phase dashboard styles */
+.dashboard-phase {
+	transition: all 0.3s ease;
+}
+
+.dashboard-phase:hover {
+	transform: translateY(-2px);
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* Animation keyframes */
+@keyframes pulse {
+	0% {
+		opacity: 0.7;
+		transform: scale(0.98);
+	}
+	100% {
+		opacity: 1;
+		transform: scale(1);
+	}
+}
+
+@keyframes pulseNeedle {
+	0% {
+		opacity: 0.9;
+		filter: drop-shadow(0 0 5px rgba(34, 197, 94, 0.3));
+	}
+	100% {
+		opacity: 1;
+		filter: drop-shadow(0 0 12px rgba(34, 197, 94, 0.8));
+	}
+}
+
+@keyframes rotateGlow {
+	0% {
+		transform: rotate(0deg);
+	}
+	100% {
+		transform: rotate(360deg);
+	}
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+	.speedometer-container {
+		width: 170px;
+		height: 180px;
+	}
+
+	.speedometer-dial {
+		height: 170px;
+	}
+
+	.speedometer-needle {
+		height: 75px;
+	}
+
+	.speedometer-tick {
+		transform-origin: center 85px;
+		top: 2px; /* Fine-tuned for mobile */
+	}
+
+	.speedometer-value {
+		bottom: 60px;
+		font-size: 24px;
+	}
+
+	.speedometer-digital {
+		top: 65%;
+	}
+
+	.speedometer-tick-label {
+		font-size: 10px;
+		top: calc(100% - 22px);
+	}
+}
+
+/* Dashboard specific styles */
+.dashboard-speedometer {
+	transition: all 0.3s ease-in-out;
+	padding-bottom: 16px;
+}
+
+.dashboard-speedometer .MuiCircularProgress-root {
+	transition: transform 0.5s ease-out;
+}
+
+.dashboard-speedometer .MuiCircularProgress-circle {
+	transition: stroke-dashoffset 0.5s ease-out;
+}
+
+.dashboard-speedometer .MuiBox-root {
+	transition: all 0.3s ease-in-out;
+}
+
+.dashboard-metrics .MuiTypography-root {
+	transition: color 0.3s ease-in-out;
+}
+
+/* Smoother animation for progress bar */
+.progress-bar {
+	transition: width 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
+	will-change: width;
+}
+
+/* Fade in animation for metrics updates */
+@keyframes fadeInUpdate {
+	0% {
+		opacity: 0.6;
+		transform: scale(0.98);
+	}
+	100% {
+		opacity: 1;
+		transform: scale(1);
+	}
+}
+
+.metric-update {
+	animation: fadeInUpdate 0.3s ease-in-out;
+}
+
+/* Custom styles for the speedometer colors based on progress */
+.progress-low {
+	color: #f87171 !important; /* red-400 */
+}
+
+.progress-medium {
+	color: #facc15 !important; /* yellow-400 */
+}
+
+.progress-high {
+	color: #22c55e !important; /* green-500 */
+}
+
+/* Ensure the dashboard works well in both light and dark modes */
+.light .dashboard {
+	background-color: #ffffff;
+	color: #18181b;
+}
+
+.dark .dashboard {
+	background-color: #1e1e2e;
+	color: #f1f5f9;
+}
+
+/* Dashboard Speedometer spacing for iteration counter */
+.dashboard-speedometer .MuiTypography-root.mt-4 {
+	margin-top: 16px !important;
+}
