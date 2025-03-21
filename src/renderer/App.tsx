@@ -29,7 +29,7 @@ const createAppTheme = (mode: 'light' | 'dark') =>
 				main: '#3b82f6', // blue-500, matching our primary in Tailwind
 			},
 			background: {
-				default: mode === 'dark' ? '#272727' : '#FAFAFA',
+				default: mode === 'dark' ? '#212121' : '#FAFAFA',
 				paper: mode === 'dark' ? '#212121' : '#E9E9E9',
 			},
 		},
@@ -61,7 +61,7 @@ const App: React.FC = () => {
 		} else {
 			document.documentElement.classList.add('dark');
 			document.documentElement.classList.remove('light');
-			document.body.style.backgroundColor = '#272727';
+			document.body.style.backgroundColor = '#212121';
 		}
 	}, [lightMode]);
 
@@ -178,7 +178,12 @@ const Navigation: React.FC<{
 	];
 
 	return (
-		<nav className="flex flex-wrap mb-4 items-center border-b border-border pb-2">
+		<nav
+			className="flex flex-wrap mb-4 items-center border-b pb-2"
+			style={{
+				borderColor: lightMode ? '#E9E9E9' : 'var(--border-color, #2e2e3e)',
+			}}
+		>
 			{navItems.map((item) => {
 				const isActive =
 					location.pathname === item.href ||

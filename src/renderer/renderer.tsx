@@ -14,7 +14,7 @@ const createAppTheme = (mode: 'light' | 'dark') =>
 				main: '#3b82f6', // blue-500, matching our primary in Tailwind
 			},
 			background: {
-				default: mode === 'dark' ? '#272727' : '#FAFAFA',
+				default: mode === 'dark' ? '#212121' : '#FAFAFA',
 				paper: mode === 'dark' ? '#212121' : '#E9E9E9',
 			},
 		},

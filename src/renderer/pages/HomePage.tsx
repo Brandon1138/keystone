@@ -69,7 +69,7 @@ export const HomePage: React.FC = () => {
 						key={index}
 						sx={{
 							borderRadius: '12px',
-							bgcolor: 'background.paper',
+							bgcolor: isDarkMode ? '#1a1a1a' : 'background.paper',
 							transition:
 								'transform 0.3s, box-shadow 0.3s, background-color 0.3s',
 							'&:hover': {
@@ -78,48 +78,67 @@ export const HomePage: React.FC = () => {
 							},
 							position: 'relative',
 							zIndex: 1,
+							height: '100%', // Set a consistent height for all cards
 						}}
 					>
-						<CardContent sx={{ p: 2 }}>
-							<div className="mb-3">
+						<CardContent
+							sx={{
+								p: 2,
+								height: '100%',
+								display: 'flex',
+								flexDirection: 'column',
+								justifyContent: 'space-between',
+							}}
+						>
+							<div>
 								<div className="flex items-center mb-1">
 									<div className="mr-2">{card.icon}</div>
-									<h3 style={{ fontSize: '20px', margin: 0, fontWeight: 500 }}>
+									<h3
+										style={{
+											fontSize: '20px',
+											margin: 0,
+											fontWeight: 600,
+											color: isDarkMode ? '#ffffff' : '#000000',
+										}}
+									>
 										{card.title}
 									</h3>
 								</div>
 								<p
 									style={{
-										fontSize: '12px',
-										marginTop: '6px',
-										marginBottom: '12px',
-										opacity: 0.8,
+										fontSize: '13px',
+										marginTop: '8px',
+										marginBottom: '16px',
+										opacity: 0.7,
+										color: isDarkMode ? '#e0e0e0' : '#333333',
 									}}
 								>
 									{card.description}
 								</p>
-								<div className="flex justify-between items-center">
-									<Button
-										component={Link}
-										to={card.link}
-										variant="contained"
-										size="small"
-										sx={{
-											mt: 1,
-											bgcolor: '#9747FF',
-											'&:hover': {
-												bgcolor: '#8030E0',
-											},
-											fontSize: '0.75rem',
-											padding: '4px 12px',
-										}}
-									>
-										Get Started
-									</Button>
-									{card.secondaryIcon && (
-										<div className="mt-2">{card.secondaryIcon}</div>
-									)}
-								</div>
+							</div>
+							<div className="flex justify-between items-center">
+								<Button
+									component={Link}
+									to={card.link}
+									variant="contained"
+									disableElevation
+									size="small"
+									sx={{
+										bgcolor: '#9747FF',
+										'&:hover': {
+											bgcolor: '#8030E0',
+										},
+										fontSize: '0.8rem',
+										padding: '6px 16px',
+										textTransform: 'uppercase',
+										fontWeight: 'bold',
+										letterSpacing: '0.5px',
+										borderRadius: '4px',
+									}}
+								>
+									GET STARTED
+								</Button>
+								{card.secondaryIcon && <div>{card.secondaryIcon}</div>}
 							</div>
 						</CardContent>
 					</Card>
