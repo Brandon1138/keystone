@@ -7,6 +7,14 @@ import {
 } from '../utils/algorithm-categories';
 import { Card } from './ui/card';
 import './dashboard.css';
+import { gsap } from 'gsap';
+import { useTheme } from '@mui/material/styles';
+import { Speedometer } from './Speedometer';
+import {
+	SpeedIcon,
+	PerformanceIcon,
+	ComputerIcon,
+} from '../utils/algorithm-icons';
 
 interface BenchmarkResultCardProps {
 	benchmark: BenchmarkResult;
@@ -19,6 +27,7 @@ export const BenchmarkResultCard: React.FC<BenchmarkResultCardProps> = ({
 }) => {
 	const algorithmInfo = getAlgorithmInfo(benchmark.algorithm);
 	const categoryColor = getCategoryColorClass(algorithmInfo.category);
+	const theme = useTheme();
 
 	// Function to get relevant metrics for a specific phase
 	const getPhaseMetrics = (phase: string) => {
@@ -75,25 +84,110 @@ export const BenchmarkResultCard: React.FC<BenchmarkResultCardProps> = ({
 		return name.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 	};
 
-	// Component to render a phase dashboard
-	const PhaseResultDashboard = ({
-		phaseName,
-		phaseMetrics,
-		displayName,
+	// Component to render an individual metric card
+	const MetricCard = ({
+		title,
+		metrics,
+		icon,
 	}: {
-		phaseName: string;
-		phaseMetrics: { [key: string]: number };
-		displayName: string;
+		title: string;
+		metrics: { [key: string]: number };
+		icon: React.ReactNode;
 	}) => {
-		// Organize metrics by category
+		return (
+			<Card
+				className={`p-4 h-full ${
+					theme.palette.mode === 'dark' ? 'bg-[#212121]' : 'bg-[#E9E9E9]'
+				}`}
+			>
+				<div className="flex items-center mb-3 gap-2">
+					{icon}
+					<Typography variant="subtitle1" className="font-medium text-lg">
+						{title}
+					</Typography>
+				</div>
+				<div className="space-y-3">
+					{Object.entries(metrics).map(([key, value]) => (
+						<div key={key} className="metric-update">
+							<Typography variant="body2" className="text-muted-foreground">
+								{formatMetricName(key)}
+							</Typography>
+							<Typography variant="h6">
+								{formatNumber(value)}{' '}
+								{key.includes('ops')
+									? 'ops/sec'
+									: key.includes('kb') || key.includes('KB')
+									? 'KB'
+									: key.includes('mb') || key.includes('MB')
+									? 'MB'
+									: key.includes('time') || key.includes('ms')
+									? 'ms'
+									: ''}
+							</Typography>
+						</div>
+					))}
+					{Object.keys(metrics).length === 0 && (
+						<Typography
+							variant="body2"
+							className="text-muted-foreground italic"
+						>
+							No metrics available
+						</Typography>
+					)}
+				</div>
+			</Card>
+		);
+	};
+
+	// Component to render a phase row with three cards
+	const PhaseRow = ({
+		displayName,
+		performanceMetrics,
+		systemMetrics,
+	}: {
+		displayName: string;
+		performanceMetrics: { [key: string]: number };
+		systemMetrics: { [key: string]: number };
+	}) => {
+		return (
+			<div className="mb-5">
+				<div className="grid grid-cols-1 md:grid-cols-3 gap-5 md:gap-[20px]">
+					<MetricCard
+						title="Performance Metrics"
+						metrics={performanceMetrics}
+						icon={<PerformanceIcon className="w-6 h-6 text-[#9747FF]" />}
+					/>
+					<Card
+						className={`p-4 h-full flex flex-col items-center justify-center ${
+							theme.palette.mode === 'dark' ? 'bg-[#212121]' : 'bg-[#E9E9E9]'
+						}`}
+					>
+						<Speedometer
+							value={100}
+							isRunning={false}
+							label={displayName}
+							algorithm={benchmark.algorithm}
+							securityParam={benchmark.securityParam}
+						/>
+					</Card>
+					<MetricCard
+						title="System Metrics"
+						metrics={systemMetrics}
+						icon={<ComputerIcon className="w-6 h-6 text-[#9747FF]" />}
+					/>
+				</div>
+			</div>
+		);
+	};
+
+	// Organize metrics by category for each phase
+	const organizeMetrics = (phaseMetrics: { [key: string]: number }) => {
 		const performanceMetrics: { [key: string]: number } = {};
 		const systemMetrics: { [key: string]: number } = {};
 
-		// Categorize metrics
 		Object.entries(phaseMetrics).forEach(([key, value]) => {
 			const keyLower = key.toLowerCase();
 
-			// First check if it's explicitly a memory or system metric
 			if (
 				keyLower.includes('mem') ||
 				keyLower.includes('kb') ||
@@ -101,178 +195,39 @@ export const BenchmarkResultCard: React.FC<BenchmarkResultCardProps> = ({
 				keyLower.includes('ops') ||
 				keyLower.includes('throughput')
 			) {
-				// This is a system metric
 				systemMetrics[key] = value;
-			}
-			// Then check if it's a performance metric
-			else if (
+			} else if (
 				keyLower.includes('avg') ||
 				keyLower.includes('min') ||
 				keyLower.includes('max') ||
 				keyLower.includes('time') ||
 				keyLower.includes('ms')
 			) {
-				// Only add to performance if not already identified as system
 				performanceMetrics[key] = value;
 			} else {
-				// Default to performance metrics for uncategorized
 				performanceMetrics[key] = value;
 			}
 		});
 
-		// Render a static speedometer with the value at 100%
-		const StaticSpeedometer = () => (
-			<div className="speedometer-container">
-				<div className="speedometer-dial completed">
-					<div className="speedometer-ticks">
-						{Array.from({ length: 11 }).map((_, i) => (
-							<div
-								key={i}
-								className="speedometer-tick"
-								style={{ transform: `rotate(${-90 + i * 18}deg)` }}
-							/>
-						))}
-					</div>
-					<div
-						className="speedometer-needle"
-						style={{ transform: `rotate(90deg)` }}
-					/>
-					<div className="speedometer-center" />
-					<div className="speedometer-value">100</div>
-					<div className="speedometer-digital">COMPLETED</div>
-				</div>
-			</div>
-		);
-
-		return (
-			<Card className="p-4 mb-4 bg-card dark:bg-card-dark dashboard-phase">
-				<div className="flex items-center mb-2">
-					<Typography variant="h6" className="capitalize">
-						{displayName}
-					</Typography>
-				</div>
-
-				<Grid container spacing={3}>
-					{compact ? (
-						// Compact view - just basic metrics
-						<Grid item xs={12}>
-							<div className="space-y-2">
-								{Object.entries(performanceMetrics)
-									.slice(0, 2)
-									.map(([key, value]) => (
-										<Typography key={key} variant="body2">
-											{formatMetricName(key)}: {formatNumber(value)}{' '}
-											{key.includes('time') || key.includes('ms') ? 'ms' : ''}
-										</Typography>
-									))}
-							</div>
-						</Grid>
-					) : (
-						// Full view - all metrics and speedometer
-						<>
-							{/* Speedometer - Center */}
-							<Grid item xs={12} md={4}>
-								<div className="flex flex-col items-center justify-center">
-									{/* Static Speedometer */}
-									<StaticSpeedometer />
-									<Typography variant="body2" className="mt-2 text-center">
-										Completed
-									</Typography>
-								</div>
-							</Grid>
-
-							{/* Performance Metrics - Left */}
-							<Grid item xs={12} md={4}>
-								<div className="space-y-2">
-									<Typography variant="subtitle2" className="font-medium">
-										Performance
-									</Typography>
-									{Object.entries(performanceMetrics).map(([key, value]) => (
-										<Typography
-											key={key}
-											variant="body2"
-											className="text-muted-foreground"
-										>
-											{formatMetricName(key)}: {formatNumber(value)}{' '}
-											{key.includes('time') || key.includes('ms') ? 'ms' : ''}
-										</Typography>
-									))}
-									{Object.keys(performanceMetrics).length === 0 && (
-										<Typography
-											variant="body2"
-											className="text-muted-foreground italic"
-										>
-											No performance metrics available
-										</Typography>
-									)}
-								</div>
-							</Grid>
-
-							{/* System Metrics - Right */}
-							<Grid item xs={12} md={4}>
-								<div className="space-y-2">
-									<Typography variant="subtitle2" className="font-medium">
-										System
-									</Typography>
-									{Object.entries(systemMetrics).map(([key, value]) => (
-										<Typography
-											key={key}
-											variant="body2"
-											className="text-muted-foreground"
-										>
-											{formatMetricName(key)}: {formatNumber(value)}{' '}
-											{key.includes('ops')
-												? 'ops/sec'
-												: key.includes('kb')
-												? 'KB'
-												: key.includes('mb')
-												? 'MB'
-												: ''}
-										</Typography>
-									))}
-									{Object.keys(systemMetrics).length === 0 && (
-										<Typography
-											variant="body2"
-											className="text-muted-foreground italic"
-										>
-											No system metrics available
-										</Typography>
-									)}
-								</div>
-							</Grid>
-						</>
-					)}
-				</Grid>
-			</Card>
-		);
+		return { performanceMetrics, systemMetrics };
 	};
 
-	return (
-		<div className="space-y-4">
-			{/* Header with algorithm info */}
-			<div className="flex justify-between items-center mb-4">
-				<div className="flex items-center">
-					<div className={`mr-2 ${categoryColor}`}>{algorithmInfo.icon}</div>
-					<div>
-						<h3 className="text-xl font-bold">
-							{algorithmInfo.displayName} ({benchmark.securityParam})
-						</h3>
-						<p className="text-sm text-muted-foreground">
-							{new Date(benchmark.timestamp).toLocaleString()}
-						</p>
-					</div>
-				</div>
-				<span
-					className={`px-3 py-1 rounded-full text-sm ${
-						benchmark.status === 'completed'
-							? 'bg-green-800/20 text-green-400'
-							: 'bg-red-800/20 text-red-400'
-					}`}
-				>
-					{benchmark.status}
-				</span>
-			</div>
+	// Extract organized metrics for each phase
+	const {
+		performanceMetrics: keygenPerformanceMetrics,
+		systemMetrics: keygenSystemMetrics,
+	} = organizeMetrics(keygenMetrics);
+	const {
+		performanceMetrics: encapsPerformanceMetrics,
+		systemMetrics: encapsSystemMetrics,
+	} = organizeMetrics(encapsMetrics);
+	const {
+		performanceMetrics: decapsPerformanceMetrics,
+		systemMetrics: decapsSystemMetrics,
+	} = organizeMetrics(decapsMetrics);
 
+	return (
+		<div className="space-y-[20px]">
 			{/* If benchmark failed, show error */}
 			{benchmark.status === 'failed' && benchmark.error && (
 				<div className="mt-2 p-4 bg-red-950/20 border border-red-800/40 rounded-md text-red-400">
@@ -280,30 +235,30 @@ export const BenchmarkResultCard: React.FC<BenchmarkResultCardProps> = ({
 				</div>
 			)}
 
-			{/* If completed, show phase dashboards */}
+			{/* If completed, show phase rows in the new layout */}
 			{benchmark.status === 'completed' && (
-				<div className="space-y-4">
+				<div className="space-y-[20px]">
 					{hasKeygenData && (
-						<PhaseResultDashboard
-							phaseName="keygen"
-							phaseMetrics={keygenMetrics}
+						<PhaseRow
 							displayName="Key Generation"
+							performanceMetrics={keygenPerformanceMetrics}
+							systemMetrics={keygenSystemMetrics}
 						/>
 					)}
 
 					{hasEncapsData && (
-						<PhaseResultDashboard
-							phaseName="encaps"
-							phaseMetrics={encapsMetrics}
+						<PhaseRow
 							displayName="Encapsulation"
+							performanceMetrics={encapsPerformanceMetrics}
+							systemMetrics={encapsSystemMetrics}
 						/>
 					)}
 
 					{hasDecapsData && (
-						<PhaseResultDashboard
-							phaseName="decaps"
-							phaseMetrics={decapsMetrics}
+						<PhaseRow
 							displayName="Decapsulation"
+							performanceMetrics={decapsPerformanceMetrics}
+							systemMetrics={decapsSystemMetrics}
 						/>
 					)}
 
@@ -314,7 +269,7 @@ export const BenchmarkResultCard: React.FC<BenchmarkResultCardProps> = ({
 							data was recorded.
 							{/* Show raw metrics if available */}
 							{Object.keys(benchmark.metrics).length > 0 && (
-								<div className="mt-4 grid grid-cols-2 gap-2">
+								<div className="mt-4 grid grid-cols-2 gap-5">
 									{Object.entries(benchmark.metrics).map(([key, value]) => (
 										<div key={key} className="text-sm">
 											<span className="capitalize">

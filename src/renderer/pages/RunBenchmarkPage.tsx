@@ -1,32 +1,20 @@
 import React from 'react';
 import { BenchmarkRunner } from '../components/BenchmarkRunner';
+import { SpeedIcon } from '../utils/algorithm-icons';
 
 /**
  * Run Benchmark Page Component
  */
 export const RunBenchmarkPage: React.FC = () => {
 	return (
-		<div className="space-y-8">
-			<div className="bg-card dark:bg-card-dark rounded-xl border border-border/40 dark:border-border-dark/40 shadow-sm p-6">
-				<h2 className="text-xl font-medium mb-4 text-foreground dark:text-foreground-dark">
-					Run Benchmark
-				</h2>
-				<div className="space-y-3 text-muted-foreground dark:text-muted-foreground-dark">
-					<p>
-						Configure and run benchmarks for post-quantum and classical
-						cryptography algorithms.
-					</p>
-					<p>
-						Select an algorithm and security parameters below to start a
-						benchmark.
-					</p>
+		<div className="container relative z-10 px-6 py-4">
+			<div className="flex items-center mb-6">
+				<div className="bg-primary/20 p-2 rounded-full mr-3">
+					<SpeedIcon className="w-6 h-6 text-[#9747FF]" />
 				</div>
+				<h2 className="text-2xl font-bold">Run Benchmarks</h2>
 			</div>
-
-			{/* Use the existing BenchmarkRunner component */}
-			<div className="bg-card dark:bg-card-dark rounded-xl border border-border/40 dark:border-border-dark/40 shadow-sm">
-				<BenchmarkRunner />
-			</div>
+			<BenchmarkRunner />
 		</div>
 	);
 };

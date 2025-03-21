@@ -35,8 +35,8 @@ body {
 .bg-circle {
 	background: radial-gradient(
 		circle,
-		rgba(25, 118, 210, 0.75) 0%,
-		rgba(151, 71, 255, 0.25) 35%,
+		rgba(25, 118, 210, 1) 0%,
+		rgba(151, 71, 255, 0.35) 35%,
 		rgba(151, 71, 255, 0) 70%
 	);
 	opacity: 0.25;
@@ -87,4 +87,25 @@ body {
 	.btn-secondary {
 		@apply bg-muted text-muted-foreground hover:bg-muted/80;
 	}
+}
+
+/* Speedometer styles */
+.metric-update {
+	animation: pulse 0.5s ease-in-out;
+}
+
+@keyframes pulse {
+	0% {
+		opacity: 0.6;
+		transform: scale(0.98);
+	}
+	100% {
+		opacity: 1;
+		transform: scale(1);
+	}
+}
+
+/* Ensure the needle animation is smooth */
+.speedometer-needle {
+	transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
 }

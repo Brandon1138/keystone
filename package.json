@@ -32,6 +32,7 @@
 		"electron": "^35.0.2",
 		"electron-builder": "^25.1.8",
 		"electron-reload": "^2.0.0-alpha.1",
+		"gsap": "^3.12.7",
 		"plotly.js": "^3.0.1",
 		"react": "^19.0.0",
 		"react-dom": "^19.0.0",

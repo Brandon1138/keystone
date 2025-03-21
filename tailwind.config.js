@@ -14,8 +14,9 @@ module.exports = {
 					light: '#18181b', // slate-900
 				},
 				card: {
-					DEFAULT: '#1e1e2e', // dark card
+					DEFAULT: '#212121', // dark card (updated to #212121)
 					light: '#ffffff',
+					dark: '#212121', // Added for dark:bg-card-dark variant
 				},
 				border: {
 					DEFAULT: '#2e2e3e', // slate-800 dark borders

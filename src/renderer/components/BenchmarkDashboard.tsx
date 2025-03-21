@@ -536,7 +536,7 @@ export const BenchmarkDashboard: React.FC<BenchmarkDashboardProps> = ({
 			<Grid container spacing={4}>
 				{/* Performance Metrics - Left Side */}
 				<Grid item xs={12} md={4}>
-					<Card className="p-4 bg-card/50 dark:bg-card-dark/50 dashboard-metrics h-full">
+					<Card className="p-4 bg-card/50 dark:bg-[#21212180] dashboard-metrics h-full">
 						<Typography variant="subtitle1" className="font-medium mb-3">
 							Performance Metrics
 						</Typography>
@@ -613,7 +613,7 @@ export const BenchmarkDashboard: React.FC<BenchmarkDashboardProps> = ({
 
 				{/* System Metrics - Right Side */}
 				<Grid item xs={12} md={4}>
-					<Card className="p-4 bg-card/50 dark:bg-card-dark/50 dashboard-metrics h-full">
+					<Card className="p-4 bg-card/50 dark:bg-[#21212180] dashboard-metrics h-full">
 						<Typography variant="subtitle1" className="font-medium mb-3">
 							System Metrics
 						</Typography>
