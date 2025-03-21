@@ -2,9 +2,9 @@ import React, { useEffect, useRef } from 'react';
 import { gsap } from 'gsap';
 
 interface SpeedometerProps {
-	value: number; // 0-100 progress value
+	value: number; // 0–100 progress
 	isRunning: boolean;
-	label: string; // Label to display (e.g., "Ready", "Key Generation", etc.)
+	label: string;
 	algorithm?: string;
 	securityParam?: string;
 }
@@ -16,28 +16,25 @@ export const Speedometer: React.FC<SpeedometerProps> = ({
 	algorithm,
 	securityParam,
 }) => {
-	// Refs for GSAP animations
 	const needleRef = useRef<HTMLDivElement>(null);
 	const dialRef = useRef<HTMLImageElement>(null);
 
-	// Calculate rotation angle for the needle (from -150 to 30 degrees)
-	// -150 is 8 o'clock, 30 is 4 o'clock
-	const angle = -150 + (value / 100) * 180;
+	// Example: from -210° to +30° for a 240° sweep
+	const startAngle = -210;
+	const endAngle = +30;
+	const angle = startAngle + (value / 100) * (endAngle - startAngle);
 
-	// Choose the appropriate dial image based on running state
-	// Fix paths - use just the filename, no paths
+	// Swap dial images if needed
 	const dialImage = isRunning ? 'dial_on.svg' : 'dial_off.svg';
 
-	// Set initial rotation to -150 degrees (8 o'clock) on mount
+	// Start needle at the startAngle on mount
 	useEffect(() => {
 		if (needleRef.current) {
-			gsap.set(needleRef.current, {
-				rotation: -150, // Start at 8 o'clock position
-			});
+			gsap.set(needleRef.current, { rotation: startAngle });
 		}
-	}, []);
+	}, [startAngle]);
 
-	// Use GSAP to animate the needle rotation
+	// Animate needle whenever `value` changes
 	useEffect(() => {
 		if (needleRef.current) {
 			gsap.to(needleRef.current, {
@@ -48,18 +45,17 @@ export const Speedometer: React.FC<SpeedometerProps> = ({
 		}
 	}, [angle]);
 
-	// Use GSAP to animate between dial states
+	// Fade out dial, swap src, fade in
 	useEffect(() => {
 		if (dialRef.current) {
 			gsap.to(dialRef.current, {
 				opacity: 0,
 				duration: 0.3,
 				onComplete: () => {
-					dialRef.current!.src = dialImage;
-					gsap.to(dialRef.current, {
-						opacity: 1,
-						duration: 0.3,
-					});
+					if (dialRef.current) {
+						dialRef.current.src = dialImage;
+						gsap.to(dialRef.current, { opacity: 1, duration: 0.3 });
+					}
 				},
 			});
 		}
@@ -67,7 +63,7 @@ export const Speedometer: React.FC<SpeedometerProps> = ({
 
 	return (
 		<div className="flex flex-col items-center justify-center relative">
-			{/* Algorithm and security param info if provided */}
+			{/* Show chosen algorithm & param above */}
 			{algorithm && securityParam && (
 				<div className="text-center mb-2">
 					<div className="font-medium">{algorithm}</div>
@@ -76,7 +72,17 @@ export const Speedometer: React.FC<SpeedometerProps> = ({
 			)}
 
 			<div className="relative w-[220px] h-[220px]">
-				{/* Dial background */}
+				{/* Debug dot at bounding-box center */}
+				<div
+					className="absolute bg-red-500 w-2 h-2 rounded-full"
+					style={{
+						left: '50%',
+						top: '50%',
+						transform: 'translate(-50%, -50%)',
+					}}
+				/>
+
+				{/* Dial */}
 				<img
 					ref={dialRef}
 					src={dialImage}
@@ -84,12 +90,18 @@ export const Speedometer: React.FC<SpeedometerProps> = ({
 					className="absolute top-0 left-0 w-full h-full"
 				/>
 
-				{/* Needle - positioned with butt at center and head pointing at 8 o'clock when at rest */}
+				{/* Needle container */}
 				<div
 					ref={needleRef}
-					className="absolute top-0 left-0 w-full h-full"
 					style={{
-						transformOrigin: 'center center',
+						position: 'absolute',
+						width: '110px',
+						height: 'auto',
+						left: 'calc(50% + 0px)',
+						// Move the needle container 1px lower:
+						top: 'calc(50% + 1px)',
+						transform: 'translate(0, -50%)',
+						transformOrigin: '0 50%',
 					}}
 				>
 					<img
@@ -97,17 +109,15 @@ export const Speedometer: React.FC<SpeedometerProps> = ({
 						alt="Needle"
 						style={{
 							position: 'absolute',
-							width: '110px',
+							width: '100%',
 							height: 'auto',
-							left: '50%',
-							top: '50%',
-							transform: 'translateY(-50%)', // Center vertically only
-							transformOrigin: '0 50%', // Rotate from left center (butt of needle)
+							top: 0,
+							left: 0,
 						}}
 					/>
 				</div>
 
-				{/* Central label */}
+				{/* Center label */}
 				<div className="absolute inset-0 flex items-center justify-center">
 					<div className="text-center translate-y-[40px]">
 						<div className="text-lg font-medium">{label}</div>
