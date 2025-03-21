@@ -35,9 +35,19 @@ class BenchmarkManager {
 			`benchmark_${params.algorithm}.exe`
 		);
 
-		// Build args - include iterations if specified
-		const args = [params.securityParam];
-		if (params.iterations) {
+		// Build args based on algorithm
+		const args: string[] = [];
+
+		// Add security parameter
+		args.push(params.securityParam);
+
+		// Add iterations parameter if needed
+		// Dilithium and McEliece don't accept the --iterations flag
+		if (
+			params.iterations &&
+			params.algorithm !== 'dilithium' &&
+			params.algorithm !== 'mceliece'
+		) {
 			args.push('--iterations', params.iterations.toString());
 		}
 

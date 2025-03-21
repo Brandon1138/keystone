@@ -8,6 +8,8 @@ import {
 } from 'react-router-dom';
 import LightModeIcon from '@mui/icons-material/LightMode';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
+import { Switch, Divider, ThemeProvider, createTheme } from '@mui/material';
+import CssBaseline from '@mui/material/CssBaseline';
 
 // Pages
 import {
@@ -18,18 +20,48 @@ import {
 	ExportPage,
 } from './pages';
 
+// Create theme based on mode
+const createAppTheme = (mode: 'light' | 'dark') =>
+	createTheme({
+		palette: {
+			mode: mode,
+			primary: {
+				main: '#3b82f6', // blue-500, matching our primary in Tailwind
+			},
+			background: {
+				default: mode === 'dark' ? '#272727' : '#FAFAFA',
+				paper: mode === 'dark' ? '#212121' : '#E9E9E9',
+			},
+		},
+		shape: {
+			borderRadius: 8, // matching our rounded-lg in Tailwind
+		},
+		components: {
+			MuiButton: {
+				styleOverrides: {
+					root: {
+						textTransform: 'none', // shadcn style uses lowercase
+					},
+				},
+			},
+		},
+	});
+
 const App: React.FC = () => {
 	// Start with dark mode by default
 	const [lightMode, setLightMode] = useState(false);
+	const theme = createAppTheme(lightMode ? 'light' : 'dark');
 
 	// Initialize theme mode
 	useEffect(() => {
 		if (lightMode) {
 			document.documentElement.classList.add('light');
 			document.documentElement.classList.remove('dark');
+			document.body.style.backgroundColor = '#FAFAFA';
 		} else {
 			document.documentElement.classList.add('dark');
 			document.documentElement.classList.remove('light');
+			document.body.style.backgroundColor = '#272727';
 		}
 	}, [lightMode]);
 
@@ -39,46 +71,91 @@ const App: React.FC = () => {
 	};
 
 	return (
-		<Router>
-			<div className="min-h-screen bg-background text-foreground">
-				<div className="container mx-auto p-4">
-					{/* Header */}
-					<header className="mb-6">
-						<h1 className="text-2xl font-bold mb-2">
-							Post-Quantum Cryptography Benchmark
-						</h1>
-						<p className="text-muted-foreground">
-							A tool for benchmarking post-quantum cryptography algorithms
-						</p>
-					</header>
+		<ThemeProvider theme={theme}>
+			<CssBaseline />
+			<Router>
+				<div className="min-h-screen bg-background text-foreground relative overflow-hidden">
+					{/* Background circles - only visible in dark mode */}
+					{!lightMode && (
+						<>
+							<div className="bg-circle bg-circle-topleft"></div>
+							<div className="bg-circle bg-circle-bottomright"></div>
+						</>
+					)}
 
-					{/* Navigation */}
-					<Navigation toggleTheme={toggleTheme} lightMode={lightMode} />
+					<div className="container mx-auto p-2 relative z-10">
+						{/* Header */}
+						<header className="mb-4">
+							<div className="flex justify-between items-center">
+								{/* Logo */}
+								<div className="p-2">
+									<img
+										src={
+											lightMode
+												? './keystone_logo_light.svg'
+												: './keystone_logo_dark.svg'
+										}
+										alt="Keystone Logo"
+										className="h-40"
+									/>
+								</div>
 
-					{/* Main Content */}
-					<main>
-						<Routes>
-							<Route path="/" element={<HomePage />} />
-							<Route path="/home" element={<HomePage />} />
-							<Route path="/run-benchmark" element={<RunBenchmarkPage />} />
-							<Route path="/visualization" element={<VisualizationPage />} />
-							<Route path="/compare" element={<ComparePage />} />
-							<Route path="/export" element={<ExportPage />} />
-						</Routes>
-					</main>
+								{/* Dark Mode Toggle */}
+								<div className="flex items-center">
+									<DarkModeIcon
+										className={lightMode ? 'text-[#131313]' : 'text-[#FAFAFA]'}
+									/>
+									<Switch
+										checked={!lightMode}
+										onChange={toggleTheme}
+										color="primary"
+									/>
+								</div>
+							</div>
 
-					{/* Footer */}
-					<footer className="mt-8 text-center text-muted-foreground text-sm">
-						<p>PQC Benchmark Tool - Version 1.0.0</p>
-						<p>
-							Running on Electron <span id="electron-version"></span>, Node{' '}
-							<span id="node-version"></span>, and Chromium{' '}
-							<span id="chrome-version"></span>
-						</p>
-					</footer>
+							{/* Introductory Text */}
+							<p
+								className="text-xl mb-2"
+								style={{ color: lightMode ? '#000000' : '#FFFFFF' }}
+							>
+								Advanced benchmarking and visualization for post-quantum
+								cryptography
+							</p>
+						</header>
+
+						{/* Navigation */}
+						<Navigation toggleTheme={toggleTheme} lightMode={lightMode} />
+
+						{/* Main Content */}
+						<main>
+							<Routes>
+								<Route path="/" element={<HomePage />} />
+								<Route path="/home" element={<HomePage />} />
+								<Route path="/run-benchmark" element={<RunBenchmarkPage />} />
+								<Route path="/visualization" element={<VisualizationPage />} />
+								<Route path="/compare" element={<ComparePage />} />
+								<Route path="/export" element={<ExportPage />} />
+								<Route
+									path="/quantum-workloads"
+									element={<div>Quantum Workloads Page</div>}
+								/>
+								<Route path="/settings" element={<div>Settings Page</div>} />
+							</Routes>
+						</main>
+
+						{/* Footer */}
+						<footer className="mt-8 text-center text-muted-foreground text-sm">
+							<p>Keystone - Version 1.0.0</p>
+							<p>
+								Running on Electron <span id="electron-version"></span>, Node{' '}
+								<span id="node-version"></span>, and Chromium{' '}
+								<span id="chrome-version"></span>
+							</p>
+						</footer>
+					</div>
 				</div>
-			</div>
-		</Router>
+			</Router>
+		</ThemeProvider>
 	);
 };
 
@@ -95,18 +172,22 @@ const Navigation: React.FC<{
 		{ text: 'Run Benchmark', href: '/run-benchmark' },
 		{ text: 'Visualization', href: '/visualization' },
 		{ text: 'Compare Benchmarks', href: '/compare' },
+		{ text: 'Quantum Workloads', href: '/quantum-workloads' },
 		{ text: 'Export Data', href: '/export' },
+		{ text: 'Settings', href: '/settings' },
 	];
 
 	return (
-		<nav className="flex flex-wrap gap-x-6 gap-y-2 mb-6 items-center border-b border-border pb-3">
+		<nav className="flex flex-wrap mb-4 items-center border-b border-border pb-2">
 			{navItems.map((item) => {
 				const isActive =
 					location.pathname === item.href ||
 					(item.href === '/home' && location.pathname === '/');
 				const linkClasses = isActive
-					? 'text-primary font-medium'
-					: 'text-foreground hover:text-primary transition-colors';
+					? 'text-primary font-medium px-4 py-2'
+					: lightMode
+					? 'text-black hover:text-primary transition-colors px-4 py-2'
+					: 'text-foreground hover:text-primary transition-colors px-4 py-2';
 
 				return (
 					<Link key={item.href} to={item.href} className={linkClasses}>
@@ -114,19 +195,6 @@ const Navigation: React.FC<{
 					</Link>
 				);
 			})}
-
-			{/* Theme toggle */}
-			<button
-				className="ml-auto btn btn-secondary"
-				onClick={toggleTheme}
-				aria-label="Toggle theme"
-			>
-				{lightMode ? (
-					<DarkModeIcon className="h-5 w-5" />
-				) : (
-					<LightModeIcon className="h-5 w-5" />
-				)}
-			</button>
 		</nav>
 	);
 };

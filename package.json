@@ -8,7 +8,7 @@
 	"scripts": {
 		"start": "npm run build && electron .",
 		"build": "webpack --config webpack.config.js && npm run copy-files",
-		"copy-files": "copy src\\renderer\\index.html dist\\index.html && copy src\\main\\preload.js dist\\preload.js",
+		"copy-files": "copy src\\renderer\\index.html dist\\index.html && copy src\\main\\preload.js dist\\preload.js && copy public\\*.svg dist\\",
 		"watch": "webpack --config webpack.config.js --watch",
 		"dev": "set NODE_ENV=development && concurrently \"npm run watch\" \"electron .\"",
 		"package": "electron-builder build --win --publish never",

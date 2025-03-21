@@ -1,99 +1,128 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { useTheme } from '@mui/material/styles';
+import { Card, CardContent, Button } from '@mui/material';
 import SpeedIcon from '@mui/icons-material/Speed';
-import InsightsIcon from '@mui/icons-material/Insights';
-import CompareIcon from '@mui/icons-material/Compare';
+import DataUsageIcon from '@mui/icons-material/DataUsage';
+import CompareArrowsIcon from '@mui/icons-material/CompareArrows';
+import NetworkPingIcon from '@mui/icons-material/NetworkPing';
+import ExportNotesIcon from '@mui/icons-material/Download';
+import SettingsIcon from '@mui/icons-material/Settings';
+import CodeIcon from '@mui/icons-material/Code';
+import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 
 /**
  * Home Page Component
  */
 export const HomePage: React.FC = () => {
+	const theme = useTheme();
+	const isDarkMode = theme.palette.mode === 'dark';
+
 	// Feature cards data
 	const featureCards = [
 		{
 			title: 'Run Benchmarks',
-			description:
-				'Execute benchmarks for Kyber, Dilithium, McEliece, and classic algorithms like RSA and ECC.',
-			icon: <SpeedIcon />,
+			description: 'Execute and monitor cryptographic algorithm benchmarks.',
+			icon: <SpeedIcon style={{ color: '#9747FF' }} />,
 			link: '/run-benchmark',
+			secondaryIcon: <CodeIcon style={{ color: '#ABABA3' }} />,
 		},
 		{
-			title: 'Visualize Results',
-			description:
-				'View detailed charts and graphs of your benchmark results, comparing different metrics.',
-			icon: <InsightsIcon />,
+			title: 'Visualize',
+			description: 'View interactive charts and detailed performance metrics.',
+			icon: <DataUsageIcon style={{ color: '#9747FF' }} />,
 			link: '/visualization',
 		},
 		{
-			title: 'Compare Algorithms',
-			description:
-				'Compare post-quantum algorithms against each other or against classical algorithms.',
-			icon: <CompareIcon />,
+			title: 'Compare',
+			description: 'Analyze algorithm performance through direct comparisons.',
+			icon: <CompareArrowsIcon style={{ color: '#9747FF' }} />,
 			link: '/compare',
+		},
+		{
+			title: 'Run Quantum Workloads',
+			description: "Run Shor's and Grover's algorithms via IBM Quantum Cloud.",
+			icon: <NetworkPingIcon style={{ color: '#9747FF' }} />,
+			link: '/quantum-workloads',
+			secondaryIcon: <AccountCircleIcon style={{ color: '#ABABA3' }} />,
+		},
+		{
+			title: 'Export',
+			description: 'Export benchmark results and reports in multiple formats.',
+			icon: <ExportNotesIcon style={{ color: '#9747FF' }} />,
+			link: '/export',
+		},
+		{
+			title: 'Settings',
+			description: 'Manage configurations, preferences, and integrations.',
+			icon: <SettingsIcon style={{ color: '#9747FF' }} />,
+			link: '/settings',
 		},
 	];
 
 	return (
-		<div className="space-y-8">
-			{/* Welcome section */}
-			<div className="bg-card dark:bg-card-dark rounded-xl border border-border/40 dark:border-border-dark/40 shadow-sm p-6">
-				<h2 className="text-xl font-medium mb-4 text-foreground dark:text-foreground-dark">
-					Welcome to PQC Benchmark Tool
-				</h2>
-				<div className="space-y-3 text-muted-foreground dark:text-muted-foreground-dark">
-					<p>
-						This application allows you to run, visualize and compare benchmarks
-						for post-quantum cryptography algorithms.
-					</p>
-					<p>
-						To get started, go to the "Run Benchmark" page and select an
-						algorithm.
-					</p>
-				</div>
-			</div>
-
+		<div className="space-y-4 relative z-10">
 			{/* Feature cards section */}
-			<div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+			<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
 				{featureCards.map((card, index) => (
-					<div
+					<Card
 						key={index}
-						className="group bg-card dark:bg-card-dark rounded-xl border border-border/40 dark:border-border-dark/40 shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden"
+						sx={{
+							borderRadius: '12px',
+							bgcolor: 'background.paper',
+							transition:
+								'transform 0.3s, box-shadow 0.3s, background-color 0.3s',
+							'&:hover': {
+								transform: 'translateY(-5px)',
+								boxShadow: '0 10px 20px rgba(0,0,0,0.2)',
+							},
+							position: 'relative',
+							zIndex: 1,
+						}}
 					>
-						<div className="p-6">
-							<div className="flex items-center gap-4 mb-4">
-								<div className="flex items-center justify-center w-10 h-10 rounded-full bg-primary/10 text-primary">
-									{card.icon}
+						<CardContent sx={{ p: 2 }}>
+							<div className="mb-3">
+								<div className="flex items-center mb-1">
+									<div className="mr-2">{card.icon}</div>
+									<h3 style={{ fontSize: '20px', margin: 0, fontWeight: 500 }}>
+										{card.title}
+									</h3>
 								</div>
-								<h3 className="text-lg font-medium text-foreground dark:text-foreground-dark">
-									{card.title}
-								</h3>
-							</div>
-							<p className="text-sm text-muted-foreground dark:text-muted-foreground-dark mb-6 line-clamp-3">
-								{card.description}
-							</p>
-							<Link
-								to={card.link}
-								className="inline-flex items-center text-sm font-medium text-primary hover:text-primary/80 transition-colors"
-							>
-								Get started
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									width="16"
-									height="16"
-									viewBox="0 0 24 24"
-									fill="none"
-									stroke="currentColor"
-									strokeWidth="2"
-									strokeLinecap="round"
-									strokeLinejoin="round"
-									className="ml-1 h-4 w-4 transition-transform group-hover:translate-x-1"
+								<p
+									style={{
+										fontSize: '12px',
+										marginTop: '6px',
+										marginBottom: '12px',
+										opacity: 0.8,
+									}}
 								>
-									<path d="M5 12h14"></path>
-									<path d="m12 5 7 7-7 7"></path>
-								</svg>
-							</Link>
-						</div>
-					</div>
+									{card.description}
+								</p>
+								<div className="flex justify-between items-center">
+									<Button
+										component={Link}
+										to={card.link}
+										variant="contained"
+										size="small"
+										sx={{
+											mt: 1,
+											bgcolor: '#9747FF',
+											'&:hover': {
+												bgcolor: '#8030E0',
+											},
+											fontSize: '0.75rem',
+											padding: '4px 12px',
+										}}
+									>
+										Get Started
+									</Button>
+									{card.secondaryIcon && (
+										<div className="mt-2">{card.secondaryIcon}</div>
+									)}
+								</div>
+							</div>
+						</CardContent>
+					</Card>
 				))}
 			</div>
 		</div>

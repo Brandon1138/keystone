@@ -5,31 +5,32 @@ import CssBaseline from '@mui/material/CssBaseline';
 import './styles.css';
 import App from './App';
 
-// Create a dark MUI theme that complements our Tailwind config
-const darkTheme = createTheme({
-	palette: {
-		mode: 'dark',
-		primary: {
-			main: '#3b82f6', // blue-500, matching our primary in Tailwind
+// Create dark and light MUI themes that complement our Tailwind config
+const createAppTheme = (mode: 'light' | 'dark') =>
+	createTheme({
+		palette: {
+			mode: mode,
+			primary: {
+				main: '#3b82f6', // blue-500, matching our primary in Tailwind
+			},
+			background: {
+				default: mode === 'dark' ? '#272727' : '#FAFAFA',
+				paper: mode === 'dark' ? '#212121' : '#E9E9E9',
+			},
 		},
-		background: {
-			default: '#09090b', // matching our background in Tailwind
-			paper: '#1e1e2e', // matching our card background in Tailwind
+		shape: {
+			borderRadius: 8, // matching our rounded-lg in Tailwind
 		},
-	},
-	shape: {
-		borderRadius: 8, // matching our rounded-lg in Tailwind
-	},
-	components: {
-		MuiButton: {
-			styleOverrides: {
-				root: {
-					textTransform: 'none', // shadcn style uses lowercase
+		components: {
+			MuiButton: {
+				styleOverrides: {
+					root: {
+						textTransform: 'none', // shadcn style uses lowercase
+					},
 				},
 			},
 		},
-	},
-});
+	});
 
 // Wait for DOM to be ready
 document.addEventListener('DOMContentLoaded', () => {
@@ -49,10 +50,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	const root = ReactDOM.createRoot(appContainer);
 	root.render(
 		<React.StrictMode>
-			<ThemeProvider theme={darkTheme}>
-				<CssBaseline />
-				<App />
-			</ThemeProvider>
+			<App />
 		</React.StrictMode>
 	);
 
