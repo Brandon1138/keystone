@@ -1,7 +1,9 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { useTheme } from '@mui/material/styles';
-import { Card, CardContent, Button } from '@mui/material';
+import { Button } from '@mui/material';
+
+// Icons
 import SpeedIcon from '@mui/icons-material/Speed';
 import DataUsageIcon from '@mui/icons-material/DataUsage';
 import CompareArrowsIcon from '@mui/icons-material/CompareArrows';
@@ -10,6 +12,10 @@ import ExportNotesIcon from '@mui/icons-material/Download';
 import SettingsIcon from '@mui/icons-material/Settings';
 import CodeIcon from '@mui/icons-material/Code';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
+
+// Import your custom Card component
+import { Card } from '../components/ui/card';
+// ^ Adjust path if needed
 
 /**
  * Home Page Component
@@ -67,80 +73,70 @@ export const HomePage: React.FC = () => {
 				{featureCards.map((card, index) => (
 					<Card
 						key={index}
-						sx={{
-							borderRadius: '12px',
-							bgcolor: isDarkMode ? '#1a1a1a' : 'background.paper',
-							transition:
-								'transform 0.3s, box-shadow 0.3s, background-color 0.3s',
-							'&:hover': {
-								transform: 'translateY(-5px)',
-								boxShadow: '0 10px 20px rgba(0,0,0,0.2)',
-							},
-							position: 'relative',
-							zIndex: 1,
-							height: '100%', // Set a consistent height for all cards
-						}}
+						className="
+              relative
+              z-10
+              h-full
+              min-h-[220px]
+              p-4
+              transition-transform
+              duration-300
+              hover:-translate-y-1
+              hover:shadow-xl
+            "
 					>
-						<CardContent
-							sx={{
-								p: 2,
-								height: '100%',
-								display: 'flex',
-								flexDirection: 'column',
-								justifyContent: 'space-between',
+						{/* Card Header with extra top spacing */}
+						<div className="flex items-center mb-1 mt-2">
+							<div className="mr-2">{card.icon}</div>
+							<h3
+								className="text-[20px] font-semibold"
+								style={{
+									color: isDarkMode ? '#ffffff' : '#000000',
+								}}
+							>
+								{card.title}
+							</h3>
+						</div>
+
+						{/* Card Description */}
+						<p
+							className="text-sm opacity-70 mb-4"
+							style={{
+								color: isDarkMode ? '#e0e0e0' : '#333333',
 							}}
 						>
-							<div>
-								<div className="flex items-center mb-1">
-									<div className="mr-2">{card.icon}</div>
-									<h3
-										style={{
-											fontSize: '20px',
-											margin: 0,
-											fontWeight: 600,
-											color: isDarkMode ? '#ffffff' : '#000000',
-										}}
-									>
-										{card.title}
-									</h3>
-								</div>
-								<p
-									style={{
-										fontSize: '13px',
-										marginTop: '8px',
-										marginBottom: '16px',
-										opacity: 0.7,
-										color: isDarkMode ? '#e0e0e0' : '#333333',
-									}}
-								>
-									{card.description}
-								</p>
+							{card.description}
+						</p>
+
+						{/* Action Button (bottom-left by default) */}
+						<Button
+							component={Link}
+							to={card.link}
+							variant="contained"
+							disableElevation
+							size="small"
+							sx={{
+								bgcolor: '#9747FF',
+								'&:hover': {
+									bgcolor: '#8030E0',
+								},
+								fontSize: '0.8rem',
+								padding: '6px 16px',
+								textTransform: 'uppercase',
+								fontWeight: 'bold',
+								letterSpacing: '0.5px',
+								borderRadius: '8px',
+							}}
+						>
+							GET STARTED
+						</Button>
+
+						{/* If there's a secondary icon, place it in from the corner */}
+						{card.secondaryIcon && (
+							<div className="absolute bottom-4 right-4">
+								{card.secondaryIcon}
 							</div>
-							<div className="flex justify-between items-center">
-								<Button
-									component={Link}
-									to={card.link}
-									variant="contained"
-									disableElevation
-									size="small"
-									sx={{
-										bgcolor: '#9747FF',
-										'&:hover': {
-											bgcolor: '#8030E0',
-										},
-										fontSize: '0.8rem',
-										padding: '6px 16px',
-										textTransform: 'uppercase',
-										fontWeight: 'bold',
-										letterSpacing: '0.5px',
-										borderRadius: '4px',
-									}}
-								>
-									GET STARTED
-								</Button>
-								{card.secondaryIcon && <div>{card.secondaryIcon}</div>}
-							</div>
-						</CardContent>
+						)}
 					</Card>
 				))}
 			</div>

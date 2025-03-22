@@ -11,7 +11,7 @@ const createAppTheme = (mode: 'light' | 'dark') =>
 		palette: {
 			mode: mode,
 			primary: {
-				main: '#3b82f6', // blue-500, matching our primary in Tailwind
+				main: '#212121', // blue-500, matching our primary in Tailwind
 			},
 			background: {
 				default: mode === 'dark' ? '#212121' : '#FAFAFA',
