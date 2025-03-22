@@ -10,11 +10,8 @@ import './dashboard.css';
 import { gsap } from 'gsap';
 import { useTheme } from '@mui/material/styles';
 import { Speedometer } from './Speedometer';
-import {
-	SpeedIcon,
-	PerformanceIcon,
-	ComputerIcon,
-} from '../utils/algorithm-icons';
+import AssessmentIcon from '@mui/icons-material/Assessment';
+import ComputerIcon from '@mui/icons-material/Computer';
 
 interface BenchmarkResultCardProps {
 	benchmark: BenchmarkResult;
@@ -34,31 +31,21 @@ export const BenchmarkResultCard: React.FC<BenchmarkResultCardProps> = ({
 		const metrics: { [key: string]: number } = {};
 		const phasePrefix = phase.toLowerCase();
 
-		// Extract all metrics that start with the phase name or contain the phase name
 		Object.entries(benchmark.metrics).forEach(([key, value]) => {
 			const keyLower = key.toLowerCase();
-
-			// Check if the key starts with the phase prefix
 			if (keyLower.startsWith(phasePrefix + '_')) {
-				// Extract the metric name without the phase prefix
 				const metricName = key.substring(phasePrefix.length + 1);
 				metrics[metricName] = value;
-			}
-			// Also check for metrics that contain the phase name (e.g., avg_keygen, keygen_time)
-			else if (keyLower.includes(phasePrefix)) {
-				// Use the full key as is - we'll normalize the display later
+			} else if (keyLower.includes(phasePrefix)) {
 				metrics[key] = value;
 			}
 		});
 
-		// For metrics not found in structured format, look for common patterns
 		if (Object.keys(metrics).length === 0) {
-			// Check if we have the phase as a direct metric
 			if (phasePrefix in benchmark.metrics) {
 				metrics['time_ms'] = benchmark.metrics[phasePrefix];
 			}
 		}
-
 		return metrics;
 	};
 
@@ -67,20 +54,16 @@ export const BenchmarkResultCard: React.FC<BenchmarkResultCardProps> = ({
 	const encapsMetrics = getPhaseMetrics('encaps');
 	const decapsMetrics = getPhaseMetrics('decaps');
 
-	// Check if each phase has data
 	const hasKeygenData = Object.keys(keygenMetrics).length > 0;
 	const hasEncapsData = Object.keys(encapsMetrics).length > 0;
 	const hasDecapsData = Object.keys(decapsMetrics).length > 0;
 
-	// Helper to format numbers with fixed precision
 	const formatNumber = (num: number | undefined, precision: number = 6) => {
 		if (num === undefined || isNaN(num)) return '0';
 		return num.toFixed(precision).replace(/\.?0+$/, '');
 	};
 
-	// Helper to format metric names for display
 	const formatMetricName = (name: string): string => {
-		// Replace underscores with spaces and capitalize the first letter of each word
 		return name.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 	};
 
@@ -102,17 +85,27 @@ export const BenchmarkResultCard: React.FC<BenchmarkResultCardProps> = ({
 			>
 				<div className="flex items-center mb-3 gap-2">
 					{icon}
-					<Typography variant="subtitle1" className="font-medium text-lg">
+					<h3
+						className="text-xl font-medium"
+						style={{
+							color: theme.palette.mode === 'dark' ? '#FFFFFF' : '#000000',
+						}}
+					>
 						{title}
-					</Typography>
+					</h3>
 				</div>
 				<div className="space-y-3">
 					{Object.entries(metrics).map(([key, value]) => (
 						<div key={key} className="metric-update">
-							<Typography variant="body2" className="text-muted-foreground">
+							<div className="text-sm" style={{ color: '#999999' }}>
 								{formatMetricName(key)}
-							</Typography>
-							<Typography variant="h6">
+							</div>
+							<div
+								className="text-lg font-medium"
+								style={{
+									color: theme.palette.mode === 'dark' ? '#FFFFFF' : '#000000',
+								}}
+							>
 								{formatNumber(value)}{' '}
 								{key.includes('ops')
 									? 'ops/sec'
@@ -123,7 +116,7 @@ export const BenchmarkResultCard: React.FC<BenchmarkResultCardProps> = ({
 									: key.includes('time') || key.includes('ms')
 									? 'ms'
 									: ''}
-							</Typography>
+							</div>
 						</div>
 					))}
 					{Object.keys(metrics).length === 0 && (
@@ -155,39 +148,31 @@ export const BenchmarkResultCard: React.FC<BenchmarkResultCardProps> = ({
 					<MetricCard
 						title="Performance Metrics"
 						metrics={performanceMetrics}
-						icon={<PerformanceIcon className="w-6 h-6 text-[#9747FF]" />}
+						icon={<AssessmentIcon style={{ color: '#9747FF' }} />}
 					/>
 					<Card
 						className={`p-4 h-full flex flex-col items-center justify-center ${
 							theme.palette.mode === 'dark' ? 'bg-[#212121]' : 'bg-[#E9E9E9]'
 						}`}
 					>
-						<Speedometer
-							value={100}
-							isRunning={false}
-							label={displayName}
-							algorithm={benchmark.algorithm}
-							securityParam={benchmark.securityParam}
-						/>
+						<Speedometer value={100} isRunning={false} label={displayName} />
 					</Card>
 					<MetricCard
 						title="System Metrics"
 						metrics={systemMetrics}
-						icon={<ComputerIcon className="w-6 h-6 text-[#9747FF]" />}
+						icon={<ComputerIcon style={{ color: '#9747FF' }} />}
 					/>
 				</div>
 			</div>
 		);
 	};
 
-	// Organize metrics by category for each phase
 	const organizeMetrics = (phaseMetrics: { [key: string]: number }) => {
 		const performanceMetrics: { [key: string]: number } = {};
 		const systemMetrics: { [key: string]: number } = {};
 
 		Object.entries(phaseMetrics).forEach(([key, value]) => {
 			const keyLower = key.toLowerCase();
-
 			if (
 				keyLower.includes('mem') ||
 				keyLower.includes('kb') ||
@@ -212,7 +197,6 @@ export const BenchmarkResultCard: React.FC<BenchmarkResultCardProps> = ({
 		return { performanceMetrics, systemMetrics };
 	};
 
-	// Extract organized metrics for each phase
 	const {
 		performanceMetrics: keygenPerformanceMetrics,
 		systemMetrics: keygenSystemMetrics,
@@ -228,14 +212,11 @@ export const BenchmarkResultCard: React.FC<BenchmarkResultCardProps> = ({
 
 	return (
 		<div className="space-y-[20px]">
-			{/* If benchmark failed, show error */}
 			{benchmark.status === 'failed' && benchmark.error && (
 				<div className="mt-2 p-4 bg-red-950/20 border border-red-800/40 rounded-md text-red-400">
 					Error: {benchmark.error}
 				</div>
 			)}
-
-			{/* If completed, show phase rows in the new layout */}
 			{benchmark.status === 'completed' && (
 				<div className="space-y-[20px]">
 					{hasKeygenData && (
@@ -245,7 +226,6 @@ export const BenchmarkResultCard: React.FC<BenchmarkResultCardProps> = ({
 							systemMetrics={keygenSystemMetrics}
 						/>
 					)}
-
 					{hasEncapsData && (
 						<PhaseRow
 							displayName="Encapsulation"
@@ -253,7 +233,6 @@ export const BenchmarkResultCard: React.FC<BenchmarkResultCardProps> = ({
 							systemMetrics={encapsSystemMetrics}
 						/>
 					)}
-
 					{hasDecapsData && (
 						<PhaseRow
 							displayName="Decapsulation"
@@ -261,13 +240,10 @@ export const BenchmarkResultCard: React.FC<BenchmarkResultCardProps> = ({
 							systemMetrics={decapsSystemMetrics}
 						/>
 					)}
-
-					{/* If no phase data is found */}
 					{!hasKeygenData && !hasEncapsData && !hasDecapsData && (
 						<div className="p-4 bg-amber-950/20 border border-amber-800/40 rounded-md text-amber-400">
 							No detailed metrics available for this benchmark. Only aggregated
 							data was recorded.
-							{/* Show raw metrics if available */}
 							{Object.keys(benchmark.metrics).length > 0 && (
 								<div className="mt-4 grid grid-cols-2 gap-5">
 									{Object.entries(benchmark.metrics).map(([key, value]) => (

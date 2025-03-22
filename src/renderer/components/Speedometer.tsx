@@ -63,25 +63,8 @@ export const Speedometer: React.FC<SpeedometerProps> = ({
 
 	return (
 		<div className="flex flex-col items-center justify-center relative">
-			{/* Show chosen algorithm & param above */}
-			{algorithm && securityParam && (
-				<div className="text-center mb-2">
-					<div className="font-medium">{algorithm}</div>
-					<div className="text-sm text-muted-foreground">{securityParam}</div>
-				</div>
-			)}
-
+			{/* Removed redundant algorithm and security parameter info */}
 			<div className="relative w-[220px] h-[220px]">
-				{/* Debug dot at bounding-box center */}
-				<div
-					className="absolute bg-red-500 w-2 h-2 rounded-full"
-					style={{
-						left: '50%',
-						top: '50%',
-						transform: 'translate(-50%, -50%)',
-					}}
-				/>
-
 				{/* Dial */}
 				<img
 					ref={dialRef}

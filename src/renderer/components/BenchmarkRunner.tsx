@@ -15,12 +15,18 @@ import { Card } from './ui/card';
 import { Speedometer } from './Speedometer';
 import { MetricsCard } from './MetricsCard';
 import { useTheme } from '@mui/material/styles';
+import SpeedIcon from '@mui/icons-material/Speed';
+import AssessmentIcon from '@mui/icons-material/Assessment';
+import ComputerIcon from '@mui/icons-material/Computer';
 import {
-	SpeedIcon,
-	PerformanceIcon,
-	ComputerIcon,
-} from '../utils/algorithm-icons';
-import { Button } from '@mui/material';
+	Button,
+	Select,
+	MenuItem,
+	TextField,
+	InputLabel,
+	FormControl,
+	SelectChangeEvent,
+} from '@mui/material';
 
 export const BenchmarkRunner: React.FC = () => {
 	const theme = useTheme();
@@ -51,15 +57,13 @@ export const BenchmarkRunner: React.FC = () => {
 		peakMemory: '0',
 	});
 
-	const handleAlgorithmChange = (
-		event: React.ChangeEvent<HTMLSelectElement>
-	) => {
+	const handleAlgorithmChange = (event: SelectChangeEvent) => {
 		const algorithm = event.target.value;
 		setSelectedAlgorithm(algorithm);
 		setSelectedParam(SECURITY_PARAMS[algorithm][0]);
 	};
 
-	const handleParamChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+	const handleParamChange = (event: SelectChangeEvent) => {
 		setSelectedParam(event.target.value);
 	};
 
@@ -190,83 +194,123 @@ export const BenchmarkRunner: React.FC = () => {
 
 	return (
 		<div className="space-y-5">
-			{/* Description */}
-			<p className="text-muted-foreground mb-5">
-				Configure and run benchmarks for post-quantum and classical cryptography
-				algorithms. Select an algorithm and a security parameter to start a
-				benchmark.
-			</p>
-
-			{/* Configuration Card */}
+			{/* Configuration Card with header and description */}
 			<Card
 				className={`p-6 mb-5 rounded-xl shadow-md transition-all ${
 					isDarkMode ? 'bg-[#212121]' : 'bg-[#E9E9E9]'
 				}`}
 			>
+				<div className="flex items-center mb-4">
+					<SpeedIcon style={{ color: '#9747FF' }} className="mr-3" />
+					<h2
+						className="text-[20px] font-semibold"
+						style={{ color: isDarkMode ? '#FFFFFF' : '#000000' }}
+					>
+						Run Benchmarks
+					</h2>
+				</div>
+				<p
+					className="mb-5"
+					style={{ color: isDarkMode ? '#FFFFFF' : '#000000' }}
+				>
+					Configure and run benchmarks for post-quantum and classical
+					cryptography algorithms. Select an algorithm and a security parameter
+					to start a benchmark.
+				</p>
+
 				<div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-6">
 					{/* Algorithm Selection */}
 					<div>
-						<label className="block text-sm font-medium mb-2">Algorithm</label>
-						<select
-							className="w-full p-2 border border-border rounded-md"
-							value={selectedAlgorithm}
-							onChange={handleAlgorithmChange}
-							disabled={isRunning}
-							style={{
-								backgroundColor: isDarkMode ? '#2a2a2a' : '#f8f8f8',
-								color: isDarkMode ? '#ffffff' : '#111111',
-							}}
-						>
-							{SUPPORTED_ALGORITHMS.map((algo) => {
-								const { displayName, category } = getAlgorithmInfo(algo);
-								return (
-									<option key={algo} value={algo}>
-										{displayName} ({category})
-									</option>
-								);
-							})}
-						</select>
+						<FormControl fullWidth>
+							<InputLabel id="algorithm-label">Algorithm</InputLabel>
+							<Select
+								labelId="algorithm-label"
+								id="algorithm"
+								value={selectedAlgorithm}
+								onChange={handleAlgorithmChange}
+								disabled={isRunning}
+								sx={{
+									backgroundColor: isDarkMode ? '#2a2a2a' : '#f8f8f8',
+									color: isDarkMode ? '#ffffff' : '#111111',
+									'.MuiOutlinedInput-notchedOutline': {
+										borderColor: 'rgba(0, 0, 0, 0.23)',
+									},
+								}}
+							>
+								{SUPPORTED_ALGORITHMS.map((algo) => {
+									const { displayName, category } = getAlgorithmInfo(algo);
+									return (
+										<MenuItem key={algo} value={algo}>
+											{displayName} ({category})
+										</MenuItem>
+									);
+								})}
+							</Select>
+						</FormControl>
 					</div>
 
 					{/* Security Parameter Selection */}
 					<div>
-						<label className="block text-sm font-medium mb-2">
-							Security Parameter
-						</label>
-						<select
-							className="w-full p-2 border border-border rounded-md"
-							value={selectedParam}
-							onChange={handleParamChange}
-							disabled={isRunning}
-							style={{
-								backgroundColor: isDarkMode ? '#2a2a2a' : '#f8f8f8',
-								color: isDarkMode ? '#ffffff' : '#111111',
-							}}
-						>
-							{SECURITY_PARAMS[selectedAlgorithm]?.map((param) => (
-								<option key={param} value={param}>
-									{param}
-								</option>
-							))}
-						</select>
+						<FormControl fullWidth>
+							<InputLabel id="security-param-label">
+								Security Parameter
+							</InputLabel>
+							<Select
+								labelId="security-param-label"
+								id="security-param"
+								value={selectedParam}
+								onChange={handleParamChange}
+								disabled={isRunning}
+								sx={{
+									backgroundColor: isDarkMode ? '#2a2a2a' : '#f8f8f8',
+									color: isDarkMode ? '#ffffff' : '#111111',
+									'.MuiOutlinedInput-notchedOutline': {
+										borderColor: 'rgba(0, 0, 0, 0.23)',
+									},
+								}}
+							>
+								{SECURITY_PARAMS[selectedAlgorithm]?.map((param) => (
+									<MenuItem key={param} value={param}>
+										{param}
+									</MenuItem>
+								))}
+							</Select>
+						</FormControl>
 					</div>
 
 					{/* Iterations */}
 					<div>
-						<label className="block text-sm font-medium mb-2">Iterations</label>
-						<input
-							type="number"
-							className="w-full p-2 border border-border rounded-md"
-							value={iterations}
-							onChange={handleIterationsChange}
-							min="1"
-							step="1000"
-							disabled={isRunning}
-							style={{
-								backgroundColor: isDarkMode ? '#2a2a2a' : '#f8f8f8',
-								color: isDarkMode ? '#ffffff' : '#111111',
-							}}
-						/>
+						<FormControl fullWidth>
+							<TextField
+								id="iterations"
+								type="number"
+								value={iterations}
+								onChange={handleIterationsChange}
+								inputProps={{
+									min: '1',
+									step: '1000',
+								}}
+								disabled={isRunning}
+								label="Iterations"
+								variant="outlined"
+								sx={{
+									backgroundColor: isDarkMode ? '#2a2a2a' : '#f8f8f8',
+									'& .MuiInputBase-input': {
+										color: isDarkMode ? '#ffffff' : '#111111',
+									},
+									'& .MuiOutlinedInput-root': {
+										'& fieldset': {
+											borderColor: 'rgba(0, 0, 0, 0.23)',
+										},
+									},
+									'& .MuiInputLabel-root': {
+										color: isDarkMode
+											? 'rgba(255, 255, 255, 0.7)'
+											: 'rgba(0, 0, 0, 0.6)',
+									},
+								}}
+							/>
+						</FormControl>
 					</div>
 				</div>
 
@@ -283,15 +327,18 @@ export const BenchmarkRunner: React.FC = () => {
 								bgcolor: '#8030E0',
 							},
 							fontSize: '0.9rem',
-							padding: '8px 20px',
-							textTransform: 'none',
+							padding: '10px 24px',
+							textTransform: 'uppercase',
 							fontWeight: 'bold',
-							borderRadius: '6px',
+							borderRadius: '8px !important',
 							opacity: isRunning ? 0.7 : 1,
 							cursor: isRunning ? 'not-allowed' : 'pointer',
+							'& .MuiButton-root': {
+								borderRadius: '8px',
+							},
 						}}
 					>
-						Run Benchmark
+						RUN BENCHMARK
 					</Button>
 					{isRunning && (
 						<Button
@@ -304,10 +351,13 @@ export const BenchmarkRunner: React.FC = () => {
 									bgcolor: '#e01e37',
 								},
 								fontSize: '0.9rem',
-								padding: '8px 20px',
-								textTransform: 'none',
+								padding: '10px 24px',
+								textTransform: 'uppercase',
 								fontWeight: 'bold',
-								borderRadius: '6px',
+								borderRadius: '8px !important',
+								'& .MuiButton-root': {
+									borderRadius: '8px',
+								},
 							}}
 						>
 							Stop
@@ -326,33 +376,45 @@ export const BenchmarkRunner: React.FC = () => {
 						}`}
 					>
 						<div className="flex items-center mb-3">
-							<div className="mr-2 rounded-full p-2 bg-[#9747FF20]">
-								<PerformanceIcon className="w-5 h-5 text-[#9747FF]" />
-							</div>
-							<h3 className="text-xl font-medium">Performance Metrics</h3>
+							<AssessmentIcon style={{ color: '#9747FF' }} className="mr-2" />
+							<h3
+								className="text-xl font-medium"
+								style={{ color: isDarkMode ? '#FFFFFF' : '#000000' }}
+							>
+								Performance Metrics
+							</h3>
 						</div>
 						<div className="space-y-3">
 							<div className="metric-update">
-								<div className="text-sm text-muted-foreground">
+								<div className="text-sm" style={{ color: '#999999' }}>
 									Average Execution Time
 								</div>
-								<div className="text-lg font-medium">
+								<div
+									className="text-lg font-medium"
+									style={{ color: isDarkMode ? '#FFFFFF' : '#000000' }}
+								>
 									{performanceMetrics.avgTime} ms
 								</div>
 							</div>
 							<div className="metric-update">
-								<div className="text-sm text-muted-foreground">
+								<div className="text-sm" style={{ color: '#999999' }}>
 									Minimum Execution Time
 								</div>
-								<div className="text-lg font-medium">
+								<div
+									className="text-lg font-medium"
+									style={{ color: isDarkMode ? '#FFFFFF' : '#000000' }}
+								>
 									{performanceMetrics.minTime} ms
 								</div>
 							</div>
 							<div className="metric-update">
-								<div className="text-sm text-muted-foreground">
+								<div className="text-sm" style={{ color: '#999999' }}>
 									Maximum Execution Time
 								</div>
-								<div className="text-lg font-medium">
+								<div
+									className="text-lg font-medium"
+									style={{ color: isDarkMode ? '#FFFFFF' : '#000000' }}
+								>
 									{performanceMetrics.maxTime} ms
 								</div>
 							</div>
@@ -381,33 +443,45 @@ export const BenchmarkRunner: React.FC = () => {
 						}`}
 					>
 						<div className="flex items-center mb-3">
-							<div className="mr-2 rounded-full p-2 bg-[#9747FF20]">
-								<ComputerIcon className="w-5 h-5 text-[#9747FF]" />
-							</div>
-							<h3 className="text-xl font-medium">System Metrics</h3>
+							<ComputerIcon style={{ color: '#9747FF' }} className="mr-2" />
+							<h3
+								className="text-xl font-medium"
+								style={{ color: isDarkMode ? '#FFFFFF' : '#000000' }}
+							>
+								System Metrics
+							</h3>
 						</div>
 						<div className="space-y-3">
 							<div className="metric-update">
-								<div className="text-sm text-muted-foreground">
+								<div className="text-sm" style={{ color: '#999999' }}>
 									Current Throughput
 								</div>
-								<div className="text-lg font-medium">
+								<div
+									className="text-lg font-medium"
+									style={{ color: isDarkMode ? '#FFFFFF' : '#000000' }}
+								>
 									{systemMetrics.throughput} ops/sec
 								</div>
 							</div>
 							<div className="metric-update">
-								<div className="text-sm text-muted-foreground">
+								<div className="text-sm" style={{ color: '#999999' }}>
 									Average Memory Usage
 								</div>
-								<div className="text-lg font-medium">
+								<div
+									className="text-lg font-medium"
+									style={{ color: isDarkMode ? '#FFFFFF' : '#000000' }}
+								>
 									{systemMetrics.avgMemory} KB
 								</div>
 							</div>
 							<div className="metric-update">
-								<div className="text-sm text-muted-foreground">
+								<div className="text-sm" style={{ color: '#999999' }}>
 									Peak Memory Usage
 								</div>
-								<div className="text-lg font-medium">
+								<div
+									className="text-lg font-medium"
+									style={{ color: isDarkMode ? '#FFFFFF' : '#000000' }}
+								>
 									{systemMetrics.peakMemory} KB
 								</div>
 							</div>
@@ -425,3 +499,5 @@ export const BenchmarkRunner: React.FC = () => {
 		</div>
 	);
 };
+
+export default BenchmarkRunner;
