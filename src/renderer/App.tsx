@@ -15,6 +15,7 @@ import CssBaseline from '@mui/material/CssBaseline';
 import {
 	HomePage,
 	RunBenchmarkPage,
+	RunEncryptionPage,
 	VisualizationPage,
 	ComparePage,
 	ExportPage,
@@ -132,6 +133,7 @@ const App: React.FC = () => {
 								<Route path="/" element={<HomePage />} />
 								<Route path="/home" element={<HomePage />} />
 								<Route path="/run-benchmark" element={<RunBenchmarkPage />} />
+								<Route path="/run-encryption" element={<RunEncryptionPage />} />
 								<Route path="/visualization" element={<VisualizationPage />} />
 								<Route path="/compare" element={<ComparePage />} />
 								<Route path="/export" element={<ExportPage />} />
@@ -170,11 +172,11 @@ const Navigation: React.FC<{
 	const navItems = [
 		{ text: 'Home', href: '/home' },
 		{ text: 'Run Benchmark', href: '/run-benchmark' },
-		{ text: 'Visualization', href: '/visualization' },
-		{ text: 'Compare Benchmarks', href: '/compare' },
-		{ text: 'Quantum Workloads', href: '/quantum-workloads' },
-		{ text: 'Export Data', href: '/export' },
-		{ text: 'Settings', href: '/settings' },
+		{ text: 'Run Encryption', href: '/run-encryption' },
+		{ text: 'Run Quantum Workloads', href: '/quantum-workloads' },
+		{ text: 'Visualize', href: '/visualization' },
+		{ text: 'Compare', href: '/compare' },
+		{ text: 'Export', href: '/export' },
 	];
 
 	return (

@@ -9,7 +9,7 @@ import DataUsageIcon from '@mui/icons-material/DataUsage';
 import CompareArrowsIcon from '@mui/icons-material/CompareArrows';
 import NetworkPingIcon from '@mui/icons-material/NetworkPing';
 import ExportNotesIcon from '@mui/icons-material/Download';
-import SettingsIcon from '@mui/icons-material/Settings';
+import VpnKeyIcon from '@mui/icons-material/VpnKey';
 import CodeIcon from '@mui/icons-material/Code';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 
@@ -34,6 +34,21 @@ export const HomePage: React.FC = () => {
 			secondaryIcon: <CodeIcon style={{ color: '#ABABA3' }} />,
 		},
 		{
+			title: 'Run Encryption',
+			description:
+				'Generate keys and encrypt or decrypt messages using various cryptographic algorithms.',
+			icon: <VpnKeyIcon style={{ color: '#9747FF' }} />,
+			link: '/settings',
+			secondaryIcon: <CodeIcon style={{ color: '#ABABA3' }} />,
+		},
+		{
+			title: 'Run Quantum Workloads',
+			description: "Run Shor's and Grover's algorithms via IBM Quantum Cloud.",
+			icon: <NetworkPingIcon style={{ color: '#9747FF' }} />,
+			link: '/quantum-workloads',
+			secondaryIcon: <AccountCircleIcon style={{ color: '#ABABA3' }} />,
+		},
+		{
 			title: 'Visualize',
 			description: 'View interactive charts and detailed performance metrics.',
 			icon: <DataUsageIcon style={{ color: '#9747FF' }} />,
@@ -46,23 +61,10 @@ export const HomePage: React.FC = () => {
 			link: '/compare',
 		},
 		{
-			title: 'Run Quantum Workloads',
-			description: "Run Shor's and Grover's algorithms via IBM Quantum Cloud.",
-			icon: <NetworkPingIcon style={{ color: '#9747FF' }} />,
-			link: '/quantum-workloads',
-			secondaryIcon: <AccountCircleIcon style={{ color: '#ABABA3' }} />,
-		},
-		{
 			title: 'Export',
 			description: 'Export benchmark results and reports in multiple formats.',
 			icon: <ExportNotesIcon style={{ color: '#9747FF' }} />,
 			link: '/export',
-		},
-		{
-			title: 'Settings',
-			description: 'Manage configurations, preferences, and integrations.',
-			icon: <SettingsIcon style={{ color: '#9747FF' }} />,
-			link: '/settings',
 		},
 	];
 
