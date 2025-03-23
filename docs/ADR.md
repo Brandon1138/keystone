@@ -436,3 +436,47 @@ We've implemented a comprehensive UI redesign with the following key components:
 ## Conclusion
 
 The adoption of a shadcn-inspired UI with dark mode as default significantly modernizes our application while improving maintainability and user experience. The refined design system provides a solid foundation for future UI development and ensures visual consistency across all components.
+
+### ADR-007: Theme-Aware Speedometer Component Enhancement
+
+## Status
+
+Accepted
+
+## Context
+
+The application includes a Speedometer component used for visualizing benchmark progress. Previously, this component used fixed SVG files (`dial_on.svg` and `dial_off.svg`) regardless of the application's theme setting. As part of our UI improvement efforts, we created theme-specific versions of these SVG files:
+
+- `dial_dark_off.svg` and `dial_dark_on.svg` for dark mode
+- `dial_light_off.svg` and `dial_light_on.svg` for light mode
+
+We needed to enhance the Speedometer component to dynamically select the appropriate dial images based on the current theme.
+
+## Decision
+
+We have implemented a theme-aware Speedometer component with the following key changes:
+
+1. **Theme Detection**: Added theme detection using Material UI's `useTheme` hook to determine whether the application is in dark or light mode.
+2. **Conditional Asset Selection**: Modified the component to conditionally select the appropriate SVG assets based on the detected theme:
+   - Dark theme: `dial_dark_on.svg` or `dial_dark_off.svg`
+   - Light theme: `dial_light_on.svg` or `dial_light_off.svg`
+3. **Smooth Transitions**: Maintained the existing GSAP animations for smooth transitions between states.
+
+The implementation preserves all existing functionality while providing a more cohesive visual experience that respects the user's theme preference.
+
+## Consequences
+
+### Pros
+
+- **Improved User Experience**: The Speedometer component now visually integrates better with both dark and light themes.
+- **Visual Consistency**: The application maintains visual consistency across different components and themes.
+- **Maintainability**: The component's theme awareness is handled automatically through React hooks rather than requiring external configuration.
+
+### Cons
+
+- **Increased Asset Management**: The application now needs to maintain four SVG files instead of two.
+- **Slightly Increased Complexity**: The component now has a dependency on the theme context.
+
+## Conclusion
+
+This enhancement improves the visual coherence of the application by ensuring that the Speedometer component respects the user's theme preference. The implementation is clean and maintainable, using React hooks to detect theme changes automatically. The minor drawbacks in terms of asset management are outweighed by the improved user experience and visual consistency.

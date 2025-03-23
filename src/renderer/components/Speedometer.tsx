@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { gsap } from 'gsap';
+import { useTheme } from '@mui/material/styles';
 
 interface SpeedometerProps {
 	value: number; // 0–100 progress
@@ -16,6 +17,8 @@ export const Speedometer: React.FC<SpeedometerProps> = ({
 	algorithm,
 	securityParam,
 }) => {
+	const theme = useTheme();
+	const isDarkMode = theme.palette.mode === 'dark';
 	const needleRef = useRef<HTMLDivElement>(null);
 	const dialRef = useRef<HTMLImageElement>(null);
 
@@ -24,8 +27,14 @@ export const Speedometer: React.FC<SpeedometerProps> = ({
 	const endAngle = +30;
 	const angle = startAngle + (value / 100) * (endAngle - startAngle);
 
-	// Swap dial images if needed
-	const dialImage = isRunning ? 'dial_on.svg' : 'dial_off.svg';
+	// Swap dial images if needed, using the appropriate theme version
+	const dialImage = isDarkMode
+		? isRunning
+			? 'dial_dark_on.svg'
+			: 'dial_dark_off.svg'
+		: isRunning
+		? 'dial_light_on.svg'
+		: 'dial_light_off.svg';
 
 	// Start needle at the startAngle on mount
 	useEffect(() => {
@@ -102,10 +111,15 @@ export const Speedometer: React.FC<SpeedometerProps> = ({
 
 				{/* Center label */}
 				<div className="absolute inset-0 flex items-center justify-center">
-					<div className="text-center translate-y-[40px]">
-						<div className="text-lg font-medium">{label}</div>
+					<div className="text-center translate-y-[60px]">
+						<div
+							className="text-base font-medium italic"
+							style={{ color: isDarkMode ? undefined : '#000000' }}
+						>
+							{label}
+						</div>
 						{algorithm && securityParam && (
-							<div className="text-sm text-muted-foreground">
+							<div className="text-xs" style={{ color: '#999999' }}>
 								{`${algorithm}-${securityParam}`}
 							</div>
 						)}

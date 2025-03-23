@@ -155,7 +155,13 @@ export const BenchmarkResultCard: React.FC<BenchmarkResultCardProps> = ({
 							theme.palette.mode === 'dark' ? 'bg-[#212121]' : 'bg-[#E9E9E9]'
 						}`}
 					>
-						<Speedometer value={100} isRunning={false} label={displayName} />
+						<Speedometer
+							value={100}
+							isRunning={false}
+							label={displayName}
+							algorithm={benchmark.algorithm}
+							securityParam={benchmark.securityParam}
+						/>
 					</Card>
 					<MetricCard
 						title="System Metrics"
