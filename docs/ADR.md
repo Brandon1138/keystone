@@ -480,3 +480,89 @@ The implementation preserves all existing functionality while providing a more c
 ## Conclusion
 
 This enhancement improves the visual coherence of the application by ensuring that the Speedometer component respects the user's theme preference. The implementation is clean and maintainable, using React hooks to detect theme changes automatically. The minor drawbacks in terms of asset management are outweighed by the improved user experience and visual consistency.
+
+## Architectural Decisions
+
+### 2024-03-19: Initial Setup and Navigation Implementation
+
+**Decision:**
+
+1. Updated benchmark types to include all available algorithms and their parameters:
+   - Post-Quantum: Kyber, Dilithium, Falcon, McEliece, SPHINCS+
+   - Classical: AES, ECDH, ECDSA, RSA
+2. Removed quick run section from HomePage for cleaner UI
+3. Set initial route to home page for better user experience
+4. Implemented proper type definitions for all benchmark parameters
+
+**Consequences:**
+
+- Positive:
+  - Complete coverage of all benchmark algorithms and parameters
+  - Cleaner home page focused on core features
+  - Better initial user experience with home page as landing
+  - Type-safe implementation of benchmark parameters
+- Negative:
+  - More complex parameter handling due to increased options
+  - Need to maintain larger set of benchmark configurations
+
+**Status:** Accepted
+
+### 2024-03-23: ECDH Live Benchmarking Implementation
+
+**Decision:**
+
+1. Extended benchmark manager to support ECDH-specific operations:
+   - Added 'shared_secret' operation to the progress data interface
+   - Added support for curve name and key size parameters
+   - Implemented special handling for curve-specific data
+2. Updated algorithm definitions to include ECDH with proper operation names:
+   - Added 'keygen' and 'shared_secret' operations
+   - Added appropriate display names for operations
+3. Updated dashboard components to display ECDH-specific metrics:
+   - Added curve name display to phase result dashboard
+   - Added shared secret size display alongside key sizes
+   - Added shared_secret operation display in completed results
+4. Extended BenchmarkResult type to include resultMetadata for algorithm-specific data
+
+**Consequences:**
+
+- Positive:
+  - Live benchmarking results now supported for ECDH algorithms
+  - Consistent user experience between all supported algorithms
+  - More detailed metrics displayed for ECDH-specific parameters
+  - Framework is now extensible for supporting additional algorithms
+- Negative:
+  - More complex data handling across components
+  - Need to maintain special cases for different algorithm types
+
+**Status:** Accepted
+
+### 2024-04-20: ECDSA Live Benchmarking Implementation
+
+**Decision:**
+
+1. Extended benchmark manager to support ECDSA-specific operations:
+   - Added support for signature_bytes field in the progress data interface
+   - Enhanced BenchmarkProgressData to handle ECDSA curve information
+   - Implemented proper processing of ECDSA benchmark results
+2. Updated algorithm definitions to include ECDSA with proper operation names:
+   - Added 'keygen', 'sign', and 'verify' operations
+   - Added appropriate display names for operations
+3. Updated dashboard components to display ECDSA-specific metrics:
+   - Added signature size display in the dashboard
+   - Enhanced the BenchmarkResult interface to explicitly include sizes information
+   - Made sure curve name is properly displayed in completed results
+4. Improved the resultMetadata structure to better organize sizing information for cryptographic artifacts
+
+**Consequences:**
+
+- Positive:
+  - Live benchmarking results now supported for ECDSA algorithms
+  - Consistent experience between post-quantum signature schemes and classical ECDSA
+  - More detailed metrics displayed for ECDSA-specific parameters including signature sizes
+  - Better organized metadata structure for key and signature sizes
+- Negative:
+  - Additional complexity in the BenchmarkManager to handle another algorithm's special cases
+  - More specific type definitions required
+
+**Status:** Accepted

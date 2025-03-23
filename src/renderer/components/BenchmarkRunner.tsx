@@ -27,6 +27,7 @@ import {
 	FormControl,
 	SelectChangeEvent,
 } from '@mui/material';
+import { getOperationDisplayName } from '../../types/algorithm-types';
 
 export const BenchmarkRunner: React.FC = () => {
 	const theme = useTheme();
@@ -143,16 +144,12 @@ export const BenchmarkRunner: React.FC = () => {
 		const handleBenchmarkProgress = (data: any) => {
 			// Update phase and progress
 			if (data.progress) {
-				// Convert phase names to display formats
-				const phaseDisplayNames: { [key: string]: string } = {
-					keygen: 'Key Generation',
-					encaps: 'Encapsulation',
-					decaps: 'Decapsulation',
-					sign: 'Signing',
-					verify: 'Verification',
-				};
-
-				setCurrentPhase(phaseDisplayNames[data.progress] || data.progress);
+				// Get operation display name using our utility function
+				const phaseDisplayName = getOperationDisplayName(
+					selectedAlgorithm,
+					data.progress
+				);
+				setCurrentPhase(phaseDisplayName);
 
 				// Calculate progress percentage
 				if (data.iteration && data.total) {

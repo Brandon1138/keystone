@@ -22,6 +22,16 @@ export interface BenchmarkResult {
 	timestamp: string;
 	status: 'completed' | 'failed';
 	error?: string;
+	resultMetadata?: {
+		curve?: string;
+		sizes?: {
+			public_key_bytes?: number;
+			secret_key_bytes?: number;
+			signature_bytes?: number;
+			shared_secret_bytes?: number;
+		};
+		[key: string]: any;
+	};
 }
 
 export const SUPPORTED_ALGORITHMS = [

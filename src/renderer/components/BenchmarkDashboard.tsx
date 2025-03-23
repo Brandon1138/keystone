@@ -2,10 +2,23 @@ import React, { useState, useEffect, useRef } from 'react';
 import { CircularProgress, Box, Typography, Paper, Grid } from '@mui/material';
 import { Card } from './ui/card';
 import './dashboard.css';
+import {
+	getAlgorithmDefinition,
+	getAlgorithmOperations,
+	getOperationDisplayName,
+} from '../../types/algorithm-types';
 
 // Interface for benchmark progress data
 interface BenchmarkProgressData {
-	progress: 'keygen' | 'encaps' | 'decaps';
+	progress:
+		| 'keygen'
+		| 'encaps'
+		| 'decaps'
+		| 'sign'
+		| 'verify'
+		| 'encrypt'
+		| 'decrypt'
+		| 'shared_secret';
 	parameter: string;
 	iteration: number;
 	total: number;
@@ -15,6 +28,12 @@ interface BenchmarkProgressData {
 	current_throughput_ops_sec: number;
 	current_mem_avg_kb: number;
 	current_mem_peak_kb: number;
+	key_size?: number;
+	public_key_bytes?: number; // For RSA public key size
+	secret_key_bytes?: number; // For RSA secret key size
+	curve?: string; // For ECDH curve name
+	shared_secret_bytes?: number; // For ECDH shared secret size
+	signature_bytes?: number; // For ECDSA signature size
 }
 
 // Interface to store the last data for each phase
@@ -22,6 +41,11 @@ interface PhaseData {
 	keygen?: BenchmarkProgressData;
 	encaps?: BenchmarkProgressData;
 	decaps?: BenchmarkProgressData;
+	sign?: BenchmarkProgressData;
+	verify?: BenchmarkProgressData;
+	encrypt?: BenchmarkProgressData;
+	decrypt?: BenchmarkProgressData;
+	shared_secret?: BenchmarkProgressData;
 }
 
 // Track overall progress across phases
@@ -56,29 +80,14 @@ export const BenchmarkDashboard: React.FC<BenchmarkDashboardProps> = ({
 
 	// Determine the total number of phases based on the algorithm
 	const getTotalPhases = (algo: string): number => {
-		// For demonstration, AES has 2 phases, others have 3
-		if (algo === 'aes') return 2;
-		return 3;
+		return getAlgorithmOperations(algo).length;
 	};
 
 	// Get phase number based on phase name and algorithm
 	const getPhaseNumber = (phaseName: string, algo: string): number => {
-		if (algo === 'aes') {
-			// For AES: encrypt = 0, decrypt = 1
-			return phaseName === 'encaps' ? 0 : 1;
-		}
-
-		// For most post-quantum algorithms: keygen = 0, encaps = 1, decaps = 2
-		switch (phaseName) {
-			case 'keygen':
-				return 0;
-			case 'encaps':
-				return 1;
-			case 'decaps':
-				return 2;
-			default:
-				return 0;
-		}
+		const operations = getAlgorithmOperations(algo);
+		const index = operations.indexOf(phaseName);
+		return index >= 0 ? index : 0;
 	};
 
 	// Initialize overall progress state
@@ -87,18 +96,27 @@ export const BenchmarkDashboard: React.FC<BenchmarkDashboardProps> = ({
 		totalPhases: getTotalPhases(algorithm),
 		currentIteration: 0,
 		totalIterations: 0,
-		phaseMap: { keygen: 0, encaps: 1, decaps: 2 },
+		phaseMap: getAlgorithmOperations(algorithm).reduce((acc, op, index) => {
+			acc[op] = index;
+			return acc;
+		}, {} as { [key: string]: number }),
 		completedPhases: new Set(),
 	});
 
 	// Reset state when algorithm changes
 	useEffect(() => {
+		const operations = getAlgorithmOperations(algorithm);
+		const phaseMap = operations.reduce((acc, op, index) => {
+			acc[op] = index;
+			return acc;
+		}, {} as { [key: string]: number });
+
 		setOverallProgress({
 			currentPhase: 0,
-			totalPhases: getTotalPhases(algorithm),
+			totalPhases: operations.length,
 			currentIteration: 0,
 			totalIterations: 0,
-			phaseMap: { keygen: 0, encaps: 1, decaps: 2 },
+			phaseMap,
 			completedPhases: new Set(),
 		});
 		phaseTransitionsRef.current = new Set();
@@ -129,7 +147,10 @@ export const BenchmarkDashboard: React.FC<BenchmarkDashboardProps> = ({
 			totalPhases: getTotalPhases(algorithm),
 			currentIteration: 0,
 			totalIterations: 0,
-			phaseMap: { keygen: 0, encaps: 1, decaps: 2 },
+			phaseMap: getAlgorithmOperations(algorithm).reduce((acc, op, index) => {
+				acc[op] = index;
+				return acc;
+			}, {} as { [key: string]: number }),
 			completedPhases: new Set(),
 		});
 
@@ -235,16 +256,7 @@ export const BenchmarkDashboard: React.FC<BenchmarkDashboardProps> = ({
 
 	// Helper to get display name for a phase
 	const getPhaseDisplayName = (phase: string): string => {
-		switch (phase) {
-			case 'keygen':
-				return 'Key Generation';
-			case 'encaps':
-				return 'Encapsulation';
-			case 'decaps':
-				return 'Decapsulation';
-			default:
-				return phase.charAt(0).toUpperCase() + phase.slice(1);
-		}
+		return getOperationDisplayName(algorithm, phase);
 	};
 
 	// Helper to format numbers with fixed precision
@@ -397,6 +409,16 @@ export const BenchmarkDashboard: React.FC<BenchmarkDashboardProps> = ({
 					<Typography variant="h6" className="capitalize">
 						{phaseName}
 					</Typography>
+					{phaseData.key_size && (
+						<Typography variant="subtitle1" className="ml-2">
+							(Key Size: {phaseData.key_size} bits)
+						</Typography>
+					)}
+					{phaseData.curve && (
+						<Typography variant="subtitle1" className="ml-2">
+							(Curve: {phaseData.curve})
+						</Typography>
+					)}
 				</div>
 
 				<Grid container spacing={3}>
@@ -440,6 +462,27 @@ export const BenchmarkDashboard: React.FC<BenchmarkDashboardProps> = ({
 									Memory: {formatNumber(phaseData.current_mem_avg_kb)} KB avg /{' '}
 									{formatNumber(phaseData.current_mem_peak_kb)} KB peak
 								</Typography>
+								{/* Display RSA/ECDH key sizes if available */}
+								{phaseData.public_key_bytes && (
+									<Typography variant="body2" className="text-muted-foreground">
+										Public Key: {phaseData.public_key_bytes} bytes
+									</Typography>
+								)}
+								{phaseData.secret_key_bytes && (
+									<Typography variant="body2" className="text-muted-foreground">
+										Secret Key: {phaseData.secret_key_bytes} bytes
+									</Typography>
+								)}
+								{phaseData.shared_secret_bytes && (
+									<Typography variant="body2" className="text-muted-foreground">
+										Shared Secret: {phaseData.shared_secret_bytes} bytes
+									</Typography>
+								)}
+								{phaseData.signature_bytes && phaseData.progress === 'sign' && (
+									<Typography variant="body2" className="text-muted-foreground">
+										Signature Size: {phaseData.signature_bytes} bytes
+									</Typography>
+								)}
 							</div>
 						</div>
 					</Grid>
@@ -462,6 +505,25 @@ export const BenchmarkDashboard: React.FC<BenchmarkDashboardProps> = ({
 
 	// If the benchmark is completed, show stacked results for each phase
 	if (isCompleted) {
+		// For ECDH algorithm, add curve name to all phases from metadata if available
+		if (
+			algorithm === 'ecdh' &&
+			completedPhases.keygen &&
+			!completedPhases.keygen.curve
+		) {
+			// If we have keygen data but no curve info, try to get it from the latest data
+			if (progressData && progressData.curve) {
+				// Add curve info to all phases
+				Object.keys(completedPhases).forEach((key) => {
+					if (completedPhases[key as keyof PhaseData]) {
+						(
+							completedPhases[key as keyof PhaseData] as BenchmarkProgressData
+						).curve = progressData.curve;
+					}
+				});
+			}
+		}
+
 		return (
 			<Card className="p-6 bg-card dark:bg-card-dark">
 				<h3 className="text-xl font-bold mb-4">Benchmark Results</h3>
@@ -487,6 +549,36 @@ export const BenchmarkDashboard: React.FC<BenchmarkDashboardProps> = ({
 						<PhaseResultDashboard
 							phaseData={completedPhases.decaps}
 							phaseName="Decapsulation"
+						/>
+					)}
+					{completedPhases.sign && (
+						<PhaseResultDashboard
+							phaseData={completedPhases.sign}
+							phaseName="Signature Generation"
+						/>
+					)}
+					{completedPhases.verify && (
+						<PhaseResultDashboard
+							phaseData={completedPhases.verify}
+							phaseName="Signature Verification"
+						/>
+					)}
+					{completedPhases.encrypt && (
+						<PhaseResultDashboard
+							phaseData={completedPhases.encrypt}
+							phaseName="Encryption"
+						/>
+					)}
+					{completedPhases.decrypt && (
+						<PhaseResultDashboard
+							phaseData={completedPhases.decrypt}
+							phaseName="Decryption"
+						/>
+					)}
+					{completedPhases.shared_secret && (
+						<PhaseResultDashboard
+							phaseData={completedPhases.shared_secret}
+							phaseName="Shared Secret Computation"
 						/>
 					)}
 				</div>
@@ -655,6 +747,50 @@ export const BenchmarkDashboard: React.FC<BenchmarkDashboardProps> = ({
 									{formatNumber(progressData.current_mem_peak_kb)} KB
 								</Typography>
 							</div>
+
+							{/* Show RSA specific metrics when available */}
+							{progressData.public_key_bytes && (
+								<div className="metric-update">
+									<Typography
+										variant="body2"
+										className="text-muted-foreground dark:text-muted-foreground-dark"
+									>
+										Public Key Size
+									</Typography>
+									<Typography variant="h6">
+										{progressData.public_key_bytes} bytes
+									</Typography>
+								</div>
+							)}
+
+							{progressData.secret_key_bytes && (
+								<div className="metric-update">
+									<Typography
+										variant="body2"
+										className="text-muted-foreground dark:text-muted-foreground-dark"
+									>
+										Secret Key Size
+									</Typography>
+									<Typography variant="h6">
+										{progressData.secret_key_bytes} bytes
+									</Typography>
+								</div>
+							)}
+
+							{progressData.signature_bytes &&
+								progressData.progress === 'sign' && (
+									<div className="metric-update">
+										<Typography
+											variant="body2"
+											className="text-muted-foreground dark:text-muted-foreground-dark"
+										>
+											Signature Size
+										</Typography>
+										<Typography variant="h6">
+											{progressData.signature_bytes} bytes
+										</Typography>
+									</div>
+								)}
 						</div>
 					</Card>
 				</Grid>

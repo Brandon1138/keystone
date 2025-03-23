@@ -12,6 +12,10 @@ import { useTheme } from '@mui/material/styles';
 import { Speedometer } from './Speedometer';
 import AssessmentIcon from '@mui/icons-material/Assessment';
 import ComputerIcon from '@mui/icons-material/Computer';
+import {
+	getAlgorithmOperations,
+	getOperationDisplayName,
+} from '../../types/algorithm-types';
 
 interface BenchmarkResultCardProps {
 	benchmark: BenchmarkResult;
@@ -25,6 +29,9 @@ export const BenchmarkResultCard: React.FC<BenchmarkResultCardProps> = ({
 	const algorithmInfo = getAlgorithmInfo(benchmark.algorithm);
 	const categoryColor = getCategoryColorClass(algorithmInfo.category);
 	const theme = useTheme();
+
+	// Get the expected operations for this algorithm
+	const algorithmOperations = getAlgorithmOperations(benchmark.algorithm);
 
 	// Function to get relevant metrics for a specific phase
 	const getPhaseMetrics = (phase: string) => {
@@ -49,14 +56,16 @@ export const BenchmarkResultCard: React.FC<BenchmarkResultCardProps> = ({
 		return metrics;
 	};
 
-	// Get metrics for each phase
-	const keygenMetrics = getPhaseMetrics('keygen');
-	const encapsMetrics = getPhaseMetrics('encaps');
-	const decapsMetrics = getPhaseMetrics('decaps');
+	// Get metrics for each possible operation and check if we have data
+	const operationMetrics = algorithmOperations.reduce((acc, operation) => {
+		acc[operation] = getPhaseMetrics(operation);
+		return acc;
+	}, {} as { [key: string]: { [key: string]: number } });
 
-	const hasKeygenData = Object.keys(keygenMetrics).length > 0;
-	const hasEncapsData = Object.keys(encapsMetrics).length > 0;
-	const hasDecapsData = Object.keys(decapsMetrics).length > 0;
+	const hasOperationData = algorithmOperations.reduce((acc, operation) => {
+		acc[operation] = Object.keys(operationMetrics[operation]).length > 0;
+		return acc;
+	}, {} as { [key: string]: boolean });
 
 	const formatNumber = (num: number | undefined, precision: number = 6) => {
 		if (num === undefined || isNaN(num)) return '0';
@@ -203,19 +212,6 @@ export const BenchmarkResultCard: React.FC<BenchmarkResultCardProps> = ({
 		return { performanceMetrics, systemMetrics };
 	};
 
-	const {
-		performanceMetrics: keygenPerformanceMetrics,
-		systemMetrics: keygenSystemMetrics,
-	} = organizeMetrics(keygenMetrics);
-	const {
-		performanceMetrics: encapsPerformanceMetrics,
-		systemMetrics: encapsSystemMetrics,
-	} = organizeMetrics(encapsMetrics);
-	const {
-		performanceMetrics: decapsPerformanceMetrics,
-		systemMetrics: decapsSystemMetrics,
-	} = organizeMetrics(decapsMetrics);
-
 	return (
 		<div className="space-y-[20px]">
 			{benchmark.status === 'failed' && benchmark.error && (
@@ -225,28 +221,31 @@ export const BenchmarkResultCard: React.FC<BenchmarkResultCardProps> = ({
 			)}
 			{benchmark.status === 'completed' && (
 				<div className="space-y-[20px]">
-					{hasKeygenData && (
-						<PhaseRow
-							displayName="Key Generation"
-							performanceMetrics={keygenPerformanceMetrics}
-							systemMetrics={keygenSystemMetrics}
-						/>
+					{/* Dynamically render phase rows based on available operation data */}
+					{algorithmOperations.map(
+						(operation) =>
+							hasOperationData[operation] && (
+								<PhaseRow
+									key={operation}
+									displayName={getOperationDisplayName(
+										benchmark.algorithm,
+										operation
+									)}
+									performanceMetrics={
+										organizeMetrics(operationMetrics[operation])
+											.performanceMetrics
+									}
+									systemMetrics={
+										organizeMetrics(operationMetrics[operation]).systemMetrics
+									}
+								/>
+							)
 					)}
-					{hasEncapsData && (
-						<PhaseRow
-							displayName="Encapsulation"
-							performanceMetrics={encapsPerformanceMetrics}
-							systemMetrics={encapsSystemMetrics}
-						/>
-					)}
-					{hasDecapsData && (
-						<PhaseRow
-							displayName="Decapsulation"
-							performanceMetrics={decapsPerformanceMetrics}
-							systemMetrics={decapsSystemMetrics}
-						/>
-					)}
-					{!hasKeygenData && !hasEncapsData && !hasDecapsData && (
+
+					{/* Show notice if no operation data is available */}
+					{algorithmOperations.every(
+						(operation) => !hasOperationData[operation]
+					) && (
 						<div className="p-4 bg-amber-950/20 border border-amber-800/40 rounded-md text-amber-400">
 							No detailed metrics available for this benchmark. Only aggregated
 							data was recorded.
