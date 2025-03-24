@@ -12,8 +12,27 @@ module.exports = [
 					use: 'ts-loader',
 					exclude: /node_modules/,
 				},
+				// Exclude native addon modules from webpack processing
+				{
+					test: /\.node$/,
+					use: 'node-loader',
+					exclude: /node_modules/,
+				},
 			],
 		},
+		externals: [
+			// Add any native modules you want to exclude from webpack processing
+			{
+				'../../build/Release/kyber_node_addon.node':
+					'commonjs2 ../../build/Release/kyber_node_addon.node',
+				'../build/Release/kyber_node_addon.node':
+					'commonjs2 ../build/Release/kyber_node_addon.node',
+				'./build/Release/kyber_node_addon.node':
+					'commonjs2 ./build/Release/kyber_node_addon.node',
+			},
+			// Add any native Node.js modules here
+			'fsevents',
+		],
 		output: {
 			path: path.resolve(__dirname, 'dist'),
 			filename: 'main.js',
@@ -21,6 +40,15 @@ module.exports = [
 		resolve: {
 			extensions: ['.tsx', '.ts', '.js'],
 		},
+		// Add this to ignore warnings about critical dependencies
+		ignoreWarnings: [
+			{
+				module: /kyber_node_addon/,
+			},
+			{
+				message: /Critical dependency/,
+			},
+		],
 	},
 	{
 		mode: 'development',

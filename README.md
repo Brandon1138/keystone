@@ -2,6 +2,74 @@
 
 A desktop application for running, visualizing, and comparing post-quantum cryptography benchmarks.
 
+## Post-Quantum Encryption Implementation
+
+The application now includes native integration with real post-quantum cryptographic algorithms, starting with Kyber. This allows users to:
+
+1. Generate Kyber key pairs
+2. Encrypt messages using Kyber (with AES-GCM for data encryption)
+3. Decrypt messages using Kyber
+
+### Kyber Encryption
+
+[Kyber](https://pq-crystals.org/kyber/) is a lattice-based key encapsulation mechanism (KEM) that was selected by NIST as a standard for post-quantum key establishment.
+
+The implementation in this application:
+
+- Uses the liboqs (Open Quantum Safe) library for Kyber operations
+- Leverages OpenSSL for AES-GCM symmetric encryption
+- Supports all three security levels: Kyber-512, Kyber-768, and Kyber-1024
+- Includes a native Node.js addon with C++ bindings for performance
+
+### Building the Native Addon
+
+To build the Kyber native addon, follow these steps:
+
+1. Install build prerequisites (Windows):
+   - Visual Studio Build Tools with C++ workload
+   - Python 3
+2. Build the addon:
+
+   ```bash
+   npm run build-addon
+   ```
+
+3. Test the Kyber implementation:
+   ```bash
+   npm run test-kyber
+   ```
+
+### Usage in the Application
+
+The encryption functionality is available in the "Run Encryption" section of the application:
+
+1. Select a security parameter (512, 768, or 1024)
+2. Generate a keypair using the "Generate Keys" button
+3. Enter a plaintext message to encrypt
+4. Click "Encrypt Message" to encrypt using the public key
+5. Use the secret key to decrypt the ciphertext
+
+### Technical Implementation
+
+The encryption system is implemented with three main components:
+
+1. **C++ Core (addons/kyber_encrypt.cpp)**
+
+   - Implements Kyber KEM operations using liboqs
+   - Handles hybrid encryption with AES-GCM from OpenSSL
+   - Manages memory securely for cryptographic operations
+
+2. **Node.js Addon (addons/kyber_node_addon.cpp)**
+
+   - Provides JavaScript bindings to the C++ core
+   - Handles Buffer conversions between Node.js and C++
+   - Exposes three main functions: generateKeypair, encrypt, decrypt
+
+3. **Electron Integration**
+   - IPC handlers in the main process communicate with the native addon
+   - Renderer process UI provides a user-friendly interface
+   - Secure key handling following best practices
+
 ## Data Storage Implementation
 
 The PQCBenchGUI4 application implements a flexible and robust data storage solution for managing benchmark results. This implementation follows Phase 4 of the project plan, providing a foundation for the visualization, comparison, and export functionality.

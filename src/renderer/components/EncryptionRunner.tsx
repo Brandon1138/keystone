@@ -7,44 +7,84 @@ import {
 	InputLabel,
 	TextField,
 	SelectChangeEvent,
+	CircularProgress,
+	Typography,
+	Box,
+	Alert,
+	Snackbar,
+	Tooltip,
+	IconButton,
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import { Card } from './ui/card';
 import VpnKeyIcon from '@mui/icons-material/VpnKey';
 import LockIcon from '@mui/icons-material/Lock';
 import LockOpenIcon from '@mui/icons-material/LockOpen';
+import InfoIcon from '@mui/icons-material/Info';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import { SUPPORTED_ALGORITHMS, SECURITY_PARAMS } from '../../types/benchmark';
 import { getAlgorithmInfo } from '../utils/algorithm-categories';
+
+// Define interfaces for our encryption operations
+interface KeypairResult {
+	publicKey: string;
+	secretKey: string;
+	publicKeySize: number;
+	secretKeySize: number;
+}
+
+interface EncryptResult {
+	ciphertext: string;
+	ciphertextSize: number;
+}
+
+interface DecryptResult {
+	plaintext: string;
+}
 
 export const EncryptionRunner: React.FC = () => {
 	const theme = useTheme();
 	const isDarkMode = theme.palette.mode === 'dark';
 
 	// Algorithm and parameter state
-	const initialAlgorithm = SUPPORTED_ALGORITHMS[0];
+	const initialAlgorithm = 'kyber'; // Only using Kyber for now
 	const [selectedAlgorithm, setSelectedAlgorithm] =
 		useState<string>(initialAlgorithm);
 	const [selectedParam, setSelectedParam] = useState<string>(
 		SECURITY_PARAMS[initialAlgorithm][0]
 	);
 
+	// Loading states
+	const [isGeneratingKeys, setIsGeneratingKeys] = useState(false);
+	const [isEncrypting, setIsEncrypting] = useState(false);
+	const [isDecrypting, setIsDecrypting] = useState(false);
+
+	// Error handling
+	const [error, setError] = useState<string | null>(null);
+	const [showError, setShowError] = useState(false);
+
 	// Key generation state
-	const [publicKeySize, setPublicKeySize] = useState<string>('0 KB');
-	const [secretKeySize, setSecretKeySize] = useState<string>('0 KB');
+	const [publicKey, setPublicKey] = useState<string>('');
+	const [secretKey, setSecretKey] = useState<string>('');
+	const [publicKeySize, setPublicKeySize] = useState<number>(0);
+	const [secretKeySize, setSecretKeySize] = useState<number>(0);
 	const [keysGenerated, setKeysGenerated] = useState<boolean>(false);
 
 	// Encryption state
 	const [plaintext, setPlaintext] = useState<string>('');
 	const [publicKeyInput, setPublicKeyInput] = useState<string>('');
 	const [ciphertext, setCiphertext] = useState<string>('');
-	const [encryptedMessageSize, setEncryptedMessageSize] =
-		useState<string>('0 KB');
+	const [encryptedMessageSize, setEncryptedMessageSize] = useState<number>(0);
 	const [messageEncrypted, setMessageEncrypted] = useState<boolean>(false);
 
 	// Decryption state
 	const [secretKeyInput, setSecretKeyInput] = useState<string>('');
+	const [ciphertextInput, setCiphertextInput] = useState<string>('');
 	const [recoveredPlaintext, setRecoveredPlaintext] = useState<string>('');
 	const [messageDecrypted, setMessageDecrypted] = useState<boolean>(false);
+
+	// Add copy feedback state
+	const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
 
 	const handleAlgorithmChange = (event: SelectChangeEvent) => {
 		const algorithm = event.target.value;
@@ -64,53 +104,129 @@ export const EncryptionRunner: React.FC = () => {
 
 	const resetState = () => {
 		// Reset key generation
-		setPublicKeySize('0 KB');
-		setSecretKeySize('0 KB');
+		setPublicKey('');
+		setSecretKey('');
+		setPublicKeySize(0);
+		setSecretKeySize(0);
 		setKeysGenerated(false);
 
 		// Reset encryption
 		setPublicKeyInput('');
 		setCiphertext('');
-		setEncryptedMessageSize('0 KB');
+		setEncryptedMessageSize(0);
 		setMessageEncrypted(false);
 
 		// Reset decryption
 		setSecretKeyInput('');
+		setCiphertextInput('');
 		setRecoveredPlaintext('');
 		setMessageDecrypted(false);
 	};
 
-	const generateKeys = () => {
-		// Simulate key generation with random sizes
-		const pubKeySize = Math.floor(Math.random() * 10) + 1;
-		const secKeySize = Math.floor(Math.random() * 20) + 5;
-
-		setPublicKeySize(`${pubKeySize} KB`);
-		setSecretKeySize(`${secKeySize} KB`);
-		setKeysGenerated(true);
+	const handleErrorClose = () => {
+		setShowError(false);
 	};
 
-	const encryptMessage = () => {
+	const showErrorMessage = (message: string) => {
+		setError(message);
+		setShowError(true);
+	};
+
+	const formatBytes = (bytes: number): string => {
+		if (bytes === 0) return '0 Bytes';
+		const k = 1024;
+		const sizes = ['Bytes', 'KB', 'MB'];
+		const i = Math.floor(Math.log(bytes) / Math.log(k));
+		return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+	};
+
+	const generateKeys = async () => {
+		try {
+			setIsGeneratingKeys(true);
+			setKeysGenerated(false);
+
+			// Call the IPC function to generate keys
+			const result: KeypairResult = await window.electron.ipcRenderer.invoke(
+				'kyber-generate-keypair',
+				selectedParam
+			);
+
+			// Update state with the generated keys
+			setPublicKey(result.publicKey);
+			setSecretKey(result.secretKey);
+			setPublicKeySize(result.publicKeySize);
+			setSecretKeySize(result.secretKeySize);
+
+			// Auto-fill the public key input field
+			setPublicKeyInput(result.publicKey);
+
+			setKeysGenerated(true);
+		} catch (err: any) {
+			console.error('Error generating keys:', err);
+			showErrorMessage(
+				`Failed to generate keys: ${err.message || 'Unknown error'}`
+			);
+		} finally {
+			setIsGeneratingKeys(false);
+		}
+	};
+
+	const encryptMessage = async () => {
 		if (!publicKeyInput || !plaintext) return;
 
-		// Simulate encryption
-		const encrypted = btoa(plaintext); // Simple base64 encoding for demo
-		setCiphertext(encrypted);
-		setEncryptedMessageSize(`${Math.ceil(encrypted.length / 1024)} KB`);
-		setMessageEncrypted(true);
+		try {
+			setIsEncrypting(true);
+			setMessageEncrypted(false);
+
+			// Call the IPC function to encrypt
+			const result: EncryptResult = await window.electron.ipcRenderer.invoke(
+				'kyber-encrypt',
+				selectedParam,
+				publicKeyInput,
+				plaintext
+			);
+
+			// Update state with the encrypted data
+			setCiphertext(result.ciphertext);
+			// Also set the ciphertext input to allow for immediate decryption
+			setCiphertextInput(result.ciphertext);
+			setEncryptedMessageSize(result.ciphertextSize);
+			setMessageEncrypted(true);
+		} catch (err: any) {
+			console.error('Error encrypting message:', err);
+			showErrorMessage(
+				`Failed to encrypt message: ${err.message || 'Unknown error'}`
+			);
+		} finally {
+			setIsEncrypting(false);
+		}
 	};
 
-	const decryptMessage = () => {
-		if (!secretKeyInput || !messageEncrypted) return;
+	const decryptMessage = async () => {
+		if (!secretKeyInput || !ciphertextInput) return;
 
-		// Simulate decryption
 		try {
-			const decrypted = atob(ciphertext); // Simple base64 decoding for demo
-			setRecoveredPlaintext(decrypted);
+			setIsDecrypting(true);
+			setMessageDecrypted(false);
+
+			// Call the IPC function to decrypt
+			const result: DecryptResult = await window.electron.ipcRenderer.invoke(
+				'kyber-decrypt',
+				selectedParam,
+				secretKeyInput,
+				ciphertextInput
+			);
+
+			// Update state with the decrypted data
+			setRecoveredPlaintext(result.plaintext);
 			setMessageDecrypted(true);
-		} catch (error) {
-			console.error('Decryption failed:', error);
-			setRecoveredPlaintext('Decryption failed');
+		} catch (err: any) {
+			console.error('Error decrypting message:', err);
+			showErrorMessage(
+				`Failed to decrypt message: ${err.message || 'Unknown error'}`
+			);
+		} finally {
+			setIsDecrypting(false);
 		}
 	};
 
@@ -121,8 +237,45 @@ export const EncryptionRunner: React.FC = () => {
 	// Common card style
 	const cardStyle = isDarkMode ? 'bg-[#212121]' : 'bg-[#E9E9E9]';
 
+	// Function to copy text to clipboard
+	const copyToClipboard = (text: string, description: string) => {
+		navigator.clipboard.writeText(text).then(
+			() => {
+				setCopyFeedback(`${description} copied to clipboard`);
+				setTimeout(() => setCopyFeedback(null), 2000);
+			},
+			(err) => {
+				console.error('Could not copy text: ', err);
+			}
+		);
+	};
+
 	return (
 		<div className="space-y-6">
+			{/* Error Snackbar */}
+			<Snackbar
+				open={showError}
+				autoHideDuration={6000}
+				onClose={handleErrorClose}
+				anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+			>
+				<Alert onClose={handleErrorClose} severity="error">
+					{error}
+				</Alert>
+			</Snackbar>
+
+			{/* Copy Feedback Snackbar */}
+			<Snackbar
+				open={copyFeedback !== null}
+				autoHideDuration={2000}
+				onClose={() => setCopyFeedback(null)}
+				anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+			>
+				<Alert severity="success" onClose={() => setCopyFeedback(null)}>
+					{copyFeedback}
+				</Alert>
+			</Snackbar>
+
 			{/* Algorithm Configuration Card */}
 			<Card className={`p-6 rounded-xl shadow-md transition-all ${cardStyle}`}>
 				<div className="flex items-center mb-4">
@@ -138,13 +291,12 @@ export const EncryptionRunner: React.FC = () => {
 					className="mb-5"
 					style={{ color: isDarkMode ? '#FFFFFF' : '#000000' }}
 				>
-					Configure and run encryption operations using post-quantum and
-					classical cryptography algorithms. Generate keys, encrypt and decrypt
-					messages using the selected algorithm.
+					Configure and run encryption operations using post-quantum Kyber
+					algorithm. Generate keys, encrypt and decrypt messages.
 				</p>
 
 				<div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-6">
-					{/* Algorithm Selection */}
+					{/* Algorithm Selection - Only Kyber for now */}
 					<div>
 						<FormControl fullWidth>
 							<InputLabel id="algorithm-label">Algorithm</InputLabel>
@@ -153,6 +305,7 @@ export const EncryptionRunner: React.FC = () => {
 								id="algorithm"
 								value={selectedAlgorithm}
 								onChange={handleAlgorithmChange}
+								disabled={true} // Disabled since we're only focusing on Kyber now
 								sx={{
 									backgroundColor: isDarkMode ? '#2a2a2a' : '#f8f8f8',
 									color: isDarkMode ? '#ffffff' : '#111111',
@@ -161,14 +314,7 @@ export const EncryptionRunner: React.FC = () => {
 									},
 								}}
 							>
-								{SUPPORTED_ALGORITHMS.map((algo) => {
-									const { displayName, category } = getAlgorithmInfo(algo);
-									return (
-										<MenuItem key={algo} value={algo}>
-											{displayName} ({category})
-										</MenuItem>
-									);
-								})}
+								<MenuItem value="kyber">Kyber (Post-Quantum KEM)</MenuItem>
 							</Select>
 						</FormControl>
 					</div>
@@ -221,28 +367,108 @@ export const EncryptionRunner: React.FC = () => {
 
 					<div className="space-y-4 flex-grow">
 						<div>
-							<div className="text-sm mb-1" style={{ color: '#999999' }}>
-								Public Key
+							<div
+								className="text-sm mb-1 flex items-center justify-between"
+								style={{ color: '#999999' }}
+							>
+								<div className="flex items-center">
+									Public Key
+									{publicKeySize > 0 && (
+										<Tooltip title={`Size: ${formatBytes(publicKeySize)}`}>
+											<InfoIcon
+												style={{
+													fontSize: '16px',
+													marginLeft: '5px',
+													color: '#999999',
+												}}
+											/>
+										</Tooltip>
+									)}
+								</div>
+								{publicKey && (
+									<Tooltip title="Copy public key">
+										<IconButton
+											size="small"
+											onClick={() => copyToClipboard(publicKey, 'Public key')}
+											sx={{ color: isDarkMode ? '#aaaaaa' : '#666666' }}
+										>
+											<ContentCopyIcon fontSize="small" />
+										</IconButton>
+									</Tooltip>
+								)}
 							</div>
 							<div
-								className="text-lg font-medium"
-								style={{ color: isDarkMode ? '#FFFFFF' : '#000000' }}
+								className="text-xs font-mono overflow-hidden overflow-ellipsis max-h-[80px] overflow-y-auto bg-opacity-50 p-2 rounded"
+								style={{
+									color: isDarkMode ? '#FFFFFF' : '#000000',
+									backgroundColor: isDarkMode ? '#2a2a2a' : '#f8f8f8',
+								}}
 							>
-								{publicKeySize}
+								{publicKey || 'Not generated'}
 							</div>
 						</div>
 
 						<div>
-							<div className="text-sm mb-1" style={{ color: '#999999' }}>
-								Secret Key
+							<div
+								className="text-sm mb-1 flex items-center justify-between"
+								style={{ color: '#999999' }}
+							>
+								<div className="flex items-center">
+									Secret Key
+									{secretKeySize > 0 && (
+										<Tooltip title={`Size: ${formatBytes(secretKeySize)}`}>
+											<InfoIcon
+												style={{
+													fontSize: '16px',
+													marginLeft: '5px',
+													color: '#999999',
+												}}
+											/>
+										</Tooltip>
+									)}
+								</div>
+								{secretKey && (
+									<Tooltip title="Copy secret key">
+										<IconButton
+											size="small"
+											onClick={() => copyToClipboard(secretKey, 'Secret key')}
+											sx={{ color: isDarkMode ? '#aaaaaa' : '#666666' }}
+										>
+											<ContentCopyIcon fontSize="small" />
+										</IconButton>
+									</Tooltip>
+								)}
 							</div>
 							<div
-								className="text-lg font-medium"
-								style={{ color: isDarkMode ? '#FFFFFF' : '#000000' }}
+								className="text-xs font-mono overflow-hidden overflow-ellipsis max-h-[80px] overflow-y-auto bg-opacity-50 p-2 rounded"
+								style={{
+									color: isDarkMode ? '#FFFFFF' : '#000000',
+									backgroundColor: isDarkMode ? '#2a2a2a' : '#f8f8f8',
+								}}
 							>
-								{secretKeySize}
+								{secretKey || 'Not generated'}
 							</div>
 						</div>
+
+						{keysGenerated && (
+							<div>
+								<div
+									className="text-sm mb-1 flex items-center"
+									style={{ color: '#28a745' }}
+								>
+									Keys generated successfully!
+									<Tooltip title="The public key has been automatically filled in the Encryption panel.">
+										<InfoIcon
+											style={{
+												fontSize: '16px',
+												marginLeft: '5px',
+												color: '#28a745',
+											}}
+										/>
+									</Tooltip>
+								</div>
+							</div>
+						)}
 					</div>
 
 					<div className="mt-auto pt-4">
@@ -250,6 +476,7 @@ export const EncryptionRunner: React.FC = () => {
 							variant="contained"
 							disableElevation
 							onClick={generateKeys}
+							disabled={isGeneratingKeys}
 							sx={{
 								bgcolor: '#9747FF',
 								'&:hover': {
@@ -262,7 +489,11 @@ export const EncryptionRunner: React.FC = () => {
 								borderRadius: '8px !important',
 							}}
 						>
-							Generate Keys
+							{isGeneratingKeys ? (
+								<CircularProgress size={24} color="inherit" />
+							) : (
+								'Generate Keys'
+							)}
 						</Button>
 					</div>
 				</Card>
@@ -283,14 +514,17 @@ export const EncryptionRunner: React.FC = () => {
 
 					<div className="space-y-4 flex-grow">
 						<TextField
-							label="Public Key"
+							label="Public Key (Base64)"
 							fullWidth
 							value={publicKeyInput}
 							onChange={(e) => setPublicKeyInput(e.target.value)}
+							multiline
+							rows={3}
 							sx={{
 								backgroundColor: isDarkMode ? '#2a2a2a' : '#f8f8f8',
 								'& .MuiInputBase-input': {
 									color: isDarkMode ? '#ffffff' : '#111111',
+									fontSize: '0.9rem',
 								},
 								'& .MuiOutlinedInput-root': {
 									'& fieldset': {
@@ -332,21 +566,42 @@ export const EncryptionRunner: React.FC = () => {
 
 						{messageEncrypted && (
 							<>
-								<div className="text-sm mb-1" style={{ color: '#999999' }}>
-									Ciphertext (Encrypted Message)
+								<div
+									className="text-sm mb-1 flex items-center justify-between"
+									style={{ color: '#999999' }}
+								>
+									<div className="flex items-center">
+										Ciphertext
+										<Tooltip
+											title={`Size: ${formatBytes(encryptedMessageSize)}`}
+										>
+											<InfoIcon
+												style={{
+													fontSize: '16px',
+													marginLeft: '5px',
+													color: '#999999',
+												}}
+											/>
+										</Tooltip>
+									</div>
+									<Tooltip title="Copy ciphertext">
+										<IconButton
+											size="small"
+											onClick={() => copyToClipboard(ciphertext, 'Ciphertext')}
+											sx={{ color: isDarkMode ? '#aaaaaa' : '#666666' }}
+										>
+											<ContentCopyIcon fontSize="small" />
+										</IconButton>
+									</Tooltip>
 								</div>
 								<div
-									className="text-sm font-medium bg-opacity-50 p-2 rounded overflow-hidden overflow-ellipsis"
+									className="text-xs font-mono overflow-hidden max-h-[100px] overflow-y-auto bg-opacity-50 p-2 rounded"
 									style={{
-										color: isDarkMode ? '#AAAAAA' : '#444444',
-										backgroundColor: isDarkMode ? '#1a1a1a' : '#f0f0f0',
-										maxHeight: '80px',
+										color: isDarkMode ? '#FFFFFF' : '#000000',
+										backgroundColor: isDarkMode ? '#2a2a2a' : '#f8f8f8',
 									}}
 								>
 									{ciphertext}
-								</div>
-								<div className="text-sm" style={{ color: '#999999' }}>
-									Encrypted Size: {encryptedMessageSize}
 								</div>
 							</>
 						)}
@@ -357,7 +612,7 @@ export const EncryptionRunner: React.FC = () => {
 							variant="contained"
 							disableElevation
 							onClick={encryptMessage}
-							disabled={!publicKeyInput || !plaintext}
+							disabled={isEncrypting || !publicKeyInput || !plaintext}
 							sx={{
 								bgcolor: '#9747FF',
 								'&:hover': {
@@ -371,7 +626,11 @@ export const EncryptionRunner: React.FC = () => {
 								opacity: !publicKeyInput || !plaintext ? 0.7 : 1,
 							}}
 						>
-							Encrypt Message
+							{isEncrypting ? (
+								<CircularProgress size={24} color="inherit" />
+							) : (
+								'Encrypt Message'
+							)}
 						</Button>
 					</div>
 				</Card>
@@ -392,14 +651,17 @@ export const EncryptionRunner: React.FC = () => {
 
 					<div className="space-y-4 flex-grow">
 						<TextField
-							label="Secret Key"
+							label="Secret Key (Base64)"
 							fullWidth
 							value={secretKeyInput}
 							onChange={(e) => setSecretKeyInput(e.target.value)}
+							multiline
+							rows={3}
 							sx={{
 								backgroundColor: isDarkMode ? '#2a2a2a' : '#f8f8f8',
 								'& .MuiInputBase-input': {
 									color: isDarkMode ? '#ffffff' : '#111111',
+									fontSize: '0.9rem',
 								},
 								'& .MuiOutlinedInput-root': {
 									'& fieldset': {
@@ -414,31 +676,82 @@ export const EncryptionRunner: React.FC = () => {
 							}}
 						/>
 
-						{messageEncrypted && (
-							<>
-								<div className="text-sm mb-1" style={{ color: '#999999' }}>
-									Ciphertext
+						<TextField
+							label="Ciphertext (Base64)"
+							fullWidth
+							value={ciphertextInput}
+							onChange={(e) => setCiphertextInput(e.target.value)}
+							multiline
+							rows={3}
+							sx={{
+								backgroundColor: isDarkMode ? '#2a2a2a' : '#f8f8f8',
+								'& .MuiInputBase-input': {
+									color: isDarkMode ? '#ffffff' : '#111111',
+									fontSize: '0.9rem',
+								},
+								'& .MuiOutlinedInput-root': {
+									'& fieldset': {
+										borderColor: 'rgba(0, 0, 0, 0.23)',
+									},
+								},
+								'& .MuiInputLabel-root': {
+									color: isDarkMode
+										? 'rgba(255, 255, 255, 0.7)'
+										: 'rgba(0, 0, 0, 0.6)',
+								},
+							}}
+						/>
+
+						{messageEncrypted && ciphertext && !ciphertextInput && (
+							<div
+								className="text-sm mb-1 flex items-center justify-between"
+								style={{ color: '#999999' }}
+							>
+								<div className="flex items-center">
+									<span>Ciphertext available in the Encryption panel</span>
+									<Tooltip title="The encrypted message can be viewed in the Encryption panel">
+										<InfoIcon
+											style={{
+												fontSize: '16px',
+												marginLeft: '5px',
+												color: '#999999',
+											}}
+										/>
+									</Tooltip>
 								</div>
-								<div
-									className="text-sm font-medium bg-opacity-50 p-2 rounded overflow-hidden overflow-ellipsis"
-									style={{
-										color: isDarkMode ? '#AAAAAA' : '#444444',
-										backgroundColor: isDarkMode ? '#1a1a1a' : '#f0f0f0',
-										maxHeight: '80px',
-									}}
-								>
-									{ciphertext}
-								</div>
-							</>
+								<Tooltip title="Use ciphertext from encryption">
+									<IconButton
+										size="small"
+										onClick={() => setCiphertextInput(ciphertext)}
+										sx={{ color: isDarkMode ? '#aaaaaa' : '#666666' }}
+									>
+										<ContentCopyIcon fontSize="small" />
+									</IconButton>
+								</Tooltip>
+							</div>
 						)}
 
 						{messageDecrypted && (
 							<>
-								<div className="text-sm mb-1" style={{ color: '#999999' }}>
-									Recovered Plaintext
+								<div
+									className="text-sm mb-1 flex items-center justify-between"
+									style={{ color: '#999999' }}
+								>
+									<span>Recovered Plaintext</span>
+									<Tooltip title="Copy plaintext">
+										<IconButton
+											size="small"
+											onClick={() =>
+												copyToClipboard(recoveredPlaintext, 'Plaintext')
+											}
+											sx={{ color: isDarkMode ? '#aaaaaa' : '#666666' }}
+										>
+											<ContentCopyIcon fontSize="small" />
+										</IconButton>
+									</Tooltip>
 								</div>
 								<div
-									className="text-base font-medium bg-opacity-50 p-2 rounded"
+									className="text-base font-mono bg-opacity-50 p-2 rounded overflow-auto max-h-[80px]"
 									style={{
 										color: isDarkMode ? '#FFFFFF' : '#000000',
 										backgroundColor: isDarkMode ? '#1a1a1a' : '#f0f0f0',
@@ -455,7 +768,7 @@ export const EncryptionRunner: React.FC = () => {
 							variant="contained"
 							disableElevation
 							onClick={decryptMessage}
-							disabled={!secretKeyInput || !messageEncrypted}
+							disabled={isDecrypting || !secretKeyInput || !ciphertextInput}
 							sx={{
 								bgcolor: '#9747FF',
 								'&:hover': {
@@ -466,10 +779,14 @@ export const EncryptionRunner: React.FC = () => {
 								textTransform: 'none',
 								fontWeight: 'bold',
 								borderRadius: '8px !important',
-								opacity: !secretKeyInput || !messageEncrypted ? 0.7 : 1,
+								opacity: !secretKeyInput || !ciphertextInput ? 0.7 : 1,
 							}}
 						>
-							Decrypt Message
+							{isDecrypting ? (
+								<CircularProgress size={24} color="inherit" />
+							) : (
+								'Decrypt Message'
+							)}
 						</Button>
 					</div>
 				</Card>
