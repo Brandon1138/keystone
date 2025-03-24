@@ -623,3 +623,74 @@ Negative:
 ### Status
 
 Implemented
+
+### ADR-008: Dilithium Signature Implementation for Message Authentication
+
+## Status
+
+Accepted
+
+## Context
+
+To complement our existing Kyber encryption functionality, we needed to implement a post-quantum digital signature algorithm that could provide authentication, integrity, and non-repudiation features. Dilithium (now standardized as ML-DSA) was chosen as it is one of the algorithms selected by NIST for standardization in the post-quantum cryptography process.
+
+While Kyber (ML-KEM) provides confidentiality through encryption, it does not offer authentication capabilities. Dilithium addresses this need with a complementary algorithm that follows a similar implementation pattern.
+
+## Decision
+
+We implemented Dilithium digital signature functionality with the following approach:
+
+1. **Native C++ Implementation** - Created `dilithium_encrypt.cpp` to implement the core signature functions:
+
+   - `GenerateKeypair` - Generates public/secret key pairs
+   - `Sign` - Creates a signature for a message using a secret key
+   - `Verify` - Verifies a signature using a public key and message
+
+2. **Node.js Native Addon** - Created `dilithium_node_addon.cpp` to expose the C++ functions to JavaScript:
+
+   - Used node-addon-api to create a clean interface
+   - Added proper error handling and type checking
+   - Implemented memory management to prevent leaks
+
+3. **Electron IPC Layer** - Extended the existing IPC framework to include Dilithium operations:
+
+   - Added IPC handlers for generate-keypair, sign, and verify
+   - Maintained consistent error handling and logging
+   - Followed the same pattern as the Kyber implementation for consistency
+
+4. **Security Levels** - Supported NIST's standardized security levels:
+
+   - Level 2 (ML-DSA-44): Lower security, smaller signatures
+   - Level 3 (ML-DSA-65): Medium security
+   - Level 5 (ML-DSA-87): Highest security, larger signatures
+
+5. **Documentation** - Created comprehensive documentation in `docs/dilithium-signature.md`:
+   - Explained the API usage
+   - Documented security levels and size considerations
+   - Provided troubleshooting guidance
+
+## Consequences
+
+### Pros:
+
+- Successfully implemented post-quantum digital signature functionality
+- Created a consistent API that follows the same patterns as our Kyber implementation
+- Reused the same robust loading mechanism for native addons
+- Provided comprehensive documentation for developers
+- Added capability for message authentication, integrity verification, and non-repudiation
+- Both implementations follow a maintainable and extensible pattern that can be applied to other cryptographic algorithms
+
+### Cons:
+
+- Increased the complexity of the build system with additional native modules
+- Added more dependencies on the Open Quantum Safe library
+- Introduced the need for more testing across different security levels and parameters
+
+## Implementation Notes
+
+To load and use the Dilithium implementation alongside Kyber:
+
+1. Both addons are built with the same build process (node-gyp)
+2. The native bindings expose similar interfaces for consistency
+3. The IPC layer follows a parallel pattern for both algorithms
+4. Users can choose which algorithm to use based on their specific needs

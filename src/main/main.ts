@@ -83,7 +83,7 @@ function createWindow() {
 app.whenReady().then(() => {
 	createWindow();
 	setupBenchmarkIPC();
-	setupEncryptionIPC(); // Set up Kyber encryption IPC handlers
+	setupEncryptionIPC(); // Set up both Kyber encryption and Dilithium signature IPC handlers
 
 	app.on('activate', () => {
 		// On macOS, re-create a window when the dock icon is clicked and no other windows are open

@@ -33,3 +33,14 @@ window.addEventListener('DOMContentLoaded', () => {
 		replaceText(`${type}-version`, process.versions[type]);
 	}
 });
+
+// Note: The Dilithium signature API is exposed through the existing ipcRenderer.invoke method
+// The following IPC channels are available:
+// - 'dilithium-generate-keypair' - Generate a Dilithium keypair
+// - 'dilithium-sign' - Sign a message with Dilithium
+// - 'dilithium-verify' - Verify a Dilithium signature
+//
+// And the existing Kyber channels:
+// - 'kyber-generate-keypair' - Generate a Kyber keypair
+// - 'kyber-encrypt' - Encrypt a message with Kyber
+// - 'kyber-decrypt' - Decrypt a Kyber-encrypted message

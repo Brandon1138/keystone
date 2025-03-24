@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.15)
-project(kyber_node_addon)
+project(crypto_node_addons)
 
 # Set C++ standard
 set(CMAKE_CXX_STANDARD 14)
@@ -15,26 +15,52 @@ include_directories(
   ${CMAKE_JS_INC}
 )
 
-# Define the main addon source files
-set(SOURCE_FILES
+# Define the kyber addon source files
+set(KYBER_SOURCE_FILES
   addons/kyber_node_addon.cpp
   addons/kyber_encrypt.cpp
 )
 
-# Create the Node.js addon
-add_library(${PROJECT_NAME} SHARED ${SOURCE_FILES})
-set_target_properties(${PROJECT_NAME} PROPERTIES PREFIX "" SUFFIX ".node")
+# Define the dilithium addon source files
+set(DILITHIUM_SOURCE_FILES
+  addons/dilithium_node_addon.cpp
+  addons/dilithium_encrypt.cpp
+)
 
-# Define outputs
+# Create the Kyber Node.js addon
+add_library(kyber_node_addon SHARED ${KYBER_SOURCE_FILES})
+set_target_properties(kyber_node_addon PROPERTIES PREFIX "" SUFFIX ".node")
+
+# Create the Dilithium Node.js addon
+add_library(dilithium_node_addon SHARED ${DILITHIUM_SOURCE_FILES})
+set_target_properties(dilithium_node_addon PROPERTIES PREFIX "" SUFFIX ".node")
+
+# Define outputs for Kyber
 if(WIN32)
-  set_target_properties(${PROJECT_NAME} PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/build/Release")
-  set_target_properties(${PROJECT_NAME} PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/build/Release")
+  set_target_properties(kyber_node_addon PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/build/Release")
+  set_target_properties(kyber_node_addon PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/build/Release")
 else()
-  set_target_properties(${PROJECT_NAME} PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/build/Release")
+  set_target_properties(kyber_node_addon PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/build/Release")
 endif()
 
-# Link to required libraries
-target_link_libraries(${PROJECT_NAME}
+# Define outputs for Dilithium
+if(WIN32)
+  set_target_properties(dilithium_node_addon PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/build/Release")
+  set_target_properties(dilithium_node_addon PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/build/Release")
+else()
+  set_target_properties(dilithium_node_addon PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/build/Release")
+endif()
+
+# Link Kyber to required libraries
+target_link_libraries(kyber_node_addon
+  ${CMAKE_JS_LIB}
+  ${CMAKE_SOURCE_DIR}/libs/openssl/openssl-3.0/x64/lib/libcrypto.lib
+  ${CMAKE_SOURCE_DIR}/libs/openssl/openssl-3.0/x64/lib/libssl.lib
+  ${CMAKE_SOURCE_DIR}/libs/oqs/install/lib/oqs.lib
+)
+
+# Link Dilithium to required libraries
+target_link_libraries(dilithium_node_addon
   ${CMAKE_JS_LIB}
   ${CMAKE_SOURCE_DIR}/libs/openssl/openssl-3.0/x64/lib/libcrypto.lib
   ${CMAKE_SOURCE_DIR}/libs/openssl/openssl-3.0/x64/lib/libssl.lib
@@ -42,4 +68,4 @@ target_link_libraries(${PROJECT_NAME}
 )
 
 # Install rules
-install(TARGETS ${PROJECT_NAME} DESTINATION ${CMAKE_SOURCE_DIR}/addons) 
+install(TARGETS kyber_node_addon dilithium_node_addon DESTINATION ${CMAKE_SOURCE_DIR}/addons) 
