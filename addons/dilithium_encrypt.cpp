@@ -4,7 +4,7 @@
 #include <iostream>
 #include <vector>
 
-#include "../libs/oqs/install/include/oqs/oqs.h"     
+#include <oqs/oqs.h>
 #include <openssl/evp.h>
 #include <openssl/err.h>
 #include <openssl/rand.h>

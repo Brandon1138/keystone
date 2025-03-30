@@ -77,9 +77,11 @@ Napi::Value GenerateKeypairWrapped(const Napi::CallbackInfo& info) {
         result.Set("secretKey", jsSecKey);
         return result;
     } catch (const Napi::Error& e) {
+        (void)e; // Suppress unused variable warning
         // Just rethrow Napi errors
         throw;
     } catch (const std::exception& e) {
+        (void)e; // Suppress unused variable warning
         // Convert std::exception to Napi::Error
         throw Napi::Error::New(env, "GenerateKeypair exception: " + std::string(e.what()));
     } catch (...) {
@@ -163,9 +165,11 @@ Napi::Value SignWrapped(const Napi::CallbackInfo& info) {
         // Return the signature Buffer
         return jsSignature;
     } catch (const Napi::Error& e) {
+        (void)e; // Suppress unused variable warning
         // Just rethrow Napi errors
         throw;
     } catch (const std::exception& e) {
+        (void)e; // Suppress unused variable warning
         // Convert std::exception to Napi::Error
         throw Napi::Error::New(env, "Sign exception: " + std::string(e.what()));
     } catch (...) {
@@ -250,9 +254,11 @@ Napi::Value VerifyWrapped(const Napi::CallbackInfo& info) {
         // Return a boolean (true = valid signature, false = invalid signature)
         return Napi::Boolean::New(env, ret == 0);
     } catch (const Napi::Error& e) {
+        (void)e; // Suppress unused variable warning
         // Just rethrow Napi errors
         throw;
     } catch (const std::exception& e) {
+        (void)e; // Suppress unused variable warning
         // Convert std::exception to Napi::Error
         throw Napi::Error::New(env, "Verify exception: " + std::string(e.what()));
     } catch (...) {

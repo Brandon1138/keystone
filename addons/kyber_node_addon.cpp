@@ -77,9 +77,11 @@ Napi::Value GenerateKeypairWrapped(const Napi::CallbackInfo& info) {
         result.Set("secretKey", jsSecKey);
         return result;
     } catch (const Napi::Error& e) {
+        (void)e; // Suppress unused variable warning
         // Just rethrow Napi errors
         throw;
     } catch (const std::exception& e) {
+        (void)e; // Suppress unused variable warning
         // Convert std::exception to Napi::Error
         throw Napi::Error::New(env, "GenerateKeypair exception: " + std::string(e.what()));
     } catch (...) {
@@ -163,9 +165,11 @@ Napi::Value EncryptWrapped(const Napi::CallbackInfo& info) {
         // Return the ciphertext Buffer
         return jsCipher;
     } catch (const Napi::Error& e) {
+        (void)e; // Suppress unused variable warning
         // Just rethrow Napi errors
         throw;
     } catch (const std::exception& e) {
+        (void)e; // Suppress unused variable warning
         // Convert std::exception to Napi::Error
         throw Napi::Error::New(env, "Encrypt exception: " + std::string(e.what()));
     } catch (...) {
@@ -248,9 +252,11 @@ Napi::Value DecryptWrapped(const Napi::CallbackInfo& info) {
         // Return the plaintext Buffer
         return jsPlain;
     } catch (const Napi::Error& e) {
+        (void)e; // Suppress unused variable warning
         // Just rethrow Napi errors
         throw;
     } catch (const std::exception& e) {
+        (void)e; // Suppress unused variable warning
         // Convert std::exception to Napi::Error
         throw Napi::Error::New(env, "Decrypt exception: " + std::string(e.what()));
     } catch (...) {
