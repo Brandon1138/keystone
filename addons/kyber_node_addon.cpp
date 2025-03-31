@@ -1,279 +1,233 @@
-// kyber_node_addon.cpp
-#include <napi.h>    // !!!!!! TODO: npm install --save-dev cmake-js  and build a script in package.json with "build-native": "cmake-js compile"
+#include <napi.h>
 #include <string>
 #include <vector>
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
+#include <stdexcept> // Include for std::runtime_error
 
-// The kyber_encrypt library provides these extern "C" functions:
+// Extern "C" declarations for the C++ functions in kyber_encrypt.cpp
 extern "C" {
 
-// Each function allocates memory for output buffers using malloc().
 int GenerateKeypair(const char* security_level,
                     uint8_t** public_key, size_t* public_key_len,
                     uint8_t** secret_key, size_t* secret_key_len);
 
-int Encrypt(const char* security_level,
-            const uint8_t* recipient_public_key, size_t recipient_public_key_len,
-            const uint8_t* plaintext, size_t plaintext_len,
-            uint8_t** out_ciphertext, size_t* out_ciphertext_len);
+// Updated function names
+int Encapsulate(const char* security_level,
+                const uint8_t* recipient_public_key, size_t recipient_public_key_len,
+                uint8_t** out_kem_ciphertext, size_t* out_kem_ciphertext_len,
+                uint8_t** out_shared_secret, size_t* out_shared_secret_len);
 
-int Decrypt(const char* security_level,
-            const uint8_t* recipient_secret_key, size_t recipient_secret_key_len,
-            const uint8_t* ciphertext, size_t ciphertext_len,
-            uint8_t** out_plaintext, size_t* out_plaintext_len);
+int Decapsulate(const char* security_level,
+                const uint8_t* recipient_secret_key, size_t recipient_secret_key_len,
+                const uint8_t* kem_ciphertext, size_t kem_ciphertext_len,
+                uint8_t** out_shared_secret, size_t* out_shared_secret_len);
 
 } // extern "C"
 
-// Helper to free the memory allocated in C. If you do not free it, you risk leaks.
+// Helper to free memory allocated by C++ functions (Unchanged)
 static inline void free_buffer(uint8_t* ptr) {
     if (ptr) {
         std::free(ptr);
     }
 }
 
-// ------------------------------
-// 1) GenerateKeypair Wrapper
-// ------------------------------
+// Helper to map C++ return codes to error messages
+static std::string getErrorMessage(int ret, const std::string& funcName) {
+    std::string baseMsg = funcName + " failed with code " + std::to_string(ret);
+    switch (ret) {
+        case -1: return baseMsg + ": Invalid arguments (null, bad sec level, or wrong key/ct length)";
+        case -2: return baseMsg + ": KEM algorithm initialization failed";
+        case -3: return baseMsg + ": Memory allocation failed";
+        case -4: return baseMsg + ": OQS operation failed (keypair/encaps/decaps)";
+        default: return baseMsg + ": Unknown error";
+    }
+}
+
+// --- N-API Wrappers ---
+
+// 1) GenerateKeypair Wrapper (Mostly Unchanged, added error mapping)
 Napi::Value GenerateKeypairWrapped(const Napi::CallbackInfo& info) {
     Napi::Env env = info.Env();
-
     try {
-        // Expect 1 argument: security_level (string: "512", "768", or "1024")
         if (info.Length() < 1 || !info[0].IsString()) {
-            throw Napi::TypeError::New(env, "Expected security_level string");
+            throw Napi::TypeError::New(env, "Expected security_level string (512, 768, 1024)");
         }
         std::string securityLevel = info[0].As<Napi::String>();
 
-        // Validate security level
+        // Validate security level (more robust)
         if (securityLevel != "512" && securityLevel != "768" && securityLevel != "1024") {
             throw Napi::TypeError::New(env, "Security level must be one of: 512, 768, 1024");
         }
 
-        // Prepare output buffers for the C function.
-        uint8_t* pubKey = nullptr;
-        size_t pubLen = 0;
-        uint8_t* secKey = nullptr;
-        size_t secLen = 0;
+        uint8_t* pubKey = nullptr; size_t pubLen = 0;
+        uint8_t* secKey = nullptr; size_t secLen = 0;
 
         int ret = GenerateKeypair(securityLevel.c_str(), &pubKey, &pubLen, &secKey, &secLen);
+
+        // Use helper for error messages
         if (ret != 0 || !pubKey || !secKey) {
-            std::string errorMsg = "GenerateKeypair failed with code: " + std::to_string(ret);
-            throw Napi::Error::New(env, errorMsg);
+            // Clean up potentially allocated memory even on failure before throwing
+             free_buffer(pubKey);
+             free_buffer(secKey);
+            throw Napi::Error::New(env, getErrorMessage(ret, "GenerateKeypair"));
         }
 
-        // Convert them to Node Buffers.
+        // Create Buffers *before* freeing C++ memory
         Napi::Buffer<uint8_t> jsPubKey = Napi::Buffer<uint8_t>::Copy(env, pubKey, pubLen);
         Napi::Buffer<uint8_t> jsSecKey = Napi::Buffer<uint8_t>::Copy(env, secKey, secLen);
 
-        // The library allocated memory for pubKey & secKey with malloc, so we free them now.
+        // Free C++ memory
         free_buffer(pubKey);
         free_buffer(secKey);
 
-        // Return an object: { publicKey: Buffer, secretKey: Buffer }
         Napi::Object result = Napi::Object::New(env);
         result.Set("publicKey", jsPubKey);
         result.Set("secretKey", jsSecKey);
         return result;
-    } catch (const Napi::Error& e) {
-        (void)e; // Suppress unused variable warning
-        // Just rethrow Napi errors
-        throw;
-    } catch (const std::exception& e) {
-        (void)e; // Suppress unused variable warning
-        // Convert std::exception to Napi::Error
-        throw Napi::Error::New(env, "GenerateKeypair exception: " + std::string(e.what()));
-    } catch (...) {
-        // Handle any other exceptions
-        throw Napi::Error::New(env, "Unknown error in GenerateKeypair");
-    }
+
+    } catch (const Napi::Error& e) { throw e; } // Re-throw Napi errors
+      catch (const std::exception& e) { throw Napi::Error::New(env, "GenerateKeypairWrapped C++ exception: " + std::string(e.what())); }
+      catch (...) { throw Napi::Error::New(env, "Unknown error in GenerateKeypairWrapped"); }
 }
 
-// ------------------------------
-// 2) Encrypt Wrapper
-// ------------------------------
-Napi::Value EncryptWrapped(const Napi::CallbackInfo& info) {
+// 2) Encapsulate Wrapper (Replaces EncryptWrapped)
+Napi::Value EncapsulateWrapped(const Napi::CallbackInfo& info) {
     Napi::Env env = info.Env();
-
     try {
-        // Expect 3 arguments: security_level (string), recipient_public_key (Buffer), plaintext (Buffer)
-        if (info.Length() < 3) {
-            throw Napi::TypeError::New(env, "Expected (securityLevel, publicKey, plaintext) arguments");
+        if (info.Length() < 2) {
+            throw Napi::TypeError::New(env, "Expected (securityLevel, publicKey) arguments");
         }
         if (!info[0].IsString()) {
-            throw Napi::TypeError::New(env, "securityLevel must be a string");
+            throw Napi::TypeError::New(env, "securityLevel must be a string (512, 768, 1024)");
         }
-        if (!info[1].IsBuffer() || !info[2].IsBuffer()) {
-            throw Napi::TypeError::New(env, "publicKey and plaintext must be Buffers");
+        if (!info[1].IsBuffer()) {
+            throw Napi::TypeError::New(env, "publicKey must be a Buffer");
         }
 
         std::string securityLevel = info[0].As<Napi::String>();
-        
-        // Validate security level
         if (securityLevel != "512" && securityLevel != "768" && securityLevel != "1024") {
             throw Napi::TypeError::New(env, "Security level must be one of: 512, 768, 1024");
         }
 
         Napi::Buffer<uint8_t> jsPubKey = info[1].As<Napi::Buffer<uint8_t>>();
-        Napi::Buffer<uint8_t> jsPlaintext = info[2].As<Napi::Buffer<uint8_t>>();
-
-        // Validate buffer sizes
         if (jsPubKey.Length() == 0) {
-            throw Napi::Error::New(env, "Public key buffer is empty");
-        }
-        
-        if (jsPlaintext.Length() == 0) {
-            throw Napi::Error::New(env, "Plaintext buffer is empty");
-        }
-        
-        // Check expected public key sizes based on security level
-        size_t expectedPubKeySize = 0;
-        if (securityLevel == "512") expectedPubKeySize = 800;
-        else if (securityLevel == "768") expectedPubKeySize = 1184;
-        else if (securityLevel == "1024") expectedPubKeySize = 1568;
-        
-        if (jsPubKey.Length() != expectedPubKeySize) {
-            std::string errorMsg = "Invalid public key size for security level " + securityLevel + 
-                                 ". Expected: " + std::to_string(expectedPubKeySize) + 
-                                 ", Actual: " + std::to_string(jsPubKey.Length());
-            throw Napi::Error::New(env, errorMsg);
+            throw Napi::Error::New(env, "Public key buffer cannot be empty");
         }
 
-        // Prepare output buffer for ciphertext
-        uint8_t* outCipher = nullptr;
-        size_t outCipherLen = 0;
+        // Output pointers for C++ function
+        uint8_t* kemCiphertext = nullptr; size_t kemCiphertextLen = 0;
+        uint8_t* sharedSecret = nullptr; size_t sharedSecretLen = 0;
 
-        int ret = Encrypt(
+        int ret = Encapsulate(
             securityLevel.c_str(),
             jsPubKey.Data(), jsPubKey.Length(),
-            jsPlaintext.Data(), jsPlaintext.Length(),
-            &outCipher, &outCipherLen
+            &kemCiphertext, &kemCiphertextLen,
+            &sharedSecret, &sharedSecretLen
         );
-        
-        if (ret != 0 || !outCipher || outCipherLen == 0) {
-            std::string errorMsg = "Encrypt failed with code: " + std::to_string(ret);
-            throw Napi::Error::New(env, errorMsg);
+
+        // Use helper for error messages
+        if (ret != 0 || !kemCiphertext || !sharedSecret) {
+            // Clean up potentially allocated memory even on failure before throwing
+             free_buffer(kemCiphertext);
+             free_buffer(sharedSecret);
+            throw Napi::Error::New(env, getErrorMessage(ret, "Encapsulate"));
         }
 
-        // Convert to a Node Buffer
-        Napi::Buffer<uint8_t> jsCipher = Napi::Buffer<uint8_t>::Copy(env, outCipher, outCipherLen);
+        // Create Buffers *before* freeing C++ memory
+        Napi::Buffer<uint8_t> jsKemCiphertext = Napi::Buffer<uint8_t>::Copy(env, kemCiphertext, kemCiphertextLen);
+        Napi::Buffer<uint8_t> jsSharedSecret = Napi::Buffer<uint8_t>::Copy(env, sharedSecret, sharedSecretLen);
 
-        // Free the allocated memory
-        free_buffer(outCipher);
+        // Free C++ memory
+        free_buffer(kemCiphertext);
+        free_buffer(sharedSecret);
 
-        // Return the ciphertext Buffer
-        return jsCipher;
-    } catch (const Napi::Error& e) {
-        (void)e; // Suppress unused variable warning
-        // Just rethrow Napi errors
-        throw;
-    } catch (const std::exception& e) {
-        (void)e; // Suppress unused variable warning
-        // Convert std::exception to Napi::Error
-        throw Napi::Error::New(env, "Encrypt exception: " + std::string(e.what()));
-    } catch (...) {
-        // Handle any other exceptions
-        throw Napi::Error::New(env, "Unknown error in Encrypt");
-    }
+        // Return an object containing both results
+        Napi::Object result = Napi::Object::New(env);
+        result.Set("kemCiphertext", jsKemCiphertext);
+        result.Set("sharedSecret", jsSharedSecret);
+        return result;
+
+    } catch (const Napi::Error& e) { throw e; } // Re-throw Napi errors
+      catch (const std::exception& e) { throw Napi::Error::New(env, "EncapsulateWrapped C++ exception: " + std::string(e.what())); }
+      catch (...) { throw Napi::Error::New(env, "Unknown error in EncapsulateWrapped"); }
 }
 
-// ------------------------------
-// 3) Decrypt Wrapper
-// ------------------------------
-Napi::Value DecryptWrapped(const Napi::CallbackInfo& info) {
-    Napi::Env env = info.Env();
 
+// 3) Decapsulate Wrapper (Replaces DecryptWrapped)
+Napi::Value DecapsulateWrapped(const Napi::CallbackInfo& info) {
+    Napi::Env env = info.Env();
     try {
-        // Expect 3 arguments: security_level (string), secretKey (Buffer), ciphertext (Buffer)
         if (info.Length() < 3) {
-            throw Napi::TypeError::New(env, "Expected (securityLevel, secretKey, ciphertext)");
+            throw Napi::TypeError::New(env, "Expected (securityLevel, secretKey, kemCiphertext)");
         }
         if (!info[0].IsString()) {
-            throw Napi::TypeError::New(env, "securityLevel must be a string");
+            throw Napi::TypeError::New(env, "securityLevel must be a string (512, 768, 1024)");
         }
         if (!info[1].IsBuffer() || !info[2].IsBuffer()) {
-            throw Napi::TypeError::New(env, "secretKey and ciphertext must be Buffers");
+            throw Napi::TypeError::New(env, "secretKey and kemCiphertext must be Buffers");
         }
 
         std::string securityLevel = info[0].As<Napi::String>();
-        
-        // Validate security level
         if (securityLevel != "512" && securityLevel != "768" && securityLevel != "1024") {
             throw Napi::TypeError::New(env, "Security level must be one of: 512, 768, 1024");
         }
-        
+
         Napi::Buffer<uint8_t> jsSecKey = info[1].As<Napi::Buffer<uint8_t>>();
-        Napi::Buffer<uint8_t> jsCipher = info[2].As<Napi::Buffer<uint8_t>>();
+        Napi::Buffer<uint8_t> jsKemCiphertext = info[2].As<Napi::Buffer<uint8_t>>();
 
-        // Validate buffer sizes
-        if (jsSecKey.Length() == 0) {
-            throw Napi::Error::New(env, "Secret key buffer is empty");
-        }
-        
-        if (jsCipher.Length() == 0) {
-            throw Napi::Error::New(env, "Ciphertext buffer is empty");
-        }
-        
-        // Check expected secret key sizes based on security level
-        size_t expectedSecKeySize = 0;
-        if (securityLevel == "512") expectedSecKeySize = 1632;
-        else if (securityLevel == "768") expectedSecKeySize = 2400;
-        else if (securityLevel == "1024") expectedSecKeySize = 3168;
-        
-        if (jsSecKey.Length() != expectedSecKeySize) {
-            std::string errorMsg = "Invalid secret key size for security level " + securityLevel + 
-                                 ". Expected: " + std::to_string(expectedSecKeySize) + 
-                                 ", Actual: " + std::to_string(jsSecKey.Length());
-            throw Napi::Error::New(env, errorMsg);
-        }
+        if (jsSecKey.Length() == 0) { throw Napi::Error::New(env, "Secret key buffer cannot be empty"); }
+        if (jsKemCiphertext.Length() == 0) { throw Napi::Error::New(env, "KEM ciphertext buffer cannot be empty"); }
 
-        uint8_t* outPlain = nullptr;
-        size_t outPlainLen = 0;
+        // Output pointer for C++ function
+        uint8_t* sharedSecret = nullptr; size_t sharedSecretLen = 0;
 
-        int ret = Decrypt(
+        int ret = Decapsulate(
             securityLevel.c_str(),
             jsSecKey.Data(), jsSecKey.Length(),
-            jsCipher.Data(), jsCipher.Length(),
-            &outPlain, &outPlainLen
+            jsKemCiphertext.Data(), jsKemCiphertext.Length(),
+            &sharedSecret, &sharedSecretLen
         );
-        
-        if (ret != 0 || !outPlain) {
-            std::string errorMsg = "Decrypt failed with code: " + std::to_string(ret);
-            throw Napi::Error::New(env, errorMsg);
+
+        // Use helper for error messages
+        if (ret != 0 || !sharedSecret) {
+             // Clean up potentially allocated memory even on failure before throwing
+             free_buffer(sharedSecret);
+             // Note: ret=0 is success, but a negative value indicates an error.
+             // Decapsulation failure due to bad key/ciphertext doesn't return error code here,
+             // it relies on subsequent AEAD check failure.
+            if (ret != 0) { // Only throw if OQS itself reported an error (ret < 0)
+                 throw Napi::Error::New(env, getErrorMessage(ret, "Decapsulate"));
+            } else if (!sharedSecret) {
+                // Should not happen if ret=0, but as a safeguard
+                 throw Napi::Error::New(env, "Decapsulate failed: Shared secret pointer is null despite success code.");
+            }
+             // If ret == 0 and sharedSecret is valid, proceed even if crypto might fail later.
         }
 
-        // Convert to Node Buffer
-        Napi::Buffer<uint8_t> jsPlain = Napi::Buffer<uint8_t>::Copy(env, outPlain, outPlainLen);
+        // Create Buffer *before* freeing C++ memory
+        Napi::Buffer<uint8_t> jsSharedSecret = Napi::Buffer<uint8_t>::Copy(env, sharedSecret, sharedSecretLen);
 
-        // Free the allocated memory
-        free_buffer(outPlain);
+        // Free C++ memory
+        free_buffer(sharedSecret);
 
-        // Return the plaintext Buffer
-        return jsPlain;
-    } catch (const Napi::Error& e) {
-        (void)e; // Suppress unused variable warning
-        // Just rethrow Napi errors
-        throw;
-    } catch (const std::exception& e) {
-        (void)e; // Suppress unused variable warning
-        // Convert std::exception to Napi::Error
-        throw Napi::Error::New(env, "Decrypt exception: " + std::string(e.what()));
-    } catch (...) {
-        // Handle any other exceptions
-        throw Napi::Error::New(env, "Unknown error in Decrypt");
-    }
+        // Return the shared secret Buffer directly
+        return jsSharedSecret;
+
+    } catch (const Napi::Error& e) { throw e; } // Re-throw Napi errors
+      catch (const std::exception& e) { throw Napi::Error::New(env, "DecapsulateWrapped C++ exception: " + std::string(e.what())); }
+      catch (...) { throw Napi::Error::New(env, "Unknown error in DecapsulateWrapped"); }
 }
 
-// ------------------------------
-// Module Initialization
-// ------------------------------
+
+// 4) Module Initialization (Updated Export Names)
 Napi::Object InitAll(Napi::Env env, Napi::Object exports) {
     exports.Set("generateKeypair", Napi::Function::New(env, GenerateKeypairWrapped));
-    exports.Set("encrypt",        Napi::Function::New(env, EncryptWrapped));
-    exports.Set("decrypt",        Napi::Function::New(env, DecryptWrapped));
+    exports.Set("encapsulate", Napi::Function::New(env, EncapsulateWrapped)); // Changed name
+    exports.Set("decapsulate", Napi::Function::New(env, DecapsulateWrapped)); // Changed name
     return exports;
 }
 
-// This macro is required to register the addon
+// Register the addon
 NODE_API_MODULE(kyber_node_addon, InitAll)

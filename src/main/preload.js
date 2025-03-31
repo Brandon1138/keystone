@@ -1,46 +1,165 @@
 const { contextBridge, ipcRenderer } = require('electron');
+// No longer need path, fs, or direct crypto require here if HKDF/randomBytes are called via IPC
+// const crypto = require('crypto');
+// const path = require('path');
+// const fs = require('fs');
 
-// Expose protected methods that allow the renderer process to use
-// the ipcRenderer without exposing the entire object
+console.log('[preload] Initializing...');
+
+// --- REMOVE Addon Loading Logic from Preload ---
+// Addons should be loaded reliably in the main process (ipc.ts)
+
+// --- Expose APIs via contextBridge ---
+
+contextBridge.exposeInMainWorld('electronAPI', {
+	// --- Kyber KEM Functions (using IPC) ---
+	kyber: {
+		generateKeypair: (secLevel) => {
+			console.log('[preload] invoking kyber-generate-keypair', secLevel);
+			return ipcRenderer.invoke('kyber-generate-keypair', secLevel);
+			// Add .then/.catch here for preload-specific logging if needed
+		},
+		// IMPORTANT: Use the IPC channel names that will correspond to
+		// the *new* encapsulate/decapsulate addon functions later.
+		// We will need corresponding handlers in ipc.ts for these.
+		encapsulate: (secLevel, pubKey) => {
+			console.log('[preload] invoking kyber-encapsulate', secLevel);
+			// Convert pubKey to Base64 for IPC
+			const pubKeyBase64 = Buffer.isBuffer(pubKey)
+				? pubKey.toString('base64')
+				: Buffer.from(pubKey).toString('base64');
+			return ipcRenderer.invoke(
+				'kyber-encapsulate', // NEW IPC channel name
+				secLevel,
+				pubKeyBase64
+			);
+		},
+		decapsulate: (secLevel, secKey, kemCiphertext) => {
+			console.log('[preload] invoking kyber-decapsulate', secLevel);
+			// Convert Buffers to Base64 for IPC
+			const secKeyBase64 = Buffer.isBuffer(secKey)
+				? secKey.toString('base64')
+				: Buffer.from(secKey).toString('base64');
+			const kemCiphertextBase64 = Buffer.isBuffer(kemCiphertext)
+				? kemCiphertext.toString('base64')
+				: Buffer.from(kemCiphertext).toString('base64');
+			return ipcRenderer.invoke(
+				'kyber-decapsulate', // NEW IPC channel name
+				secLevel,
+				secKeyBase64,
+				kemCiphertextBase64
+			);
+		},
+	},
+
+	// --- Dilithium Signature Functions (using IPC) ---
+	dilithium: {
+		generateKeypair: (secLevel) => {
+			console.log('[preload] invoking dilithium-generate-keypair', secLevel);
+			return ipcRenderer.invoke('dilithium-generate-keypair', secLevel);
+		},
+		sign: (secLevel, secKey, message) => {
+			console.log('[preload] invoking dilithium-sign', secLevel);
+			// Convert Buffer args to Base64/UTF8 for IPC
+			const secKeyBase64 = Buffer.isBuffer(secKey)
+				? secKey.toString('base64')
+				: Buffer.from(secKey).toString('base64');
+			// Assume message can be string or buffer, send as string
+			const messageString = Buffer.isBuffer(message)
+				? message.toString('utf8')
+				: String(message);
+			return ipcRenderer.invoke(
+				'dilithium-sign',
+				secLevel,
+				secKeyBase64,
+				messageString
+			);
+		},
+		verify: (secLevel, pubKey, message, signature) => {
+			console.log('[preload] invoking dilithium-verify', secLevel);
+			// Convert Buffer args to Base64/UTF8 for IPC
+			const pubKeyBase64 = Buffer.isBuffer(pubKey)
+				? pubKey.toString('base64')
+				: Buffer.from(pubKey).toString('base64');
+			const messageString = Buffer.isBuffer(message)
+				? message.toString('utf8')
+				: String(message);
+			const signatureBase64 = Buffer.isBuffer(signature)
+				? signature.toString('base64')
+				: Buffer.from(signature).toString('base64');
+			return ipcRenderer.invoke(
+				'dilithium-verify',
+				secLevel,
+				pubKeyBase64,
+				messageString,
+				signatureBase64
+			);
+		},
+	},
+
+	// --- Node.js Crypto Utilities (using IPC) ---
+	// We need corresponding handlers in ipc.ts for these too
+	nodeCrypto: {
+		hkdf: (ikm, length, salt, info) => {
+			console.log('[preload] invoking node-crypto-hkdf');
+			// Convert Buffers to Base64/UTF8 for IPC
+			const ikmBase64 = Buffer.isBuffer(ikm)
+				? ikm.toString('base64')
+				: Buffer.from(ikm).toString('base64');
+			const saltBase64 = salt
+				? Buffer.isBuffer(salt)
+					? salt.toString('base64')
+					: Buffer.from(salt).toString('base64')
+				: undefined; // Handle optional salt
+			const infoString = info
+				? Buffer.isBuffer(info)
+					? info.toString('utf8') // Info often treated as string
+					: String(info)
+				: undefined; // Handle optional info
+			return ipcRenderer.invoke(
+				'node-crypto-hkdf', // NEW IPC channel name
+				ikmBase64,
+				length,
+				saltBase64,
+				infoString
+			);
+		},
+		getRandomBytes: (length) => {
+			console.log('[preload] invoking node-crypto-get-random-bytes', length);
+			return ipcRenderer.invoke(
+				'node-crypto-get-random-bytes', // NEW IPC channel name
+				length
+			);
+		},
+	},
+
+	// --- Utilities (can stay if simple pure JS) ---
+	utils: {
+		bufferToString: (buf, enc) => buf.toString(enc),
+		stringToBuffer: (str, enc) => Buffer.from(str, enc),
+	},
+});
+
+// --- Keep existing generic IPC exposure ---
 contextBridge.exposeInMainWorld('electron', {
 	ipcRenderer: {
-		invoke: (channel, ...args) => ipcRenderer.invoke(channel, ...args),
+		invoke: ipcRenderer.invoke, // Direct passthrough
 		on: (channel, func) => {
-			ipcRenderer.on(channel, (event, ...args) => func(...args));
+			const subscription = (event, ...args) => func(...args);
+			ipcRenderer.on(channel, subscription);
+			return () => ipcRenderer.removeListener(channel, subscription); // Return unsubscriber
 		},
 		once: (channel, func) => {
 			ipcRenderer.once(channel, (event, ...args) => func(...args));
 		},
-		removeListener: (channel, func) => {
-			ipcRenderer.removeListener(channel, func);
-		},
+		removeListener: ipcRenderer.removeListener, // Direct passthrough
+		removeAllListeners: ipcRenderer.removeAllListeners, // Direct passthrough
 	},
 });
 
-// Expose the process.versions to the renderer
+// --- Keep existing process version exposure ---
 contextBridge.exposeInMainWorld('process', {
 	versions: process.versions,
 });
 
-// Preload script
-window.addEventListener('DOMContentLoaded', () => {
-	const replaceText = (selector, text) => {
-		const element = document.getElementById(selector);
-		if (element) element.innerText = text;
-	};
-
-	for (const type of ['chrome', 'node', 'electron']) {
-		replaceText(`${type}-version`, process.versions[type]);
-	}
-});
-
-// Note: The Dilithium signature API is exposed through the existing ipcRenderer.invoke method
-// The following IPC channels are available:
-// - 'dilithium-generate-keypair' - Generate a Dilithium keypair
-// - 'dilithium-sign' - Sign a message with Dilithium
-// - 'dilithium-verify' - Verify a Dilithium signature
-//
-// And the existing Kyber channels:
-// - 'kyber-generate-keypair' - Generate a Kyber keypair
-// - 'kyber-encrypt' - Encrypt a message with Kyber
-// - 'kyber-decrypt' - Decrypt a Kyber-encrypted message
+console.log('[preload] Context bridge APIs exposed using IPC.');

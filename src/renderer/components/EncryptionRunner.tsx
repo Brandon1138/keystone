@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
 	Button,
 	Select,
@@ -15,9 +15,10 @@ import {
 	Tooltip,
 	IconButton,
 	InputAdornment,
+	Grid, // Use Grid for layout
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
-import { Card } from './ui/card';
+import { Card } from './ui/card'; // Assuming relative path is correct
 import VpnKeyIcon from '@mui/icons-material/VpnKey';
 import LockIcon from '@mui/icons-material/Lock';
 import LockOpenIcon from '@mui/icons-material/LockOpen';
@@ -27,378 +28,422 @@ import VerifiedIcon from '@mui/icons-material/Verified';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
-import { SUPPORTED_ALGORITHMS, SECURITY_PARAMS } from '../../types/benchmark';
-import { getAlgorithmInfo } from '../utils/algorithm-categories';
+import EnhancedEncryptionIcon from '@mui/icons-material/EnhancedEncryption'; // Icon for hybrid
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import ErrorIcon from '@mui/icons-material/Error';
+import { SECURITY_PARAMS } from '../../types/benchmark'; // Assuming relative path is correct
 
-// Define interfaces for our encryption/signature operations
-interface KeypairResult {
-	publicKey: string;
-	secretKey: string;
-	publicKeySize: number;
-	secretKeySize: number;
+// Define valid security levels explicitly
+type KyberSecLevel = '512' | '768' | '1024';
+type DilithiumSecLevel = '2' | '3' | '5';
+
+// --- Interface for Stored Keys ---
+interface CryptoKeys {
+	senderDilithiumSk: Buffer | null; // ML-DSA Secret Key (Signer)
+	senderDilithiumPk: Buffer | null; // ML-DSA Public Key (Signer)
+	receiverKyberSk: Buffer | null; // ML-KEM Secret Key (Receiver)
+	receiverKyberPk: Buffer | null; // ML-KEM Public Key (Receiver)
 }
 
-interface EncryptResult {
-	ciphertext: string;
-	ciphertextSize: number;
-}
-
-interface DecryptResult {
-	plaintext: string;
-}
-
-interface SignResult {
-	signature: string;
-	signatureSize: number;
-}
-
-interface VerifyResult {
-	isValid: boolean;
+// --- Interface for Encrypted Package ---
+// Structure to hold the output of encryption/signing
+interface EncryptedPackage {
+	kemCiphertext: Buffer | null;
+	iv: Buffer | null;
+	aesCiphertextWithTag: Buffer | null;
+	signature: Buffer | null;
+	salt: Buffer | null;
+	kemLevel: KyberSecLevel;
+	sigLevel: DilithiumSecLevel;
 }
 
 export const EncryptionRunner: React.FC = () => {
 	const theme = useTheme();
 	const isDarkMode = theme.palette.mode === 'dark';
 
-	// Algorithm and parameter state
-	const initialAlgorithm = 'kyber';
-	const [selectedAlgorithm, setSelectedAlgorithm] =
-		useState<string>(initialAlgorithm);
-	const [selectedParam, setSelectedParam] = useState<string>(
-		SECURITY_PARAMS[initialAlgorithm][0]
-	);
+	// State for selected levels
+	const [kemLevel, setKemLevel] = useState<KyberSecLevel>('512');
+	const [sigLevel, setSigLevel] = useState<DilithiumSecLevel>('2');
+
+	// State for keys (store raw Buffers)
+	const [keys, setKeys] = useState<CryptoKeys>({
+		senderDilithiumSk: null,
+		senderDilithiumPk: null,
+		receiverKyberSk: null,
+		receiverKyberPk: null,
+	});
+	const [showSenderSk, setShowSenderSk] = useState(false);
+	const [showReceiverSk, setShowReceiverSk] = useState(false);
+
+	// State for message input
+	const [plaintext, setPlaintext] = useState<string>('');
+
+	// State for encrypted package (store raw Buffers)
+	const [encryptedPackage, setEncryptedPackage] =
+		useState<EncryptedPackage | null>(null);
+
+	// State for decrypted output
+	const [decryptedPlaintext, setDecryptedPlaintext] = useState<string>('');
+	const [verificationStatus, setVerificationStatus] = useState<
+		'idle' | 'valid' | 'invalid'
+	>('idle');
 
 	// Loading states
-	const [isGeneratingKeys, setIsGeneratingKeys] = useState(false);
-	const [isEncryptingSigning, setIsEncryptingSigning] = useState(false);
-	const [isDecryptingVerifying, setIsDecryptingVerifying] = useState(false);
+	const [isLoadingKeys, setIsLoadingKeys] = useState(false);
+	const [isLoadingEncrypt, setIsLoadingEncrypt] = useState(false);
+	const [isLoadingDecrypt, setIsLoadingDecrypt] = useState(false);
 
-	// Error handling
-	const [error, setError] = useState<string | null>(null);
-	const [showError, setShowError] = useState(false);
-
-	// Key generation state
-	const [publicKey, setPublicKey] = useState<string>('');
-	const [secretKey, setSecretKey] = useState<string>('');
-	const [publicKeySize, setPublicKeySize] = useState<number>(0);
-	const [secretKeySize, setSecretKeySize] = useState<number>(0);
-	const [keysGenerated, setKeysGenerated] = useState<boolean>(false);
-
-	// Encryption/Signing state
-	const [message, setMessage] = useState<string>('');
-	const [publicKeyInput, setPublicKeyInput] = useState<string>('');
-	const [ciphertextOrSignature, setCiphertextOrSignature] =
-		useState<string>('');
-	const [resultSize, setResultSize] = useState<number>(0);
-	const [operationComplete, setOperationComplete] = useState<boolean>(false);
-
-	// Decryption/Verification state
-	const [secretKeyInput, setSecretKeyInput] = useState<string>('');
-	const [ciphertextOrSignatureInput, setCiphertextOrSignatureInput] =
-		useState<string>('');
-	const [messageInput, setMessageInput] = useState<string>('');
-	const [operationResult, setOperationResult] = useState<string>('');
-	const [isValid, setIsValid] = useState<boolean | null>(null);
-	const [verificationComplete, setVerificationComplete] =
-		useState<boolean>(false);
-
-	// Add copy feedback state
+	// UI Feedback
+	const [statusMessage, setStatusMessage] = useState<string>('');
+	const [errorMessage, setErrorMessage] = useState<string>('');
 	const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
 
-	// Secret key visibility toggles
-	const [showSecretKey, setShowSecretKey] = useState(false);
-	const [showSignSecretKeyInput, setShowSignSecretKeyInput] = useState(false);
-	const [showDecryptSecretKeyInput, setShowDecryptSecretKeyInput] =
-		useState(false);
-
-	// Update message placeholder based on algorithm
-	const messagePlaceholder =
-		selectedAlgorithm === 'kyber' ? 'Plaintext Message' : 'Message to Sign';
-
-	// Update input and result labels based on algorithm
-	const outputLabel =
-		selectedAlgorithm === 'kyber' ? 'Ciphertext' : 'Signature';
-	const actionButtonText =
-		selectedAlgorithm === 'kyber' ? 'Encrypt Message' : 'Sign Message';
-	const secondActionButtonText =
-		selectedAlgorithm === 'kyber' ? 'Decrypt Message' : 'Verify Signature';
-	const secondCardTitle =
-		selectedAlgorithm === 'kyber' ? 'Encryption' : 'Signing';
-	const thirdCardTitle =
-		selectedAlgorithm === 'kyber' ? 'Decryption' : 'Verification';
-	const secondCardIcon =
-		selectedAlgorithm === 'kyber' ? (
-			<LockIcon style={{ color: '#9747FF' }} className="mr-3" />
-		) : (
-			<CreateIcon style={{ color: '#9747FF' }} className="mr-3" />
-		);
-	const thirdCardIcon =
-		selectedAlgorithm === 'kyber' ? (
-			<LockOpenIcon style={{ color: '#9747FF' }} className="mr-3" />
-		) : (
-			<VerifiedIcon style={{ color: '#9747FF' }} className="mr-3" />
-		);
-
-	// Update UI if selected algorithm changes
-	useEffect(() => {
-		// Setup appropriate UI state for the selected algorithm
-		const isKyber = selectedAlgorithm === 'kyber';
-
-		if (!isKyber) {
-			// For Dilithium, we need to show the message input in verification section
-			setMessageInput('');
-		}
-
-		// Reset operation states
-		setCiphertextOrSignature('');
-		setOperationComplete(false);
-		setOperationResult('');
-		setIsValid(null);
-		setVerificationComplete(false);
-	}, [selectedAlgorithm]);
-
-	const handleAlgorithmChange = (event: SelectChangeEvent) => {
-		const algorithm = event.target.value;
-		setSelectedAlgorithm(algorithm);
-		setSelectedParam(SECURITY_PARAMS[algorithm][0]);
-
-		// Reset all state when algorithm changes
-		resetState();
+	// --- Helper Functions ---
+	const clearStatus = () => {
+		setStatusMessage('');
+		setErrorMessage('');
 	};
 
-	const handleParamChange = (event: SelectChangeEvent) => {
-		setSelectedParam(event.target.value);
-
-		// Reset all state when parameter changes
-		resetState();
+	const handleError = (message: string, error?: any) => {
+		console.error(message, error);
+		const errMsg = error instanceof Error ? error.message : String(error);
+		setErrorMessage(`${message}: ${errMsg || 'Unknown error'}`);
+		setStatusMessage(''); // Clear success message if error occurs
 	};
 
-	const resetState = () => {
-		// Reset key generation
-		setPublicKey('');
-		setSecretKey('');
-		setPublicKeySize(0);
-		setSecretKeySize(0);
-		setKeysGenerated(false);
-
-		// Reset encryption/signing
-		setPublicKeyInput('');
-		setCiphertextOrSignature('');
-		setResultSize(0);
-		setOperationComplete(false);
-		setMessage('');
-
-		// Reset decryption/verification
-		setSecretKeyInput('');
-		setCiphertextOrSignatureInput('');
-		setMessageInput('');
-		setOperationResult('');
-		setIsValid(null);
-		setVerificationComplete(false);
-
-		// Reset visibility toggles
-		setShowSecretKey(false);
-		setShowSignSecretKeyInput(false);
-		setShowDecryptSecretKeyInput(false);
+	const handleSuccess = (message: string) => {
+		setStatusMessage(message);
+		setErrorMessage('');
 	};
 
-	const handleErrorClose = () => {
-		setShowError(false);
+	const bufferToBase64 = (buf: Buffer | null): string => {
+		return buf ? buf.toString('base64') : '';
 	};
 
-	const showErrorMessage = (message: string) => {
-		setError(message);
-		setShowError(true);
+	const base64ToBuffer = (str: string | null | undefined): Buffer => {
+		return str ? Buffer.from(str, 'base64') : Buffer.alloc(0);
 	};
 
-	const formatBytes = (bytes: number): string => {
-		if (bytes === 0) return '0 Bytes';
+	const formatBytes = (bytes: number | undefined): string => {
+		if (bytes === undefined || bytes === 0) return '0 Bytes';
 		const k = 1024;
 		const sizes = ['Bytes', 'KB', 'MB'];
 		const i = Math.floor(Math.log(bytes) / Math.log(k));
 		return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 	};
 
-	const generateKeys = async () => {
-		try {
-			setIsGeneratingKeys(true);
-			setKeysGenerated(false);
-
-			// Call the IPC function to generate keys for the selected algorithm
-			const ipcChannel =
-				selectedAlgorithm === 'kyber'
-					? 'kyber-generate-keypair'
-					: 'dilithium-generate-keypair';
-
-			const result: KeypairResult = await window.electron.ipcRenderer.invoke(
-				ipcChannel,
-				selectedParam
-			);
-
-			// Update state with the generated keys
-			setPublicKey(result.publicKey);
-			setSecretKey(result.secretKey);
-			setPublicKeySize(result.publicKeySize);
-			setSecretKeySize(result.secretKeySize);
-
-			// Auto-fill the public key input field
-			setPublicKeyInput(result.publicKey);
-
-			// Auto-fill the secret key for verification
-			setSecretKeyInput(result.secretKey);
-
-			setKeysGenerated(true);
-		} catch (err: any) {
-			console.error(`Error generating ${selectedAlgorithm} keys:`, err);
-			showErrorMessage(
-				`Failed to generate keys: ${err.message || 'Unknown error'}`
-			);
-		} finally {
-			setIsGeneratingKeys(false);
-		}
-	};
-
-	const encryptOrSign = async () => {
-		if (!publicKeyInput || !message) return;
-
-		try {
-			setIsEncryptingSigning(true);
-			setOperationComplete(false);
-
-			if (selectedAlgorithm === 'kyber') {
-				// Encrypt
-				const result: EncryptResult = await window.electron.ipcRenderer.invoke(
-					'kyber-encrypt',
-					selectedParam,
-					publicKeyInput,
-					message
-				);
-
-				// Update state with the encrypted data
-				setCiphertextOrSignature(result.ciphertext);
-				// Also set the ciphertext input to allow for immediate decryption
-				setCiphertextOrSignatureInput(result.ciphertext);
-				setResultSize(result.ciphertextSize);
-			} else {
-				// Sign with Dilithium
-				const result: SignResult = await window.electron.ipcRenderer.invoke(
-					'dilithium-sign',
-					selectedParam,
-					secretKeyInput, // For signing we use the secret key, not public
-					message
-				);
-
-				// Update state with the signature
-				setCiphertextOrSignature(result.signature);
-				setCiphertextOrSignatureInput(result.signature);
-				setResultSize(result.signatureSize);
-
-				// For Dilithium, also set message input for verification
-				setMessageInput(message);
-			}
-
-			setOperationComplete(true);
-		} catch (err: any) {
-			console.error(`Error in ${selectedAlgorithm} operation:`, err);
-			showErrorMessage(`Operation failed: ${err.message || 'Unknown error'}`);
-		} finally {
-			setIsEncryptingSigning(false);
-		}
-	};
-
-	const decryptOrVerify = async () => {
-		if (
-			selectedAlgorithm === 'kyber' &&
-			(!secretKeyInput || !ciphertextOrSignatureInput)
-		)
-			return;
-		if (
-			selectedAlgorithm === 'dilithium' &&
-			(!publicKeyInput || !messageInput || !ciphertextOrSignatureInput)
-		)
-			return;
-
-		try {
-			setIsDecryptingVerifying(true);
-			setVerificationComplete(false);
-			setIsValid(null);
-
-			if (selectedAlgorithm === 'kyber') {
-				// Decrypt
-				const result: DecryptResult = await window.electron.ipcRenderer.invoke(
-					'kyber-decrypt',
-					selectedParam,
-					secretKeyInput,
-					ciphertextOrSignatureInput
-				);
-
-				// Update state with the decrypted data
-				setOperationResult(result.plaintext);
-				setIsValid(true); // Decryption successful = valid
-			} else {
-				// Verify with Dilithium
-				const result: VerifyResult = await window.electron.ipcRenderer.invoke(
-					'dilithium-verify',
-					selectedParam,
-					publicKeyInput,
-					messageInput,
-					ciphertextOrSignatureInput
-				);
-
-				// Update state with verification result
-				setIsValid(result.isValid);
-				// For dilithium, we'll show the message in the button itself
-				if (!result.isValid) {
-					setOperationResult('Invalid signature!');
-				}
-			}
-
-			setVerificationComplete(true);
-		} catch (err: any) {
-			console.error(
-				`Error in ${selectedAlgorithm} verification/decryption:`,
-				err
-			);
-			showErrorMessage(`Operation failed: ${err.message || 'Unknown error'}`);
-			setIsValid(false);
-		} finally {
-			setIsDecryptingVerifying(false);
-		}
-	};
-
-	// Get algorithm display name
-	const algorithmInfo = getAlgorithmInfo(selectedAlgorithm);
-	const algorithmDisplayName = algorithmInfo.displayName;
-
-	// Common card style
-	const cardStyle = isDarkMode ? 'bg-[#212121]' : 'bg-[#E9E9E9]';
-
-	// Function to copy text to clipboard
-	const copyToClipboard = (text: string, description: string) => {
+	const copyToClipboard = (text: string | null, description: string) => {
+		if (!text) return;
 		navigator.clipboard.writeText(text).then(
 			() => {
-				setCopyFeedback(`${description} copied to clipboard`);
+				setCopyFeedback(`${description} copied!`);
 				setTimeout(() => setCopyFeedback(null), 2000);
 			},
 			(err) => {
-				console.error('Could not copy text: ', err);
+				console.error('Copy failed: ', err);
+				setCopyFeedback(`Failed to copy ${description}`);
+				setTimeout(() => setCopyFeedback(null), 2000);
 			}
 		);
 	};
 
+	// --- Core Crypto Logic ---
+
+	const generateAllKeys = useCallback(async () => {
+		setIsLoadingKeys(true);
+		clearStatus();
+		setKeys({
+			senderDilithiumSk: null,
+			senderDilithiumPk: null,
+			receiverKyberSk: null,
+			receiverKyberPk: null,
+		}); // Clear previous keys
+
+		try {
+			// Generate Dilithium keypair (Sender) - IPC returns { publicKey: Base64, secretKey: Base64 }
+			const dilithiumResult =
+				await window.electronAPI.dilithium.generateKeypair(sigLevel);
+			// Generate Kyber keypair (Receiver) - IPC returns { publicKey: Base64, secretKey: Base64 }
+			const kyberResult = await window.electronAPI.kyber.generateKeypair(
+				kemLevel
+			);
+
+			// Decode Base64 strings to Buffers for state storage
+			setKeys({
+				senderDilithiumSk: base64ToBuffer(dilithiumResult.secretKey),
+				senderDilithiumPk: base64ToBuffer(dilithiumResult.publicKey),
+				receiverKyberSk: base64ToBuffer(kyberResult.secretKey),
+				receiverKyberPk: base64ToBuffer(kyberResult.publicKey),
+			});
+			handleSuccess('Sender (ML-DSA) and Receiver (ML-KEM) keys generated.');
+		} catch (error) {
+			handleError('Key generation failed', error);
+		} finally {
+			setIsLoadingKeys(false);
+		}
+	}, [kemLevel, sigLevel]);
+
+	const encryptAndSign = useCallback(async () => {
+		if (!keys.receiverKyberPk || !keys.senderDilithiumSk || !plaintext) {
+			handleError(
+				'Missing keys or plaintext for encryption.',
+				'Ensure keys are generated and plaintext is entered.'
+			);
+			return;
+		}
+
+		setIsLoadingEncrypt(true);
+		clearStatus();
+		setEncryptedPackage(null); // Clear previous result
+
+		try {
+			// 1. KEM Encapsulation (IPC returns { kemCiphertext: Base64, sharedSecret: Base64 })
+			setStatusMessage('Step 1/5: Running ML-KEM Encapsulation...');
+			// Pass receiver PK buffer directly to preload, which handles conversion for IPC
+			const encapsResult = await window.electronAPI.kyber.encapsulate(
+				kemLevel,
+				keys.receiverKyberPk! // Pass Buffer
+			);
+			// Decode Base64 results from IPC immediately
+			const kemCiphertext = base64ToBuffer(encapsResult.kemCiphertext);
+			const sharedSecret = base64ToBuffer(encapsResult.sharedSecret); // Buffer for HKDF
+
+			if (!kemCiphertext.length || !sharedSecret.length)
+				// Check decoded buffers have length
+				throw new Error('KEM encapsulation failed to return expected data.');
+			console.log('KEM Shared Secret Size:', sharedSecret.length);
+
+			// 2. Derive AES Key using HKDF (IPC returns derivedKey: Base64)
+			setStatusMessage('Step 2/5: Deriving AES-256 key (HKDF-SHA256)...');
+			// Generate random salt (IPC returns salt: Base64)
+			const saltBase64 = await window.electronAPI.nodeCrypto.getRandomBytes(16);
+			const salt = base64ToBuffer(saltBase64); // Decode salt Buffer for storage
+			const info = 'hybrid-aes-256-gcm-key'; // Info can be string for IPC
+
+			// Pass Buffers directly to preload wrapper, info as string
+			const derivedKeyBase64 = await window.electronAPI.nodeCrypto.hkdf(
+				sharedSecret, // Pass Buffer
+				32,
+				salt, // Pass Buffer
+				info
+			);
+			// Decode derived key Buffer for Web Crypto use
+			const derivedKey = base64ToBuffer(derivedKeyBase64);
+			if (!derivedKey.length) throw new Error('AES Key derivation failed.'); // Check decoded buffer
+			console.log('Derived AES Key Size:', derivedKey.length);
+
+			// 3. AES-GCM Encryption (Uses Web Crypto API directly - needs Buffers/TypedArrays)
+			setStatusMessage('Step 3/5: Encrypting plaintext (AES-256-GCM)...');
+			const iv = window.crypto.getRandomValues(new Uint8Array(12)); // 96-bit IV
+			const ivBuffer = Buffer.from(iv); // Keep as Buffer
+			const plaintextBuffer = Buffer.from(plaintext, 'utf8');
+
+			// Use the decoded derivedKey Buffer
+			const aesKey = await window.crypto.subtle.importKey(
+				'raw',
+				derivedKey,
+				{ name: 'AES-GCM' },
+				true, // extractable = true
+				['encrypt']
+			);
+
+			const encryptedArrayBuffer = await window.crypto.subtle.encrypt(
+				{ name: 'AES-GCM', iv: iv }, // Pass IV here
+				aesKey,
+				plaintextBuffer
+			);
+			const aesCiphertextWithTag = Buffer.from(encryptedArrayBuffer); // Keep as Buffer
+			console.log(
+				'AES Ciphertext Size (incl. tag):',
+				aesCiphertextWithTag.length
+			);
+
+			// 4. Prepare Data for Signing
+			setStatusMessage('Step 4/5: Preparing data for signing...');
+			// Sign KEM Ciphertext || IV || AES Ciphertext (including Tag)
+			const dataToSign = Buffer.concat([
+				kemCiphertext, // Use decoded buffer
+				ivBuffer,
+				aesCiphertextWithTag,
+			]);
+			console.log('Data to Sign Size:', dataToSign.length);
+
+			// 5. ML-DSA Signing (IPC returns { signature: Base64 })
+			setStatusMessage('Step 5/5: Signing package (ML-DSA)...');
+			// Pass Buffers directly to preload wrapper
+			const signResult = await window.electronAPI.dilithium.sign(
+				sigLevel,
+				keys.senderDilithiumSk!, // Pass Buffer
+				dataToSign // Pass Buffer
+			);
+			// Decode signature Buffer for storage
+			const signature = base64ToBuffer(signResult.signature);
+			if (!signature.length)
+				throw new Error('Signing failed to return signature.'); // Check decoded buffer
+			console.log('Signature Size:', signature.length);
+
+			// Store the complete package (with Buffers, including salt)
+			setEncryptedPackage({
+				kemCiphertext, // Stored as Buffer
+				iv: ivBuffer, // Stored as Buffer
+				aesCiphertextWithTag, // Stored as Buffer
+				signature, // Stored as Buffer
+				salt: salt, // <<< Store the salt Buffer used for HKDF
+				kemLevel, // Store levels used
+				sigLevel,
+			});
+
+			handleSuccess('Encryption and signing successful!');
+		} catch (error) {
+			handleError('Encryption/Signing process failed', error);
+			setEncryptedPackage(null); // Clear package on error
+		} finally {
+			setIsLoadingEncrypt(false);
+		}
+	}, [keys, plaintext, kemLevel, sigLevel, base64ToBuffer]); // Added base64ToBuffer dependency
+
+	const decryptAndVerify = useCallback(async () => {
+		if (!encryptedPackage || !keys.receiverKyberSk || !keys.senderDilithiumPk) {
+			handleError(
+				'Missing encrypted data or keys for decryption.',
+				'Ensure message is encrypted and keys are available.'
+			);
+			return;
+		}
+
+		setIsLoadingDecrypt(true);
+		clearStatus();
+		setDecryptedPlaintext('');
+		setVerificationStatus('idle');
+
+		const {
+			kemCiphertext, // Buffer
+			iv, // Buffer
+			aesCiphertextWithTag, // Buffer
+			signature, // Buffer
+			salt, // *** Retrieve the salt Buffer from the package ***
+			kemLevel: pkgKemLevel, // Use levels from package
+			sigLevel: pkgSigLevel,
+		} = encryptedPackage; // No need for assertion due to check above
+
+		// Basic check including salt
+		if (
+			!kemCiphertext?.length ||
+			!iv?.length ||
+			!aesCiphertextWithTag?.length ||
+			!signature?.length ||
+			!salt?.length
+		) {
+			setIsLoadingDecrypt(false);
+			handleError(
+				'Encrypted package is incomplete (missing components or salt).'
+			);
+			return;
+		}
+
+		try {
+			// 1. Prepare Data for Verification
+			setStatusMessage('Step 1/5: Preparing data for verification...');
+			// Reconstruct data using the stored Buffers
+			const dataToVerify = Buffer.concat([
+				kemCiphertext,
+				iv,
+				aesCiphertextWithTag,
+			]);
+
+			// 2. Verify Signature (IPC returns { isValid: boolean })
+			setStatusMessage('Step 2/5: Verifying signature (ML-DSA)...');
+			// Pass Buffers directly to preload wrapper
+			const verifyResult = await window.electronAPI.dilithium.verify(
+				pkgSigLevel,
+				keys.senderDilithiumPk!, // Pass Buffer
+				dataToVerify, // Pass Buffer
+				signature // Pass Buffer
+			);
+			const isValid = verifyResult.isValid; // Directly get boolean
+
+			setVerificationStatus(isValid ? 'valid' : 'invalid');
+			if (!isValid) {
+				throw new Error('Signature verification failed!');
+			}
+			setStatusMessage('Step 2/5: Signature VALID.');
+
+			// 3. KEM Decapsulation (IPC returns ss: Base64)
+			setStatusMessage('Step 3/5: Running ML-KEM Decapsulation...');
+			// Pass Buffers directly to preload wrapper
+			const sharedSecretBase64 = await window.electronAPI.kyber.decapsulate(
+				pkgKemLevel,
+				keys.receiverKyberSk!, // Pass Buffer
+				kemCiphertext // Pass Buffer
+			);
+			// Decode shared secret Buffer for HKDF use
+			const sharedSecret = base64ToBuffer(sharedSecretBase64);
+			if (!sharedSecret.length) throw new Error('KEM decapsulation failed.'); // Check decoded buffer
+
+			// 4. Derive AES Key (IPC returns derivedKey: Base64)
+			setStatusMessage('Step 4/5: Deriving AES-256 key (HKDF-SHA256)...');
+			const info = 'hybrid-aes-256-gcm-key'; // Must match info used in encryption
+			// Pass Buffers directly to preload wrapper, use retrieved salt Buffer
+			const derivedKeyBase64 = await window.electronAPI.nodeCrypto.hkdf(
+				sharedSecret, // Pass Buffer
+				32,
+				salt, // <<< Use the salt Buffer retrieved from the package
+				info
+			);
+			// Decode derived key Buffer for Web Crypto use
+			const derivedKey = base64ToBuffer(derivedKeyBase64);
+			if (!derivedKey.length) throw new Error('AES key derivation failed.'); // Check decoded buffer
+
+			// 5. AES-GCM Decryption (Uses Web Crypto API directly)
+			setStatusMessage('Step 5/5: Decrypting ciphertext (AES-256-GCM)...');
+			// Use the decoded derivedKey Buffer
+			const aesKey = await window.crypto.subtle.importKey(
+				'raw',
+				derivedKey,
+				{ name: 'AES-GCM' },
+				true, // extractable = true
+				['decrypt']
+			);
+
+			// The decrypt function will throw if the tag verification fails
+			const decryptedArrayBuffer = await window.crypto.subtle.decrypt(
+				{ name: 'AES-GCM', iv: iv }, // Pass IV buffer
+				aesKey,
+				aesCiphertextWithTag // Pass ciphertext WITH tag Buffer
+			);
+
+			const finalPlaintext = Buffer.from(decryptedArrayBuffer).toString('utf8');
+			setDecryptedPlaintext(finalPlaintext);
+			handleSuccess('Decryption and verification successful!');
+		} catch (error) {
+			// Error could be from signature verification OR AES decryption (tag mismatch)
+			handleError('Decryption/Verification process failed', error);
+			setDecryptedPlaintext(''); // Clear plaintext on error
+			// Keep verification status if it was already set to invalid
+			if (verificationStatus === 'idle') {
+				setVerificationStatus('invalid'); // Mark as invalid if decryption failed
+			}
+		} finally {
+			setIsLoadingDecrypt(false);
+		}
+	}, [encryptedPackage, keys, verificationStatus, base64ToBuffer]); // Added verificationStatus and base64ToBuffer to dependencies
+
+	// Common card style
+	const cardStyle = isDarkMode ? 'bg-[#212121]' : 'bg-[#E9E9E9]';
+
 	return (
 		<div className="space-y-6">
-			{/* Error Snackbar */}
-			<Snackbar
-				open={showError}
-				autoHideDuration={6000}
-				onClose={handleErrorClose}
-				anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-			>
-				<Alert onClose={handleErrorClose} severity="error">
-					{error}
+			{/* Status/Error Display */}
+			{errorMessage && (
+				<Alert severity="error" onClose={() => setErrorMessage('')}>
+					{errorMessage}
 				</Alert>
-			</Snackbar>
+			)}
+			{statusMessage && !errorMessage && (
+				<Alert severity="info" onClose={() => setStatusMessage('')}>
+					{statusMessage}
+				</Alert>
+			)}
 
 			{/* Copy Feedback Snackbar */}
 			<Snackbar
@@ -406,762 +451,418 @@ export const EncryptionRunner: React.FC = () => {
 				autoHideDuration={2000}
 				onClose={() => setCopyFeedback(null)}
 				anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-			>
-				<Alert severity="success" onClose={() => setCopyFeedback(null)}>
-					{copyFeedback}
-				</Alert>
-			</Snackbar>
+				message={copyFeedback || ''}
+			/>
 
-			{/* Algorithm Configuration Card */}
-			<Card className={`p-6 rounded-xl shadow-md transition-all ${cardStyle}`}>
+			{/* Configuration Card */}
+			<Card className={`p-6 rounded-xl shadow-md ${cardStyle}`}>
 				<div className="flex items-center mb-4">
-					<VpnKeyIcon style={{ color: '#9747FF' }} className="mr-3" />
+					<EnhancedEncryptionIcon
+						style={{ color: '#9747FF' }}
+						className="mr-3"
+					/>
 					<h2
 						className="text-[20px] font-semibold"
 						style={{ color: isDarkMode ? '#FFFFFF' : '#000000' }}
 					>
-						Run{' '}
-						{selectedAlgorithm === 'kyber' ? 'Encryption' : 'Digital Signature'}
+						Hybrid Encryption Demo (ML-KEM + AES-GCM + ML-DSA)
 					</h2>
 				</div>
 				<p
 					className="mb-5"
 					style={{ color: isDarkMode ? '#FFFFFF' : '#000000' }}
 				>
-					{selectedAlgorithm === 'kyber'
-						? 'Configure and run encryption operations using post-quantum Kyber algorithm. Generate keys, encrypt and decrypt messages.'
-						: 'Configure and run digital signature operations using post-quantum Dilithium algorithm. Generate keys, sign messages, and verify signatures.'}
+					Generate keys, encrypt a message using ML-KEM (Kyber) for key exchange
+					and AES-256-GCM for bulk encryption, sign the result using ML-DSA
+					(Dilithium), then verify and decrypt.
 				</p>
-
-				<div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-6">
-					{/* Algorithm Selection */}
-					<div>
+				<Grid container spacing={2} alignItems="center">
+					<Grid item xs={12} sm={4}>
 						<FormControl fullWidth>
-							<InputLabel id="algorithm-label">Algorithm</InputLabel>
+							<InputLabel id="kem-level-label">ML-KEM Level</InputLabel>
 							<Select
-								labelId="algorithm-label"
-								id="algorithm"
-								value={selectedAlgorithm}
-								onChange={handleAlgorithmChange}
+								labelId="kem-level-label"
+								value={kemLevel}
+								label="ML-KEM Level"
+								onChange={(e) => setKemLevel(e.target.value as KyberSecLevel)}
 								sx={{
 									backgroundColor: isDarkMode ? '#2a2a2a' : '#f8f8f8',
 									color: isDarkMode ? '#ffffff' : '#111111',
-									'.MuiOutlinedInput-notchedOutline': {
-										borderColor: 'rgba(0, 0, 0, 0.23)',
-									},
 								}}
 							>
-								<MenuItem value="kyber">Kyber (ML-KEM) - Encryption</MenuItem>
-								<MenuItem value="dilithium">
-									Dilithium (ML-DSA) - Digital Signature
-								</MenuItem>
+								<MenuItem value="512">512 (Level 1)</MenuItem>
+								<MenuItem value="768">768 (Level 3)</MenuItem>
+								<MenuItem value="1024">1024 (Level 5)</MenuItem>
 							</Select>
 						</FormControl>
-					</div>
-
-					{/* Security Parameter Selection */}
-					<div>
+					</Grid>
+					<Grid item xs={12} sm={4}>
 						<FormControl fullWidth>
-							<InputLabel id="security-param-label">
-								Security Parameter
-							</InputLabel>
+							<InputLabel id="sig-level-label">ML-DSA Level</InputLabel>
 							<Select
-								labelId="security-param-label"
-								id="security-param"
-								value={selectedParam}
-								onChange={handleParamChange}
+								labelId="sig-level-label"
+								value={sigLevel}
+								label="ML-DSA Level"
+								onChange={(e) =>
+									setSigLevel(e.target.value as DilithiumSecLevel)
+								}
 								sx={{
 									backgroundColor: isDarkMode ? '#2a2a2a' : '#f8f8f8',
 									color: isDarkMode ? '#ffffff' : '#111111',
-									'.MuiOutlinedInput-notchedOutline': {
-										borderColor: 'rgba(0, 0, 0, 0.23)',
-									},
 								}}
 							>
-								{SECURITY_PARAMS[selectedAlgorithm]?.map((param) => (
-									<MenuItem key={param} value={param}>
-										{param}
-									</MenuItem>
-								))}
+								<MenuItem value="2">2 (Level 2)</MenuItem>
+								<MenuItem value="3">3 (Level 3)</MenuItem>
+								<MenuItem value="5">5 (Level 5)</MenuItem>
 							</Select>
 						</FormControl>
-					</div>
-				</div>
+					</Grid>
+					<Grid item xs={12} sm={4}>
+						<Button
+							variant="contained"
+							fullWidth
+							onClick={generateAllKeys}
+							disabled={isLoadingKeys}
+							startIcon={<VpnKeyIcon />}
+							sx={{
+								bgcolor: '#9747FF',
+								'&:hover': { bgcolor: '#8030E0' },
+								textTransform: 'none',
+								fontWeight: 'bold',
+								padding: '10px 0', // Adjust padding for consistency
+							}}
+						>
+							{isLoadingKeys ? (
+								<CircularProgress size={24} color="inherit" />
+							) : (
+								'Generate All Keys'
+							)}
+						</Button>
+					</Grid>
+				</Grid>
 			</Card>
 
-			{/* Three Cards for Cryptographic Operations */}
-			<div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-				{/* Generate Key Card */}
-				<Card
-					className={`p-6 rounded-xl shadow-md transition-all ${cardStyle} flex flex-col`}
-				>
-					<div className="flex items-center mb-4">
-						<VpnKeyIcon style={{ color: '#9747FF' }} className="mr-3" />
-						<h3
-							className="text-[18px] font-semibold"
-							style={{ color: isDarkMode ? '#FFFFFF' : '#000000' }}
-						>
-							Generate Key
-						</h3>
-					</div>
-
-					<div className="space-y-4 flex-grow">
-						<div>
-							<div
-								className="text-sm mb-1 flex items-center justify-between"
-								style={{ color: '#999999' }}
-							>
-								<div className="flex items-center">
-									Public Key
-									{publicKeySize > 0 && (
-										<Tooltip title={`Size: ${formatBytes(publicKeySize)}`}>
-											<InfoIcon
-												style={{
-													fontSize: '16px',
-													marginLeft: '5px',
-													color: '#999999',
-												}}
-											/>
-										</Tooltip>
-									)}
-								</div>
-								{publicKey && (
-									<Tooltip title="Copy public key">
-										<IconButton
-											size="small"
-											onClick={() => copyToClipboard(publicKey, 'Public key')}
-											sx={{ color: isDarkMode ? '#aaaaaa' : '#666666' }}
-										>
-											<ContentCopyIcon fontSize="small" />
-										</IconButton>
-									</Tooltip>
-								)}
-							</div>
-							<div
-								className="text-xs font-mono overflow-hidden max-h-[80px] overflow-y-auto bg-opacity-50 p-2 rounded"
-								style={{
-									color: isDarkMode ? '#FFFFFF' : '#000000',
-									backgroundColor: isDarkMode ? '#2a2a2a' : '#f8f8f8',
-								}}
-							>
-								{publicKey || 'Not generated'}
-							</div>
-						</div>
-
-						<div>
-							<div
-								className="text-sm mb-1 flex items-center justify-between"
-								style={{ color: '#999999' }}
-							>
-								<div className="flex items-center">
-									Secret Key
-									{secretKeySize > 0 && (
-										<Tooltip title={`Size: ${formatBytes(secretKeySize)}`}>
-											<InfoIcon
-												style={{
-													fontSize: '16px',
-													marginLeft: '5px',
-													color: '#999999',
-												}}
-											/>
-										</Tooltip>
-									)}
-								</div>
-								{secretKey && (
-									<Tooltip title="Copy secret key">
-										<IconButton
-											size="small"
-											onClick={() => copyToClipboard(secretKey, 'Secret key')}
-											sx={{ color: isDarkMode ? '#aaaaaa' : '#666666' }}
-										>
-											<ContentCopyIcon fontSize="small" />
-										</IconButton>
-									</Tooltip>
-								)}
-							</div>
-							<div
-								className="text-xs font-mono overflow-hidden max-h-[80px] overflow-y-auto bg-opacity-50 p-2 rounded flex items-center"
-								style={{
-									color: isDarkMode ? '#FFFFFF' : '#000000',
-									backgroundColor: isDarkMode ? '#2a2a2a' : '#f8f8f8',
-									border: '1px solid rgba(0, 0, 0, 0.23)',
-								}}
-							>
-								<div className="flex-grow overflow-hidden">
-									{secretKey
-										? showSecretKey
-											? secretKey
-											: '•'.repeat(Math.min(secretKey.length, 50))
-										: 'Not generated'}
-								</div>
-								{secretKey && (
-									<div className="flex-shrink-0 pr-2">
-										<IconButton
-											size="small"
-											onClick={() => setShowSecretKey(!showSecretKey)}
-											sx={{
-												color: isDarkMode ? '#aaaaaa' : '#666666',
-											}}
-										>
-											{showSecretKey ? (
-												<VisibilityOffIcon sx={{ fontSize: '1.2rem' }} />
-											) : (
-												<VisibilityIcon sx={{ fontSize: '1.2rem' }} />
-											)}
-										</IconButton>
-									</div>
-								)}
-							</div>
-						</div>
-
-						{keysGenerated && (
-							<div>
-								<div
-									className="text-sm mb-1 flex items-center"
-									style={{ color: '#28a745' }}
-								>
-									Keys generated successfully!
-									<Tooltip
-										title={
-											selectedAlgorithm === 'kyber'
-												? 'The public key has been automatically filled in the Encryption panel.'
-												: 'Both keys have been automatically filled in the appropriate panels.'
-										}
-									>
-										<InfoIcon
-											style={{
-												fontSize: '16px',
-												marginLeft: '5px',
-												color: '#28a745',
-											}}
-										/>
-									</Tooltip>
-								</div>
-							</div>
+			{/* Key Display Area */}
+			<Grid container spacing={2}>
+				{/* Sender Keys */}
+				<Grid item xs={12} md={6}>
+					<Card className={`p-4 rounded-xl shadow-sm ${cardStyle}`}>
+						<Typography variant="h6" gutterBottom>
+							Sender Keys (ML-DSA-{sigLevel})
+						</Typography>
+						{renderKeyField(
+							'Public Key (Sign)',
+							keys.senderDilithiumPk,
+							false, // Not secret
+							() => {},
+							false // Not toggleable
 						)}
-					</div>
-
-					<div className="mt-auto pt-4">
-						<Button
-							variant="contained"
-							disableElevation
-							onClick={generateKeys}
-							disabled={isGeneratingKeys}
-							sx={{
-								bgcolor: '#9747FF',
-								'&:hover': {
-									bgcolor: '#8030E0',
-								},
-								fontSize: '0.9rem',
-								padding: '8px 16px',
-								textTransform: 'none',
-								fontWeight: 'bold',
-								borderRadius: '8px !important',
-							}}
-						>
-							{isGeneratingKeys ? (
-								<CircularProgress size={24} color="inherit" />
-							) : (
-								'Generate Keys'
-							)}
-						</Button>
-					</div>
-				</Card>
-
-				{/* Encryption/Signing Card */}
-				<Card
-					className={`p-6 rounded-xl shadow-md transition-all ${cardStyle} flex flex-col`}
-				>
-					<div className="flex items-center mb-4">
-						{secondCardIcon}
-						<h3
-							className="text-[18px] font-semibold"
-							style={{ color: isDarkMode ? '#FFFFFF' : '#000000' }}
-						>
-							{secondCardTitle}
-						</h3>
-					</div>
-
-					<div className="space-y-4 flex-grow">
-						{selectedAlgorithm === 'kyber' ? (
-							<TextField
-								label="Public Key (Base64)"
-								fullWidth
-								value={publicKeyInput}
-								onChange={(e) => setPublicKeyInput(e.target.value)}
-								multiline
-								rows={3}
-								sx={{
-									backgroundColor: isDarkMode ? '#2a2a2a' : '#f8f8f8',
-									'& .MuiInputBase-input': {
-										color: isDarkMode ? '#ffffff' : '#111111',
-										fontSize: '0.75rem',
-										fontFamily: '"Roboto Mono", monospace',
-									},
-									'& .MuiOutlinedInput-root': {
-										'& fieldset': {
-											borderColor: 'rgba(0, 0, 0, 0.23)',
-										},
-									},
-									'& .MuiInputLabel-root': {
-										color: isDarkMode
-											? 'rgba(255, 255, 255, 0.7)'
-											: 'rgba(0, 0, 0, 0.6)',
-									},
-								}}
-							/>
-						) : (
-							<div>
-								<label
-									className="text-sm mb-1 block"
-									style={{
-										color: isDarkMode
-											? 'rgba(255, 255, 255, 0.7)'
-											: 'rgba(0, 0, 0, 0.6)',
-									}}
-								>
-									Secret Key (Base64)
-								</label>
-								<div
-									className="relative flex items-center bg-opacity-50 rounded"
-									style={{
-										backgroundColor: isDarkMode ? '#2a2a2a' : '#f8f8f8',
-										border: '1px solid rgba(0, 0, 0, 0.23)',
-									}}
-								>
-									<input
-										className="flex-grow p-2 rounded font-mono text-xs bg-transparent border-0 outline-none w-[calc(100%-40px)]"
-										style={{
-											color: isDarkMode ? '#ffffff' : '#111111',
-										}}
-										type={showSignSecretKeyInput ? 'text' : 'password'}
-										value={secretKeyInput}
-										onChange={(e) => setSecretKeyInput(e.target.value)}
-									/>
-									<div className="flex-shrink-0 pr-2">
-										<IconButton
-											onClick={() =>
-												setShowSignSecretKeyInput(!showSignSecretKeyInput)
-											}
-											size="small"
-											sx={{
-												color: isDarkMode ? '#aaaaaa' : '#666666',
-											}}
-										>
-											{showSignSecretKeyInput ? (
-												<VisibilityOffIcon sx={{ fontSize: '1.2rem' }} />
-											) : (
-												<VisibilityIcon sx={{ fontSize: '1.2rem' }} />
-											)}
-										</IconButton>
-									</div>
-								</div>
-							</div>
+						{renderKeyField(
+							'Secret Key (Sign)',
+							keys.senderDilithiumSk,
+							showSenderSk,
+							() => setShowSenderSk(!showSenderSk),
+							true // Toggleable
 						)}
+					</Card>
+				</Grid>
+				{/* Receiver Keys */}
+				<Grid item xs={12} md={6}>
+					<Card className={`p-4 rounded-xl shadow-sm ${cardStyle}`}>
+						<Typography variant="h6" gutterBottom>
+							Receiver Keys (ML-KEM-{kemLevel})
+						</Typography>
+						{renderKeyField(
+							'Public Key (Encrypt)',
+							keys.receiverKyberPk,
+							false, // Not secret
+							() => {},
+							false // Not toggleable
+						)}
+						{renderKeyField(
+							'Secret Key (Decrypt)',
+							keys.receiverKyberSk,
+							showReceiverSk,
+							() => setShowReceiverSk(!showReceiverSk),
+							true // Toggleable
+						)}
+					</Card>
+				</Grid>
+			</Grid>
 
+			{/* Main Action Area */}
+			<Grid container spacing={2}>
+				{/* Encrypt & Sign */}
+				<Grid item xs={12} md={6}>
+					<Card
+						className={`p-6 rounded-xl shadow-md ${cardStyle} h-full flex flex-col`}
+					>
+						<Typography variant="h6" gutterBottom className="mb-4">
+							1. Encrypt & Sign Message
+						</Typography>
 						<TextField
-							label={messagePlaceholder}
+							label="Plaintext Message"
 							multiline
-							rows={3}
+							rows={4}
 							fullWidth
-							value={message}
-							onChange={(e) => setMessage(e.target.value)}
+							value={plaintext}
+							onChange={(e) => setPlaintext(e.target.value)}
+							disabled={isLoadingEncrypt || isLoadingDecrypt}
 							sx={{
+								mb: 2,
 								backgroundColor: isDarkMode ? '#2a2a2a' : '#f8f8f8',
-								'& .MuiInputBase-input': {
-									color: isDarkMode ? '#ffffff' : '#111111',
-									fontSize: '0.75rem',
-									fontFamily: '"Roboto Mono", monospace',
-								},
-								'& .MuiOutlinedInput-root': {
-									'& fieldset': {
-										borderColor: 'rgba(0, 0, 0, 0.23)',
-									},
-								},
-								'& .MuiInputLabel-root': {
-									color: isDarkMode
-										? 'rgba(255, 255, 255, 0.7)'
-										: 'rgba(0, 0, 0, 0.6)',
-								},
 							}}
 						/>
-
-						{operationComplete && (
-							<>
-								<div
-									className="text-sm mb-1 flex items-center justify-between"
-									style={{ color: '#999999' }}
-								>
-									<div className="flex items-center">
-										{outputLabel}
-										<Tooltip title={`Size: ${formatBytes(resultSize)}`}>
-											<InfoIcon
-												style={{
-													fontSize: '16px',
-													marginLeft: '5px',
-													color: '#999999',
-												}}
-											/>
-										</Tooltip>
-									</div>
-									<Tooltip title={`Copy ${outputLabel.toLowerCase()}`}>
-										<IconButton
-											size="small"
-											onClick={() =>
-												copyToClipboard(ciphertextOrSignature, outputLabel)
-											}
-											sx={{ color: isDarkMode ? '#aaaaaa' : '#666666' }}
-										>
-											<ContentCopyIcon fontSize="small" />
-										</IconButton>
-									</Tooltip>
-								</div>
-								<div
-									className="text-xs font-mono overflow-hidden max-h-[100px] overflow-y-auto bg-opacity-50 p-2 rounded"
-									style={{
-										color: isDarkMode ? '#FFFFFF' : '#000000',
-										backgroundColor: isDarkMode ? '#2a2a2a' : '#f8f8f8',
-									}}
-								>
-									{ciphertextOrSignature}
-								</div>
-							</>
-						)}
-					</div>
-
-					<div className="mt-auto pt-4">
 						<Button
 							variant="contained"
-							disableElevation
-							onClick={encryptOrSign}
+							fullWidth
+							onClick={encryptAndSign}
 							disabled={
-								isEncryptingSigning ||
-								(selectedAlgorithm === 'kyber' &&
-									(!publicKeyInput || !message)) ||
-								(selectedAlgorithm === 'dilithium' &&
-									(!secretKeyInput || !message))
+								isLoadingEncrypt ||
+								isLoadingKeys ||
+								!keys.receiverKyberPk ||
+								!keys.senderDilithiumSk ||
+								!plaintext
 							}
+							startIcon={<LockIcon />}
 							sx={{
-								bgcolor: '#9747FF',
-								'&:hover': {
-									bgcolor: '#8030E0',
-								},
-								fontSize: '0.9rem',
-								padding: '8px 16px',
+								bgcolor: '#5a67d8', // Indigo-like color
+								'&:hover': { bgcolor: '#4c51bf' },
 								textTransform: 'none',
 								fontWeight: 'bold',
-								borderRadius: '8px !important',
-								opacity:
-									(selectedAlgorithm === 'kyber' &&
-										(!publicKeyInput || !message)) ||
-									(selectedAlgorithm === 'dilithium' &&
-										(!secretKeyInput || !message))
-										? 0.7
-										: 1,
+								mt: 'auto', // Push button to bottom
 							}}
 						>
-							{isEncryptingSigning ? (
+							{isLoadingEncrypt ? (
 								<CircularProgress size={24} color="inherit" />
 							) : (
-								actionButtonText
+								'Encrypt & Sign'
 							)}
 						</Button>
-					</div>
-				</Card>
-
-				{/* Decryption/Verification Card */}
-				<Card
-					className={`p-6 rounded-xl shadow-md transition-all ${cardStyle} flex flex-col`}
-				>
-					<div className="flex items-center mb-4">
-						{thirdCardIcon}
-						<h3
-							className="text-[18px] font-semibold"
-							style={{ color: isDarkMode ? '#FFFFFF' : '#000000' }}
-						>
-							{thirdCardTitle}
-						</h3>
-					</div>
-
-					<div className="space-y-4 flex-grow">
-						{selectedAlgorithm === 'kyber' ? (
-							<div>
-								<label
-									className="text-sm mb-1 block"
-									style={{
-										color: isDarkMode
-											? 'rgba(255, 255, 255, 0.7)'
-											: 'rgba(0, 0, 0, 0.6)',
-									}}
-								>
-									Secret Key (Base64)
-								</label>
-								<div
-									className="relative flex items-center bg-opacity-50 rounded"
-									style={{
-										backgroundColor: isDarkMode ? '#2a2a2a' : '#f8f8f8',
-										border: '1px solid rgba(0, 0, 0, 0.23)',
-									}}
-								>
-									<input
-										className="flex-grow p-2 rounded font-mono text-xs bg-transparent border-0 outline-none w-[calc(100%-40px)]"
-										style={{
-											color: isDarkMode ? '#ffffff' : '#111111',
-										}}
-										type={showDecryptSecretKeyInput ? 'text' : 'password'}
-										value={secretKeyInput}
-										onChange={(e) => setSecretKeyInput(e.target.value)}
-									/>
-									<div className="flex-shrink-0 pr-2">
-										<IconButton
-											onClick={() =>
-												setShowDecryptSecretKeyInput(!showDecryptSecretKeyInput)
-											}
-											size="small"
-											sx={{
-												color: isDarkMode ? '#aaaaaa' : '#666666',
-											}}
-										>
-											{showDecryptSecretKeyInput ? (
-												<VisibilityOffIcon sx={{ fontSize: '1.2rem' }} />
-											) : (
-												<VisibilityIcon sx={{ fontSize: '1.2rem' }} />
-											)}
-										</IconButton>
-									</div>
-								</div>
-							</div>
-						) : (
-							<TextField
-								label="Public Key (Base64)"
-								fullWidth
-								value={publicKeyInput}
-								onChange={(e) => setPublicKeyInput(e.target.value)}
-								multiline
-								rows={2}
-								sx={{
-									backgroundColor: isDarkMode ? '#2a2a2a' : '#f8f8f8',
-									'& .MuiInputBase-input': {
-										color: isDarkMode ? '#ffffff' : '#111111',
-										fontSize: '0.75rem',
-										fontFamily: '"Roboto Mono", monospace',
-									},
-									'& .MuiOutlinedInput-root': {
-										'& fieldset': {
-											borderColor: 'rgba(0, 0, 0, 0.23)',
-										},
-									},
-									'& .MuiInputLabel-root': {
-										color: isDarkMode
-											? 'rgba(255, 255, 255, 0.7)'
-											: 'rgba(0, 0, 0, 0.6)',
-									},
-								}}
-							/>
+						{encryptedPackage && !isLoadingEncrypt && (
+							<Box mt={2}>
+								<Typography variant="body2" gutterBottom>
+									Encrypted Package Details:
+								</Typography>
+								{renderResultField(
+									'KEM Ciphertext',
+									encryptedPackage.kemCiphertext
+								)}
+								{renderResultField('AES IV', encryptedPackage.iv)}
+								{renderResultField(
+									'AES Ciphertext + Tag',
+									encryptedPackage.aesCiphertextWithTag
+								)}
+								{renderResultField(
+									'ML-DSA Signature',
+									encryptedPackage.signature
+								)}
+							</Box>
 						)}
+					</Card>
+				</Grid>
 
-						{selectedAlgorithm === 'dilithium' && (
-							<TextField
-								label="Message"
-								fullWidth
-								value={messageInput}
-								onChange={(e) => setMessageInput(e.target.value)}
-								multiline
-								rows={2}
-								sx={{
-									backgroundColor: isDarkMode ? '#2a2a2a' : '#f8f8f8',
-									'& .MuiInputBase-input': {
-										color: isDarkMode ? '#ffffff' : '#111111',
-										fontSize: '0.75rem',
-										fontFamily: '"Roboto Mono", monospace',
-									},
-									'& .MuiOutlinedInput-root': {
-										'& fieldset': {
-											borderColor: 'rgba(0, 0, 0, 0.23)',
-										},
-									},
-									'& .MuiInputLabel-root': {
-										color: isDarkMode
-											? 'rgba(255, 255, 255, 0.7)'
-											: 'rgba(0, 0, 0, 0.6)',
-									},
-								}}
-							/>
-						)}
-
-						<TextField
-							label={outputLabel + ' (Base64)'}
+				{/* Decrypt & Verify */}
+				<Grid item xs={12} md={6}>
+					<Card
+						className={`p-6 rounded-xl shadow-md ${cardStyle} h-full flex flex-col`}
+					>
+						<Typography variant="h6" gutterBottom className="mb-4">
+							2. Decrypt & Verify Package
+						</Typography>
+						<Button
+							variant="contained"
 							fullWidth
-							value={ciphertextOrSignatureInput}
-							onChange={(e) => setCiphertextOrSignatureInput(e.target.value)}
-							multiline
-							rows={selectedAlgorithm === 'kyber' ? 3 : 2}
+							onClick={decryptAndVerify}
+							disabled={
+								isLoadingDecrypt ||
+								isLoadingKeys ||
+								!keys.senderDilithiumPk ||
+								!keys.receiverKyberSk ||
+								!encryptedPackage
+							}
+							startIcon={<LockOpenIcon />}
 							sx={{
-								backgroundColor: isDarkMode ? '#2a2a2a' : '#f8f8f8',
-								'& .MuiInputBase-input': {
-									color: isDarkMode ? '#ffffff' : '#111111',
-									fontSize: '0.75rem',
-									fontFamily: '"Roboto Mono", monospace',
-								},
-								'& .MuiOutlinedInput-root': {
-									'& fieldset': {
-										borderColor: 'rgba(0, 0, 0, 0.23)',
-									},
-								},
-								'& .MuiInputLabel-root': {
-									color: isDarkMode
-										? 'rgba(255, 255, 255, 0.7)'
-										: 'rgba(0, 0, 0, 0.6)',
-								},
+								bgcolor: '#38a169', // Green-like color
+								'&:hover': { bgcolor: '#2f855a' },
+								textTransform: 'none',
+								fontWeight: 'bold',
+								mb: 2, // Margin bottom before results
 							}}
-						/>
-
-						{operationComplete &&
-							ciphertextOrSignature &&
-							!ciphertextOrSignatureInput && (
-								<div
-									className="text-sm mb-1 flex items-center justify-between"
-									style={{ color: '#999999' }}
-								>
-									<div className="flex items-center">
-										<span>
-											{outputLabel} available in the {secondCardTitle} panel
-										</span>
-										<Tooltip
-											title={`The ${outputLabel.toLowerCase()} can be viewed in the ${secondCardTitle} panel`}
-										>
-											<InfoIcon
-												style={{
-													fontSize: '16px',
-													marginLeft: '5px',
-													color: '#999999',
-												}}
-											/>
-										</Tooltip>
-									</div>
-									<Tooltip
-										title={`Use ${outputLabel.toLowerCase()} from ${secondCardTitle}`}
-									>
-										<IconButton
-											size="small"
-											onClick={() =>
-												setCiphertextOrSignatureInput(ciphertextOrSignature)
-											}
-											sx={{ color: isDarkMode ? '#aaaaaa' : '#666666' }}
-										>
-											<ContentCopyIcon fontSize="small" />
-										</IconButton>
-									</Tooltip>
-								</div>
+						>
+							{isLoadingDecrypt ? (
+								<CircularProgress size={24} color="inherit" />
+							) : (
+								'Decrypt & Verify'
 							)}
+						</Button>
 
-						{verificationComplete && (
-							<div>
-								{selectedAlgorithm === 'kyber' ? (
-									<>
-										<div
-											className="text-sm mb-1 flex items-center justify-between"
-											style={{ color: '#999999' }}
-										>
-											<span>Decrypted Message</span>
-											<Tooltip title="Copy message">
-												<IconButton
-													size="small"
-													onClick={() =>
-														copyToClipboard(
-															operationResult,
-															'Decrypted message'
-														)
-													}
-													sx={{ color: isDarkMode ? '#aaaaaa' : '#666666' }}
-												>
-													<ContentCopyIcon fontSize="small" />
-												</IconButton>
-											</Tooltip>
-										</div>
-										<div
-											className="text-xs font-mono bg-opacity-50 p-2 rounded overflow-auto max-h-[80px]"
-											style={{
-												color: isDarkMode ? '#FFFFFF' : '#000000',
-												backgroundColor: isDarkMode ? '#1a1a1a' : '#f0f0f0',
-											}}
-										>
-											{operationResult}
-										</div>
-									</>
-								) : (
-									// For Dilithium, only show error message for invalid signatures
-									// Valid signatures will be shown in the button itself
-									isValid === false && (
-										<div className="text-base font-semibold p-2 rounded text-center text-red-500 bg-red-900 bg-opacity-20">
-											{operationResult}
-										</div>
+						{/* Verification Status */}
+						{verificationStatus !== 'idle' && (
+							<Alert
+								severity={verificationStatus === 'valid' ? 'success' : 'error'}
+								icon={
+									verificationStatus === 'valid' ? (
+										<CheckCircleIcon fontSize="inherit" />
+									) : (
+										<ErrorIcon fontSize="inherit" />
 									)
-								)}
-							</div>
+								}
+								sx={{ mb: 2 }}
+							>
+								Signature Verification:{' '}
+								{verificationStatus === 'valid' ? 'Valid' : 'INVALID'}
+							</Alert>
 						)}
-					</div>
 
-					<div className="mt-auto pt-4">
-						<Button
-							variant="contained"
-							disableElevation
-							onClick={decryptOrVerify}
-							disabled={
-								isDecryptingVerifying ||
-								(selectedAlgorithm === 'kyber' &&
-									(!secretKeyInput || !ciphertextOrSignatureInput)) ||
-								(selectedAlgorithm === 'dilithium' &&
-									(!publicKeyInput ||
-										!messageInput ||
-										!ciphertextOrSignatureInput))
-							}
-							sx={{
-								bgcolor:
-									selectedAlgorithm === 'dilithium' &&
-									verificationComplete &&
-									isValid
-										? '#28a745' // Green for valid signature
-										: '#9747FF', // Default purple
-								'&:hover': {
-									bgcolor:
-										selectedAlgorithm === 'dilithium' &&
-										verificationComplete &&
-										isValid
-											? '#218838' // Darker green for hover
-											: '#8030E0', // Default darker purple
-								},
-								fontSize: '0.9rem',
-								padding: '8px 16px',
-								textTransform: 'none',
-								fontWeight: 'bold',
-								borderRadius: '8px !important',
-								opacity:
-									(selectedAlgorithm === 'kyber' &&
-										(!secretKeyInput || !ciphertextOrSignatureInput)) ||
-									(selectedAlgorithm === 'dilithium' &&
-										(!publicKeyInput ||
-											!messageInput ||
-											!ciphertextOrSignatureInput))
-										? 0.7
-										: 1,
+						{/* Decrypted Result */}
+						<TextField
+							label="Decrypted Plaintext"
+							multiline
+							rows={4}
+							fullWidth
+							value={decryptedPlaintext}
+							InputProps={{
+								readOnly: true,
 							}}
-						>
-							{isDecryptingVerifying ? (
-								<CircularProgress size={24} color="inherit" />
-							) : selectedAlgorithm === 'dilithium' &&
-							  verificationComplete &&
-							  isValid ? (
-								'Signature is valid!'
-							) : (
-								secondActionButtonText
-							)}
-						</Button>
-					</div>
-				</Card>
-			</div>
+							sx={{
+								backgroundColor: isDarkMode ? '#2a2a2a' : '#f8f8f8',
+								'& .MuiInputBase-input': {
+									color:
+										verificationStatus === 'invalid' && !isLoadingDecrypt
+											? theme.palette.error.main // Show error color if invalid
+											: isDarkMode
+											? '#ffffff'
+											: '#000000',
+								},
+							}}
+						/>
+						{decryptedPlaintext && verificationStatus === 'valid' && (
+							<Button
+								size="small"
+								startIcon={<ContentCopyIcon />}
+								onClick={() =>
+									copyToClipboard(decryptedPlaintext, 'Decrypted plaintext')
+								}
+								sx={{ alignSelf: 'flex-end', mt: 1, textTransform: 'none' }}
+							>
+								Copy Decrypted Text
+							</Button>
+						)}
+					</Card>
+				</Grid>
+			</Grid>
 		</div>
 	);
+
+	// Helper component to render Key fields consistently
+	function renderKeyField(
+		label: string,
+		keyBuffer: Buffer | null,
+		isSecretVisible: boolean,
+		toggleVisibility: () => void,
+		isToggleable: boolean
+	) {
+		const keyBase64 = bufferToBase64(keyBuffer);
+		const displayValue = keyBase64
+			? isToggleable && !isSecretVisible
+				? '•'.repeat(Math.min(keyBase64.length, 60))
+				: keyBase64
+			: 'N/A';
+
+		return (
+			<div className="mb-2">
+				<Typography variant="body2" color="textSecondary" gutterBottom>
+					{label}{' '}
+					{keyBuffer && (
+						<Tooltip title={`Size: ${formatBytes(keyBuffer.length)}`}>
+							<InfoIcon style={{ fontSize: '14px', verticalAlign: 'middle' }} />
+						</Tooltip>
+					)}
+				</Typography>
+				<TextField
+					fullWidth
+					variant="outlined"
+					size="small"
+					value={displayValue}
+					InputProps={{
+						readOnly: true,
+						style: {
+							fontFamily: 'monospace',
+							fontSize: '0.75rem',
+							backgroundColor: isDarkMode ? '#2a2a2a' : '#f8f8f8',
+							color: isDarkMode ? '#ccc' : '#333',
+						},
+						endAdornment: keyBuffer && (
+							<InputAdornment position="end">
+								{isToggleable && (
+									<IconButton
+										onClick={toggleVisibility}
+										edge="end"
+										size="small"
+									>
+										{isSecretVisible ? (
+											<VisibilityOffIcon fontSize="small" />
+										) : (
+											<VisibilityIcon fontSize="small" />
+										)}
+									</IconButton>
+								)}
+								<IconButton
+									onClick={() => copyToClipboard(keyBase64, label)}
+									edge="end"
+									size="small"
+								>
+									<ContentCopyIcon fontSize="small" />
+								</IconButton>
+							</InputAdornment>
+						),
+					}}
+				/>
+			</div>
+		);
+	}
+
+	// Helper component to render result fields (like ciphertext, signature, salt)
+	function renderResultField(label: string, dataBuffer: Buffer | null) {
+		const dataBase64 = bufferToBase64(dataBuffer);
+		return (
+			<div className="mb-2">
+				<Typography variant="caption" color="textSecondary" gutterBottom>
+					{label} ({formatBytes(dataBuffer?.length)})
+				</Typography>
+				<TextField
+					fullWidth
+					variant="outlined"
+					size="small"
+					multiline
+					maxRows={3} // Limit height
+					value={dataBase64 || 'N/A'}
+					InputProps={{
+						readOnly: true,
+						style: {
+							fontFamily: 'monospace',
+							fontSize: '0.70rem', // Smaller font for dense data
+							backgroundColor: isDarkMode ? '#2a2a2a' : '#f8f8f8',
+							color: isDarkMode ? '#ccc' : '#333',
+						},
+						endAdornment: dataBuffer && (
+							<InputAdornment position="end">
+								<IconButton
+									onClick={() => copyToClipboard(dataBase64, label)}
+									edge="end"
+									size="small"
+									sx={{ alignSelf: 'flex-start' }} // Align top right
+								>
+									<ContentCopyIcon fontSize="small" />
+								</IconButton>
+							</InputAdornment>
+						),
+					}}
+				/>
+			</div>
+		);
+	}
 };
 
-export default EncryptionRunner;
+export default EncryptionRunner; // Ensure default export if used as such

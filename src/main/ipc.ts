@@ -1,3 +1,4 @@
+// src/main/ipc.ts
 import { ipcMain } from 'electron';
 import { benchmarkManager } from './benchmarkManager';
 import { BenchmarkParams, BenchmarkResult } from '../types/benchmark';
@@ -5,6 +6,8 @@ import { benchmarkStore } from './store';
 import * as path from 'path';
 import * as fs from 'fs';
 import { app } from 'electron';
+import * as crypto from 'crypto'; // Import Node crypto
+import { promisify } from 'util'; // Import promisify
 
 // Load the native addons with robust error handling
 let kyberAddon: any;
@@ -13,169 +16,218 @@ let dilithiumAddon: any;
 function getAddonPaths(addonName: string) {
 	const isDevelopment = process.env.NODE_ENV === 'development';
 	const appRoot = app.getAppPath();
+	const projectRoot = isDevelopment ? path.resolve(appRoot, '..') : appRoot; // Adjust project root detection
 
 	// Define possible paths where the addon might be located
+	// Prioritize paths relative to the project structure during development
 	return [
-		// Development paths
-		path.join(appRoot, 'build', 'Release', `${addonName}.node`),
-		path.join(appRoot, '..', 'build', 'Release', `${addonName}.node`),
+		// Development build output (relative to project root)
+		path.join(projectRoot, 'addons', 'build', 'Release', `${addonName}.node`),
 
-		// Production paths (packaged with electron-builder)
-		path.join(appRoot, 'dist', 'build', 'Release', `${addonName}.node`),
+		// Production paths (packaged with electron-builder, relative to app resources)
+		path.join(
+			process.resourcesPath,
+			'addons',
+			'build',
+			'Release',
+			`${addonName}.node`
+		), // Common location
+
+		// Older path structures (keep for compatibility if needed)
+		path.join(appRoot, 'build', 'Release', `${addonName}.node`), // Less likely for addons subdir
+		path.join(appRoot, 'dist', 'build', 'Release', `${addonName}.node`), // If build happens inside dist
+
+		// Paths relative to __dirname (where ipc.ts might end up after bundling)
 		path.join(__dirname, 'build', 'Release', `${addonName}.node`),
 		path.join(__dirname, '..', 'build', 'Release', `${addonName}.node`),
+		path.join(
+			__dirname,
+			'..',
+			'..',
+			'addons',
+			'build',
+			'Release',
+			`${addonName}.node`
+		), // Trying relative path upwards
 
-		// Relative paths - for development
-		path.join(process.cwd(), 'build', 'Release', `${addonName}.node`),
-		path.join(process.cwd(), 'dist', 'build', 'Release', `${addonName}.node`),
+		// Absolute path attempt based on CWD (can be unreliable)
+		path.join(process.cwd(), 'addons', 'build', 'Release', `${addonName}.node`),
 	];
 }
 
 function setupNativeLibraryPaths() {
-	// Ensure native libraries are in PATH
+	// Ensure native libraries are in PATH or accessible
+	let opensslBinPath = '';
+	let oqsBinPath = '';
+	const isDevelopment = process.env.NODE_ENV === 'development';
+	const appRoot = app.getAppPath();
+	// Adjust base path for finding libs depending on environment
+	const libsBasePath = isDevelopment
+		? path.resolve(appRoot, '..', 'external', 'libs')
+		: path.join(process.resourcesPath, 'libs');
+
 	if (process.platform === 'win32') {
-		const appPath = app.getAppPath();
-		const opensslBinPath = path.join(
-			appPath,
-			'libs',
+		opensslBinPath = path.join(
+			libsBasePath,
 			'openssl',
 			'openssl-3.0',
 			'x64',
 			'bin'
 		);
-		const oqsBinPath = path.join(appPath, 'libs', 'oqs', 'install', 'bin');
+		oqsBinPath = path.join(libsBasePath, 'oqs', 'install', 'bin');
+		process.env.PATH = `${
+			process.env.PATH || ''
+		};${opensslBinPath};${oqsBinPath}`;
+	} else if (process.platform === 'darwin') {
+		// On macOS, LD_LIBRARY_PATH is less common; DYLD_LIBRARY_PATH is used.
+		// Often, embedding paths via rpath during linking is preferred.
+		// However, we can try setting DYLD_LIBRARY_PATH.
+		const opensslLibPath = path.join(
+			libsBasePath,
+			'openssl',
+			'openssl-3.0',
+			'lib'
+		);
+		const oqsLibPath = path.join(libsBasePath, 'oqs', 'install', 'lib');
+		process.env.DYLD_LIBRARY_PATH = `${
+			process.env.DYLD_LIBRARY_PATH || ''
+		}:${opensslLibPath}:${oqsLibPath}`;
+		console.log('Setting DYLD_LIBRARY_PATH:', process.env.DYLD_LIBRARY_PATH);
+	} else {
+		// Linux
+		const opensslLibPath = path.join(
+			libsBasePath,
+			'openssl',
+			'openssl-3.0',
+			'lib'
+		);
+		const oqsLibPath = path.join(libsBasePath, 'oqs', 'install', 'lib');
+		process.env.LD_LIBRARY_PATH = `${
+			process.env.LD_LIBRARY_PATH || ''
+		}:${opensslLibPath}:${oqsLibPath}`;
+		console.log('Setting LD_LIBRARY_PATH:', process.env.LD_LIBRARY_PATH);
+	}
 
-		// Add these paths to the PATH environment variable
-		process.env.PATH = `${process.env.PATH};${opensslBinPath};${oqsBinPath}`;
-		console.log(
-			'Added native library paths to PATH:',
+	if (opensslBinPath || oqsBinPath) {
+		console.log('Attempted to configure native library paths:', {
 			opensslBinPath,
-			oqsBinPath
+			oqsBinPath,
+			dyld: process.env.DYLD_LIBRARY_PATH,
+			ld: process.env.LD_LIBRARY_PATH,
+		});
+	} else {
+		console.log(
+			'Native library path setup skipped or paths not determined for this platform.'
 		);
 	}
 }
 
 function loadNativeAddon(addonName: string) {
-	setupNativeLibraryPaths();
+	setupNativeLibraryPaths(); // Ensure paths are set before trying to load
 
 	const possiblePaths = getAddonPaths(addonName);
 	let foundPath = '';
+	let lastError: Error | null = null;
+
+	console.log(`Searching for ${addonName} in:`, possiblePaths);
 
 	for (const addonPath of possiblePaths) {
 		try {
-			// Check if file exists before trying to require it
 			if (fs.existsSync(addonPath)) {
-				console.log(`Found ${addonName} addon at: ${addonPath}`);
+				console.log(`Attempting to load ${addonName} from: ${addonPath}`);
 				foundPath = addonPath;
+				const addon = require(addonPath); // Use require primarily
 
-				// First try normal require
-				try {
-					const addon = require(addonPath);
-
-					// Basic validation based on expected functions
-					if (addonName === 'kyber_node_addon') {
-						if (
-							typeof addon.generateKeypair === 'function' &&
-							typeof addon.encrypt === 'function' &&
-							typeof addon.decrypt === 'function'
-						) {
-							console.log(
-								`Successfully loaded ${addonName} addon with require()`
-							);
-							return addon;
-						}
-					} else if (addonName === 'dilithium_node_addon') {
-						if (
-							typeof addon.generateKeypair === 'function' &&
-							typeof addon.sign === 'function' &&
-							typeof addon.verify === 'function'
-						) {
-							console.log(
-								`Successfully loaded ${addonName} addon with require()`
-							);
-							return addon;
-						}
-					}
-				} catch (requireError) {
-					console.log(`Failed to load addon with require: ${requireError}`);
+				// *** UPDATED Validation Logic ***
+				let isValid = false;
+				if (addonName === 'kyber_node_addon') {
+					isValid =
+						typeof addon.generateKeypair === 'function' &&
+						typeof addon.encapsulate === 'function' && // <-- CORRECT CHECK
+						typeof addon.decapsulate === 'function'; // <-- CORRECT CHECK
+				} else if (addonName === 'dilithium_node_addon') {
+					isValid =
+						typeof addon.generateKeypair === 'function' &&
+						typeof addon.sign === 'function' &&
+						typeof addon.verify === 'function';
 				}
 
-				// Fallback to process.dlopen
-				try {
-					// Use process.dlopen to load the module directly
-					// This bypasses webpack's module system
-					const module: { exports: any } = { exports: {} };
-					process.dlopen(module, addonPath);
-
-					// Test if it's a valid module by checking if it has the expected functions
-					if (addonName === 'kyber_node_addon') {
-						if (
-							typeof module.exports.generateKeypair === 'function' &&
-							typeof module.exports.encrypt === 'function' &&
-							typeof module.exports.decrypt === 'function'
-						) {
-							console.log(
-								`Successfully loaded ${addonName} addon with process.dlopen`
-							);
-							return module.exports;
-						}
-					} else if (addonName === 'dilithium_node_addon') {
-						if (
-							typeof module.exports.generateKeypair === 'function' &&
-							typeof module.exports.sign === 'function' &&
-							typeof module.exports.verify === 'function'
-						) {
-							console.log(
-								`Successfully loaded ${addonName} addon with process.dlopen`
-							);
-							return module.exports;
-						}
-					} else {
-						console.log(
-							`Found ${addonName} module but it does not have the required functions:`,
-							Object.keys(module.exports)
-						);
-					}
-				} catch (dlopenError) {
-					console.log(`Failed to load addon with dlopen: ${dlopenError}`);
+				if (isValid) {
+					console.log(
+						`Successfully loaded and validated ${addonName} addon from ${addonPath}`
+					);
+					return addon;
+				} else {
+					console.warn(
+						`Loaded ${addonName} from ${addonPath}, but it did not pass validation (missing expected functions).`
+					);
+					lastError = new Error(
+						`Addon ${addonName} loaded but failed validation.`
+					);
+					// Continue searching other paths if validation fails
 				}
+			} else {
+				// console.log(`Path does not exist: ${addonPath}`); // Optional: verbose logging
 			}
-		} catch (error) {
-			console.log(`Failed to load addon from ${addonPath}:`, error);
+		} catch (error: any) {
+			console.warn(
+				`Failed to load ${addonName} from ${addonPath}:`,
+				error.message
+			);
+			lastError = error; // Store the last error encountered
+			// Continue searching other paths if loading fails
 		}
 	}
 
+	// If loop completes without returning an addon
 	if (foundPath) {
-		console.error(`Found addon at ${foundPath} but failed to load it properly`);
+		console.error(
+			`Found ${addonName} at ${foundPath} but failed to load or validate it properly. Last error:`,
+			lastError?.message
+		);
 	} else {
-		console.error(`Failed to find ${addonName} addon in any location`);
+		console.error(
+			`Failed to find ${addonName} addon in any of the searched locations.`
+		);
+		if (lastError) {
+			console.error('Last error during load attempts:', lastError);
+		}
 	}
 
-	return null;
+	return null; // Return null if not found or loaded correctly
 }
 
 // Try to load the addons
 try {
+	// No changes needed here, the loading logic is inside the function
 	kyberAddon = loadNativeAddon('kyber_node_addon');
 	if (kyberAddon) {
 		console.log('Kyber encryption module loaded successfully');
-		console.log('Available functions:', Object.keys(kyberAddon));
+		console.log('Available Kyber functions:', Object.keys(kyberAddon));
 	} else {
-		console.error('Could not load Kyber encryption module');
+		console.error(
+			'Could not load Kyber encryption module after searching paths.'
+		);
 	}
 
 	dilithiumAddon = loadNativeAddon('dilithium_node_addon');
 	if (dilithiumAddon) {
 		console.log('Dilithium signature module loaded successfully');
-		console.log('Available functions:', Object.keys(dilithiumAddon));
+		console.log('Available Dilithium functions:', Object.keys(dilithiumAddon));
 	} else {
-		console.error('Could not load Dilithium signature module');
+		console.error(
+			'Could not load Dilithium signature module after searching paths.'
+		);
 	}
-} catch (error) {
-	console.error('Error initializing crypto modules:', error);
+} catch (error: any) {
+	console.error(
+		'Error initializing crypto modules during load attempt:',
+		error
+	);
 }
 
 export function setupBenchmarkIPC() {
+	// No changes needed here
 	ipcMain.handle('run-benchmark', async (event, params: BenchmarkParams) => {
 		try {
 			// Set up progress reporting
@@ -200,7 +252,10 @@ export function setupBenchmarkIPC() {
 					error as Omit<BenchmarkResult, 'id'>
 				);
 			}
-			return error;
+			// Log the error before potentially saving
+			console.error('Error during benchmark run:', error);
+			// Rethrow or return a structured error for the renderer
+			throw new Error(`Benchmark failed: ${error?.message || 'Unknown error'}`);
 		}
 	});
 
@@ -268,430 +323,361 @@ export function setupBenchmarkIPC() {
 	});
 }
 
-// Set up IPC handlers for Kyber encryption operations
+// Setup Encryption/Signature IPC (No changes needed here, the handlers call the addon variable)
 export function setupEncryptionIPC() {
-	// Check if the kyberAddon was loaded successfully
-	if (!kyberAddon) {
-		console.error(
-			'Kyber addon not loaded. Encryption functionality will not be available.'
-		);
+	console.log('[IPC] Setting up Encryption/Signature IPC handlers...');
 
-		// Set up error handlers for all Kyber IPC methods
-		ipcMain.handle('kyber-generate-keypair', async () => {
-			throw new Error('Kyber encryption module not available');
-		});
+	// --- Node Crypto Helpers ---
+	const hkdfAsync: (
+		digest: string,
+		ikm: crypto.BinaryLike | crypto.KeyObject,
+		salt: crypto.BinaryLike,
+		info: crypto.BinaryLike,
+		keylen: number
+	) => Promise<ArrayBuffer> = promisify(crypto.hkdf);
 
-		ipcMain.handle('kyber-encrypt', async () => {
-			throw new Error('Kyber encryption module not available');
-		});
+	ipcMain.handle(
+		'node-crypto-hkdf',
+		async (
+			_,
+			ikmBase64: string,
+			length: number,
+			saltBase64?: string,
+			infoString?: string
+		) => {
+			console.log(`[IPC] Handling 'node-crypto-hkdf'`);
+			try {
+				const ikm = Buffer.from(ikmBase64, 'base64');
+				const salt = saltBase64
+					? Buffer.from(saltBase64, 'base64')
+					: Buffer.alloc(0); // Use empty buffer if no salt provided
+				// Ensure info is a buffer, even if empty
+				const info = infoString
+					? Buffer.from(infoString, 'utf8')
+					: Buffer.alloc(0);
 
-		ipcMain.handle('kyber-decrypt', async () => {
-			throw new Error('Kyber encryption module not available');
-		});
-	} else {
-		// Generate keypair
-		ipcMain.handle(
-			'kyber-generate-keypair',
-			async (_, securityLevel: string) => {
-				try {
-					console.log(
-						`Generating Kyber keys with security level: ${securityLevel}`
-					);
-					const result = kyberAddon.generateKeypair(securityLevel);
-
-					if (!result || !result.publicKey || !result.secretKey) {
-						console.error(
-							'Keypair generation returned invalid result:',
-							result
-						);
-						throw new Error('Invalid keypair generation result');
-					}
-
-					console.log('Kyber key generation successful:');
-					console.log(`- Public key size: ${result.publicKey.length} bytes`);
-					console.log(`- Secret key size: ${result.secretKey.length} bytes`);
-
-					return {
-						publicKey: result.publicKey.toString('base64'),
-						secretKey: result.secretKey.toString('base64'),
-						publicKeySize: result.publicKey.length,
-						secretKeySize: result.secretKey.length,
-					};
-				} catch (error: any) {
-					console.error('Error generating Kyber keypair:', error);
-					throw new Error(
-						`Failed to generate keypair: ${error.message || 'Unknown error'}`
-					);
-				}
+				// Use the promisified version with await
+				const derivedKeyArrayBuffer = await hkdfAsync(
+					'sha256',
+					ikm,
+					salt,
+					info,
+					length
+				);
+				const derivedKeyBuffer = Buffer.from(derivedKeyArrayBuffer);
+				return derivedKeyBuffer.toString('base64');
+			} catch (error: any) {
+				console.error('[IPC Error] node-crypto-hkdf:', error);
+				throw new Error(`HKDF operation failed: ${error.message}`);
 			}
-		);
+		}
+	);
 
-		// Encrypt message
-		ipcMain.handle(
-			'kyber-encrypt',
-			async (
-				_,
-				securityLevel: string,
-				publicKeyBase64: string,
-				plaintext: string
-			) => {
-				try {
-					if (!publicKeyBase64) {
-						throw new Error('Public key is required');
-					}
+	const randomBytesAsync: (size: number) => Promise<Buffer> = promisify(
+		crypto.randomBytes
+	);
 
-					if (!plaintext) {
-						throw new Error('Plaintext is required');
-					}
+	ipcMain.handle('node-crypto-get-random-bytes', async (_, length: number) => {
+		console.log(`[IPC] Handling 'node-crypto-get-random-bytes'`);
+		try {
+			const buf = await randomBytesAsync(length);
+			return buf.toString('base64');
+		} catch (error: any) {
+			console.error('[IPC Error] node-crypto-get-random-bytes:', error);
+			throw new Error(`randomBytes operation failed: ${error.message}`);
+		}
+	});
 
-					console.log(`Encrypting with security level: ${securityLevel}`);
+	// --- Kyber Handlers ---
+	const createKyberErrorHandler = (channel: string) => {
+		return async (...args: any[]) => {
+			// Use rest parameter
+			console.error(
+				`[IPC] Attempted to call ${channel} but Kyber addon is not loaded.`
+			);
+			// Include arguments for better debugging context if needed
+			// console.error(`Arguments:`, args.slice(1)); // Exclude event object
+			throw new Error(`Kyber addon is not loaded. Cannot execute ${channel}.`);
+		};
+	};
+
+	ipcMain.handle(
+		'kyber-generate-keypair',
+		kyberAddon
+			? async (_, securityLevel: string) => {
 					console.log(
-						`- Public key length: ${publicKeyBase64.length} chars (base64)`
+						`[IPC] Handling 'kyber-generate-keypair' (${securityLevel})`
 					);
-					console.log(`- Plaintext length: ${plaintext.length} chars`);
-
-					// Convert base64 public key to Buffer
-					const publicKey = Buffer.from(publicKeyBase64, 'base64');
-					// Convert plaintext to Buffer
-					const plaintextBuffer = Buffer.from(plaintext, 'utf8');
-
-					console.log(`- Decoded public key length: ${publicKey.length} bytes`);
-					console.log(
-						`- Plaintext buffer length: ${plaintextBuffer.length} bytes`
-					);
-
-					// Enhanced error handling and debugging
-					if (!kyberAddon) {
-						console.error('Encryption failed: Kyber addon not loaded');
-						throw new Error('Encryption module not available');
-					}
-
-					if (!kyberAddon.encrypt) {
-						console.error('Encryption failed: encrypt function not available');
-						throw new Error('Encryption function not available');
-					}
-
-					console.log('About to call native encrypt function');
-
 					try {
-						// Call the native addon to encrypt
-						const ciphertext = kyberAddon.encrypt(
-							securityLevel,
-							publicKey,
-							plaintextBuffer
-						);
-
-						if (!ciphertext || !Buffer.isBuffer(ciphertext)) {
-							console.error(
-								'Encryption returned invalid ciphertext:',
-								ciphertext
+						// Check addon one last time before calling
+						if (!kyberAddon) throw new Error('Kyber addon became unavailable.');
+						const result = kyberAddon.generateKeypair(securityLevel);
+						if (!result || !result.publicKey || !result.secretKey) {
+							throw new Error(
+								'Kyber generateKeypair addon returned invalid result'
 							);
-							throw new Error('Invalid encryption result');
 						}
-
-						console.log('Encryption successful:');
-						console.log(`- Ciphertext size: ${ciphertext.length} bytes`);
-
 						return {
-							ciphertext: ciphertext.toString('base64'),
-							ciphertextSize: ciphertext.length,
+							publicKey: result.publicKey.toString('base64'),
+							secretKey: result.secretKey.toString('base64'),
+							publicKeySize: result.publicKey.length,
+							secretKeySize: result.secretKey.length,
 						};
-					} catch (innerError: any) {
-						console.error('Error in native encrypt function:', innerError);
-						console.error(
-							'Error details:',
-							innerError.message || 'No message',
-							innerError.stack || 'No stack'
-						);
+					} catch (error: any) {
+						console.error('[IPC Error] kyber-generate-keypair:', error);
 						throw new Error(
-							`Failed to encrypt: ${
-								innerError.message || 'Unknown native error'
+							`Kyber generateKeypair failed: ${
+								error.message || 'Unknown native error'
 							}`
 						);
 					}
-				} catch (error: any) {
-					console.error('Error encrypting with Kyber:', error);
-					throw new Error(
-						`Failed to encrypt: ${error.message || 'Unknown error'}`
-					);
-				}
-			}
-		);
+			  }
+			: createKyberErrorHandler('kyber-generate-keypair')
+	);
 
-		// Decrypt message
-		ipcMain.handle(
-			'kyber-decrypt',
-			async (
-				_,
-				securityLevel: string,
-				secretKeyBase64: string,
-				ciphertextBase64: string
-			) => {
-				try {
-					if (!secretKeyBase64) {
-						throw new Error('Secret key is required');
-					}
-
-					if (!ciphertextBase64) {
-						throw new Error('Ciphertext is required');
-					}
-
-					console.log(`Decrypting with security level: ${securityLevel}`);
-					console.log(
-						`- Secret key length: ${secretKeyBase64.length} chars (base64)`
-					);
-					console.log(
-						`- Ciphertext length: ${ciphertextBase64.length} chars (base64)`
-					);
-
-					// Convert base64 strings to Buffers
-					const secretKey = Buffer.from(secretKeyBase64, 'base64');
-					const ciphertext = Buffer.from(ciphertextBase64, 'base64');
-
-					console.log(`- Decoded secret key length: ${secretKey.length} bytes`);
-					console.log(
-						`- Decoded ciphertext length: ${ciphertext.length} bytes`
-					);
-
-					// Call the native addon to decrypt
-					const plaintext = kyberAddon.decrypt(
-						securityLevel,
-						secretKey,
-						ciphertext
-					);
-
-					if (!plaintext || !Buffer.isBuffer(plaintext)) {
-						console.error('Decryption returned invalid plaintext:', plaintext);
-						throw new Error('Invalid decryption result');
-					}
-
-					console.log('Decryption successful:');
-					console.log(`- Plaintext size: ${plaintext.length} bytes`);
-					console.log(
-						`- Decrypted message: "${plaintext
-							.toString('utf8')
-							.substring(0, 30)}..."`
-					);
-
-					// Convert the decrypted data to a string
-					return {
-						plaintext: plaintext.toString('utf8'),
-					};
-				} catch (error: any) {
-					console.error('Error decrypting with Kyber:', error);
-					throw new Error(
-						`Failed to decrypt: ${error.message || 'Unknown error'}`
-					);
-				}
-			}
-		);
-	}
-
-	// Check if the dilithiumAddon was loaded successfully
-	if (!dilithiumAddon) {
-		console.error(
-			'Dilithium addon not loaded. Signature functionality will not be available.'
-		);
-
-		// Set up error handlers for all Dilithium IPC methods
-		ipcMain.handle('dilithium-generate-keypair', async () => {
-			throw new Error('Dilithium signature module not available');
-		});
-
-		ipcMain.handle('dilithium-sign', async () => {
-			throw new Error('Dilithium signature module not available');
-		});
-
-		ipcMain.handle('dilithium-verify', async () => {
-			throw new Error('Dilithium signature module not available');
-		});
-	} else {
-		// Generate keypair
-		ipcMain.handle(
-			'dilithium-generate-keypair',
-			async (_, securityLevel: string) => {
-				try {
-					console.log(
-						`Generating Dilithium keys with security level: ${securityLevel}`
-					);
-					const result = dilithiumAddon.generateKeypair(securityLevel);
-
-					if (!result || !result.publicKey || !result.secretKey) {
-						console.error(
-							'Keypair generation returned invalid result:',
-							result
-						);
-						throw new Error('Invalid keypair generation result');
-					}
-
-					console.log('Dilithium key generation successful:');
-					console.log(`- Public key size: ${result.publicKey.length} bytes`);
-					console.log(`- Secret key size: ${result.secretKey.length} bytes`);
-
-					return {
-						publicKey: result.publicKey.toString('base64'),
-						secretKey: result.secretKey.toString('base64'),
-						publicKeySize: result.publicKey.length,
-						secretKeySize: result.secretKey.length,
-					};
-				} catch (error: any) {
-					console.error('Error generating Dilithium keypair:', error);
-					throw new Error(
-						`Failed to generate keypair: ${error.message || 'Unknown error'}`
-					);
-				}
-			}
-		);
-
-		// Sign message
-		ipcMain.handle(
-			'dilithium-sign',
-			async (
-				_,
-				securityLevel: string,
-				secretKeyBase64: string,
-				message: string
-			) => {
-				try {
-					if (!secretKeyBase64) {
-						throw new Error('Secret key is required');
-					}
-
-					if (!message) {
-						throw new Error('Message is required');
-					}
-
-					console.log(`Signing with security level: ${securityLevel}`);
-					console.log(
-						`- Secret key length: ${secretKeyBase64.length} chars (base64)`
-					);
-					console.log(`- Message length: ${message.length} chars`);
-
-					// Convert base64 secret key to Buffer
-					const secretKey = Buffer.from(secretKeyBase64, 'base64');
-					// Convert message to Buffer
-					const messageBuffer = Buffer.from(message, 'utf8');
-
-					console.log(`- Decoded secret key length: ${secretKey.length} bytes`);
-					console.log(`- Message buffer length: ${messageBuffer.length} bytes`);
-
-					// Enhanced error handling and debugging
-					if (!dilithiumAddon) {
-						console.error('Signing failed: Dilithium addon not loaded');
-						throw new Error('Signature module not available');
-					}
-
-					if (!dilithiumAddon.sign) {
-						console.error('Signing failed: sign function not available');
-						throw new Error('Sign function not available');
-					}
-
-					console.log('About to call native sign function');
-
+	ipcMain.handle(
+		'kyber-encapsulate',
+		kyberAddon
+			? async (_, securityLevel: string, publicKeyBase64: string) => {
+					console.log(`[IPC] Handling 'kyber-encapsulate' (${securityLevel})`);
 					try {
-						// Call the native addon to sign
+						if (!kyberAddon) throw new Error('Kyber addon became unavailable.');
+						const publicKey = Buffer.from(publicKeyBase64, 'base64');
+						const result = kyberAddon.encapsulate(securityLevel, publicKey);
+						if (!result || !result.kemCiphertext || !result.sharedSecret) {
+							throw new Error(
+								'Kyber encapsulate addon returned invalid result'
+							);
+						}
+						return {
+							kemCiphertext: result.kemCiphertext.toString('base64'),
+							sharedSecret: result.sharedSecret.toString('base64'),
+						};
+					} catch (error: any) {
+						console.error('[IPC Error] kyber-encapsulate:', error);
+						throw new Error(
+							`Kyber encapsulate failed: ${
+								error.message || 'Unknown native error'
+							}`
+						);
+					}
+			  }
+			: createKyberErrorHandler('kyber-encapsulate')
+	);
+
+	ipcMain.handle(
+		'kyber-decapsulate',
+		kyberAddon
+			? async (
+					_,
+					securityLevel: string,
+					secretKeyBase64: string,
+					kemCiphertextBase64: string
+			  ) => {
+					console.log(`[IPC] Handling 'kyber-decapsulate' (${securityLevel})`);
+					try {
+						if (!kyberAddon) throw new Error('Kyber addon became unavailable.');
+						const secretKey = Buffer.from(secretKeyBase64, 'base64');
+						const kemCiphertext = Buffer.from(kemCiphertextBase64, 'base64');
+						const sharedSecret = kyberAddon.decapsulate(
+							securityLevel,
+							secretKey,
+							kemCiphertext
+						);
+						// Decapsulate should return a buffer directly
+						if (!sharedSecret || !Buffer.isBuffer(sharedSecret)) {
+							// Check if it's falsy or null explicitly
+							if (!sharedSecret && sharedSecret !== null) {
+								console.error(
+									'Decapsulate returned undefined or unexpected falsy value.'
+								);
+							} else if (sharedSecret === null) {
+								// This *could* happen if malloc failed inside C++, but the addon should throw
+								console.error(
+									'Decapsulate returned null, potentially indicating internal allocation failure.'
+								);
+							} else {
+								console.error(
+									'Decapsulate did not return a Buffer. Type:',
+									typeof sharedSecret,
+									'Value:',
+									sharedSecret
+								);
+							}
+							throw new Error(
+								'Kyber decapsulate addon returned invalid result (expected Buffer)'
+							);
+						}
+						return sharedSecret.toString('base64');
+					} catch (error: any) {
+						console.error('[IPC Error] kyber-decapsulate:', error);
+						// Add more specific error checking if possible
+						if (error.message && error.message.includes('invalid result')) {
+							// Potentially handle specific addon errors differently if needed
+						}
+						throw new Error(
+							`Kyber decapsulate failed: ${
+								error.message || 'Unknown native error'
+							}`
+						);
+					}
+			  }
+			: createKyberErrorHandler('kyber-decapsulate')
+	);
+
+	// Ensure old handlers are definitely removed if they were ever registered
+	ipcMain.removeHandler('kyber-encrypt');
+	ipcMain.removeHandler('kyber-decrypt');
+
+	// --- Dilithium Handlers ---
+	const createDilithiumErrorHandler = (channel: string) => {
+		return async (...args: any[]) => {
+			// Use rest parameter
+			console.error(
+				`[IPC] Attempted to call ${channel} but Dilithium addon is not loaded.`
+			);
+			throw new Error(
+				`Dilithium addon is not loaded. Cannot execute ${channel}.`
+			);
+		};
+	};
+
+	ipcMain.handle(
+		'dilithium-generate-keypair',
+		dilithiumAddon
+			? async (_, securityLevel: string) => {
+					console.log(
+						`[IPC] Handling 'dilithium-generate-keypair' (${securityLevel})`
+					);
+					try {
+						if (!dilithiumAddon)
+							throw new Error('Dilithium addon became unavailable.');
+						const result = dilithiumAddon.generateKeypair(securityLevel);
+						if (!result || !result.publicKey || !result.secretKey) {
+							throw new Error(
+								'Dilithium generateKeypair addon returned invalid result'
+							);
+						}
+						return {
+							publicKey: result.publicKey.toString('base64'),
+							secretKey: result.secretKey.toString('base64'),
+							publicKeySize: result.publicKey.length,
+							secretKeySize: result.secretKey.length,
+						};
+					} catch (error: any) {
+						console.error('[IPC Error] dilithium-generate-keypair:', error);
+						throw new Error(
+							`Dilithium generateKeypair failed: ${
+								error.message || 'Unknown native error'
+							}`
+						);
+					}
+			  }
+			: createDilithiumErrorHandler('dilithium-generate-keypair')
+	);
+
+	ipcMain.handle(
+		'dilithium-sign',
+		dilithiumAddon
+			? async (
+					_,
+					securityLevel: string,
+					secretKeyBase64: string,
+					// Message can be buffer or string from preload, handle as buffer here
+					messageInput: string | Buffer // Accept both potential inputs
+			  ) => {
+					console.log(`[IPC] Handling 'dilithium-sign' (${securityLevel})`);
+					try {
+						if (!dilithiumAddon)
+							throw new Error('Dilithium addon became unavailable.');
+						const secretKey = Buffer.from(secretKeyBase64, 'base64');
+						// Ensure message is a Buffer for the addon
+						const messageBuffer = Buffer.isBuffer(messageInput)
+							? messageInput
+							: Buffer.from(messageInput, 'utf8'); // Assume utf8 if string
+
+						// The addon's sign function expects (level, skBuffer, msgBuffer)
 						const signature = dilithiumAddon.sign(
 							securityLevel,
 							secretKey,
 							messageBuffer
 						);
-
 						if (!signature || !Buffer.isBuffer(signature)) {
-							console.error('Signing returned invalid signature:', signature);
-							throw new Error('Invalid signature result');
+							throw new Error(
+								'Dilithium sign addon returned invalid result (expected Buffer)'
+							);
 						}
-
-						console.log('Signing successful:');
-						console.log(`- Signature size: ${signature.length} bytes`);
-
 						return {
 							signature: signature.toString('base64'),
 							signatureSize: signature.length,
 						};
-					} catch (innerError: any) {
-						console.error('Error in native sign function:', innerError);
-						console.error(
-							'Error details:',
-							innerError.message || 'No message',
-							innerError.stack || 'No stack'
-						);
+					} catch (error: any) {
+						console.error(`[IPC Error] dilithium-sign:`, error);
 						throw new Error(
-							`Failed to sign: ${innerError.message || 'Unknown native error'}`
+							`Dilithium sign failed: ${
+								error.message || 'Unknown native error'
+							}`
 						);
 					}
-				} catch (error: any) {
-					console.error('Error signing with Dilithium:', error);
-					throw new Error(
-						`Failed to sign: ${error.message || 'Unknown error'}`
-					);
-				}
-			}
-		);
+			  }
+			: createDilithiumErrorHandler('dilithium-sign')
+	);
 
-		// Verify signature
-		ipcMain.handle(
-			'dilithium-verify',
-			async (
-				_,
-				securityLevel: string,
-				publicKeyBase64: string,
-				message: string,
-				signatureBase64: string
-			) => {
-				try {
-					if (!publicKeyBase64) {
-						throw new Error('Public key is required');
+	ipcMain.handle(
+		'dilithium-verify',
+		dilithiumAddon
+			? async (
+					_,
+					securityLevel: string,
+					publicKeyBase64: string,
+					// Message can be buffer or string from preload, handle as buffer here
+					messageInput: string | Buffer,
+					signatureBase64: string
+			  ) => {
+					console.log(`[IPC] Handling 'dilithium-verify' (${securityLevel})`);
+					try {
+						if (!dilithiumAddon)
+							throw new Error('Dilithium addon became unavailable.');
+						const publicKey = Buffer.from(publicKeyBase64, 'base64');
+						const signature = Buffer.from(signatureBase64, 'base64');
+						// Ensure message is a Buffer for the addon
+						const messageBuffer = Buffer.isBuffer(messageInput)
+							? messageInput
+							: Buffer.from(messageInput, 'utf8'); // Assume utf8 if string
+
+						// The addon's verify function expects (level, pkBuffer, msgBuffer, sigBuffer)
+						const isValid = dilithiumAddon.verify(
+							securityLevel,
+							publicKey,
+							messageBuffer,
+							signature
+						);
+						// The addon wrapper returns boolean directly
+						if (typeof isValid !== 'boolean') {
+							console.error(
+								'Verify addon returned non-boolean type:',
+								typeof isValid
+							);
+							throw new Error(
+								'Dilithium verify addon returned invalid result type (expected boolean)'
+							);
+						}
+						return { isValid: isValid }; // Return object as defined in renderer.d.ts
+					} catch (error: any) {
+						console.error(`[IPC Error] dilithium-verify:`, error);
+						// Check if the error indicates verification failure vs internal error
+						// Note: The current C++ wrapper returns 0 for valid, 1 for invalid, -1 for error.
+						// The NAPI wrapper converts 0 to true, 1 to false, and throws for < 0.
+						// So an error here *should* mean an internal issue, not just an invalid signature.
+						throw new Error(
+							`Dilithium verify failed: ${
+								error.message || 'Unknown native error'
+							}`
+						);
 					}
+			  }
+			: createDilithiumErrorHandler('dilithium-verify')
+	);
 
-					if (!message) {
-						throw new Error('Message is required');
-					}
-
-					if (!signatureBase64) {
-						throw new Error('Signature is required');
-					}
-
-					console.log(`Verifying with security level: ${securityLevel}`);
-					console.log(
-						`- Public key length: ${publicKeyBase64.length} chars (base64)`
-					);
-					console.log(`- Message length: ${message.length} chars`);
-					console.log(
-						`- Signature length: ${signatureBase64.length} chars (base64)`
-					);
-
-					// Convert base64 strings to Buffers
-					const publicKey = Buffer.from(publicKeyBase64, 'base64');
-					const messageBuffer = Buffer.from(message, 'utf8');
-					const signature = Buffer.from(signatureBase64, 'base64');
-
-					console.log(`- Decoded public key length: ${publicKey.length} bytes`);
-					console.log(`- Message buffer length: ${messageBuffer.length} bytes`);
-					console.log(`- Decoded signature length: ${signature.length} bytes`);
-
-					// Call the native addon to verify
-					const isValid = dilithiumAddon.verify(
-						securityLevel,
-						publicKey,
-						messageBuffer,
-						signature
-					);
-
-					console.log(
-						`Signature verification result: ${isValid ? 'Valid' : 'Invalid'}`
-					);
-
-					// Return the verification result
-					return {
-						isValid: isValid,
-					};
-				} catch (error: any) {
-					console.error('Error verifying with Dilithium:', error);
-					throw new Error(
-						`Failed to verify: ${error.message || 'Unknown error'}`
-					);
-				}
-			}
-		);
-	}
+	console.log('[IPC] Encryption/Signature IPC handlers registration complete.');
 }
