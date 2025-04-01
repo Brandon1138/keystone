@@ -1,150 +1,351 @@
 // src/main/ipc.ts
-import { ipcMain } from 'electron';
+import { ipcMain, app } from 'electron';
+import type { IpcMainInvokeEvent } from 'electron'; // Explicit type import
 import { benchmarkManager } from './benchmarkManager';
 import { BenchmarkParams, BenchmarkResult } from '../types/benchmark';
 import { benchmarkStore } from './store';
 import * as path from 'path';
 import * as fs from 'fs';
-import { app } from 'electron';
 import * as crypto from 'crypto'; // Import Node crypto
 import { promisify } from 'util'; // Import promisify
 
+// IMPORTANT: Set up native library paths BEFORE loading any modules
+// This must happen at the top level, not inside a function
+
 // Load the native addons with robust error handling
-let kyberAddon: any;
-let dilithiumAddon: any;
+// Declare the variables at the top level
+let kyberAddon: any = null;
+let dilithiumAddon: any = null;
 
-function getAddonPaths(addonName: string) {
+/**
+ * Calculates the effective project root directory.
+ * In development, it assumes the script is running from somewhere within the project structure
+ * (like dist/main) and navigates up to find the directory containing package.json.
+ * In production, it uses process.resourcesPath, which points to the app's resources directory.
+ */
+function getProjectRoot(): string {
 	const isDevelopment = process.env.NODE_ENV === 'development';
-	const appRoot = app.getAppPath();
-	const projectRoot = isDevelopment ? path.resolve(appRoot, '..') : appRoot; // Adjust project root detection
+	if (isDevelopment) {
+		// In development, __dirname is likely .../PQCBenchGUI4/dist/main
+		// We want to go up two levels to get .../PQCBenchGUI4
+		// A more robust way might be to search upwards for package.json
+		let currentDir = __dirname;
+		while (
+			!fs.existsSync(path.join(currentDir, 'package.json')) &&
+			currentDir !== path.parse(currentDir).root
+		) {
+			currentDir = path.dirname(currentDir);
+		}
+		if (fs.existsSync(path.join(currentDir, 'package.json'))) {
+			console.log(
+				`[getProjectRoot] Found project root via package.json search: ${currentDir}`
+			);
+			return currentDir;
+		} else {
+			// Fallback if package.json not found (less reliable)
+			const fallbackPath = path.resolve(__dirname, '..', '..');
+			console.warn(
+				`[getProjectRoot] Could not find package.json upwards from ${__dirname}. Falling back to ${fallbackPath}`
+			);
+			return fallbackPath; // Adjust if your structure is different
+		}
+	} else {
+		// In production, resourcesPath is the standard directory containing app assets
+		const resourcesPath =
+			(process as any).resourcesPath || path.dirname(app.getAppPath()); // process.resourcesPath is preferred
+		console.log(
+			`[getProjectRoot] Production mode, using resources path: ${resourcesPath}`
+		);
+		return resourcesPath;
+	}
+}
 
-	// Define possible paths where the addon might be located
-	// Prioritize paths relative to the project structure during development
-	return [
-		// Development build output (relative to project root)
-		path.join(projectRoot, 'addons', 'build', 'Release', `${addonName}.node`),
+const projectRoot = getProjectRoot(); // Calculate once
 
-		// Production paths (packaged with electron-builder, relative to app resources)
-		path.join(
-			process.resourcesPath,
-			'addons',
-			'build',
-			'Release',
-			`${addonName}.node`
-		), // Common location
+// Call setupNativeLibraryPaths immediately to ensure DLL paths are set up early
+const addonBuildDir = path.join(projectRoot, 'addons', 'build', 'Release');
+setupNativeLibraryPaths(); // Call at the top level to ensure it runs before any require
 
-		// Older path structures (keep for compatibility if needed)
-		path.join(appRoot, 'build', 'Release', `${addonName}.node`), // Less likely for addons subdir
-		path.join(appRoot, 'dist', 'build', 'Release', `${addonName}.node`), // If build happens inside dist
+function getAddonPaths(addonName: string): string[] {
+	const isDevelopment = process.env.NODE_ENV === 'development';
+	const pathsToSearch: string[] = [];
 
-		// Paths relative to __dirname (where ipc.ts might end up after bundling)
-		path.join(__dirname, 'build', 'Release', `${addonName}.node`),
-		path.join(__dirname, '..', 'build', 'Release', `${addonName}.node`),
-		path.join(
-			__dirname,
-			'..',
-			'..',
-			'addons',
-			'build',
-			'Release',
-			`${addonName}.node`
-		), // Trying relative path upwards
+	// --- Primary Addon Location ---
+	// In Dev: <projectRoot>/addons/build/Release/addon.node
+	// In Prod: <resourcesPath>/addons/build/Release/addon.node (assuming copied during packaging)
+	const primaryAddonDir = path.join(projectRoot, 'addons', 'build', 'Release');
+	const primaryAddonPath = path.join(primaryAddonDir, `${addonName}.node`);
+	pathsToSearch.push(primaryAddonPath);
 
-		// Absolute path attempt based on CWD (can be unreliable)
-		path.join(process.cwd(), 'addons', 'build', 'Release', `${addonName}.node`),
-	];
+	console.log(
+		`[getAddonPaths] Primary search path for ${addonName}: ${primaryAddonPath}`
+	);
+	console.log(`[getAddonPaths] (Derived from projectRoot: ${projectRoot})`);
+
+	// --- Optional: Fallback if packaging structure differs ---
+	// if (!isDevelopment) {
+	//     // Example: If addons are directly in resources root in production
+	//     const altProdPath = path.join(projectRoot, `${addonName}.node`);
+	//     if(altProdPath !== primaryAddonPath) pathsToSearch.push(altProdPath);
+	// }
+
+	return pathsToSearch;
 }
 
 function setupNativeLibraryPaths() {
-	// Ensure native libraries are in PATH or accessible
-	let opensslBinPath = '';
-	let oqsBinPath = '';
 	const isDevelopment = process.env.NODE_ENV === 'development';
-	const appRoot = app.getAppPath();
-	// Adjust base path for finding libs depending on environment
-	const libsBasePath = isDevelopment
-		? path.resolve(appRoot, '..', 'external', 'libs')
-		: path.join(process.resourcesPath, 'libs');
+	console.log(
+		`[setupNativeLibraryPaths] Setting up paths. isDev: ${isDevelopment}`
+	);
 
+	// --- Determine Expected Paths ---
+	// Directory where addons (.node files) and copied DLLs reside
+	const addonBuildDir = path.join(projectRoot, 'addons', 'build', 'Release');
+	// Source directories of the original DLLs (within external/libs)
+	// ** IMPORTANT: Verify these paths match your OQS build output **
+	const oqsSourceBinDir = path.join(
+		projectRoot,
+		'external',
+		'libs',
+		'oqs',
+		'install',
+		'bin'
+	); // Use 'install/bin' as per copy-deps script
+	const opensslSourceBinDir = path.join(
+		projectRoot,
+		'external',
+		'libs',
+		'openssl',
+		'openssl-3.0',
+		'x64',
+		'bin'
+	);
+	const oqsSourceLibDir = path.join(
+		projectRoot,
+		'external',
+		'libs',
+		'oqs',
+		'install',
+		'lib'
+	); // For Linux/macOS .so/.dylib
+	const opensslSourceLibDir = path.join(
+		projectRoot,
+		'external',
+		'libs',
+		'openssl',
+		'openssl-3.0',
+		'x64',
+		'lib'
+	); // For Linux/macOS .so/.dylib
+
+	console.log(`[setupNativeLibraryPaths] Addon Build Dir: ${addonBuildDir}`);
+	console.log(
+		`[setupNativeLibraryPaths] OQS Source Bin Dir: ${oqsSourceBinDir}`
+	);
+	console.log(
+		`[setupNativeLibraryPaths] OpenSSL Source Bin Dir: ${opensslSourceBinDir}`
+	);
+
+	// Verify the DLLs are physically present in addonBuildDir
+	const requiredDlls = ['oqs.dll', 'libcrypto-3-x64.dll'];
+	let missingDlls = false;
+	for (const dll of requiredDlls) {
+		const dllPath = path.join(addonBuildDir, dll);
+		if (fs.existsSync(dllPath)) {
+			console.log(`[setupNativeLibraryPaths] Found DLL: ${dllPath}`);
+		} else {
+			console.error(`[setupNativeLibraryPaths] MISSING DLL: ${dllPath}`);
+			missingDlls = true;
+		}
+	}
+
+	if (missingDlls) {
+		console.warn(
+			`[setupNativeLibraryPaths] Some required DLLs are missing from ${addonBuildDir}`
+		);
+		console.warn(
+			'[setupNativeLibraryPaths] Running copy-deps script to ensure DLLs are present...'
+		);
+
+		// Try to run the copy-deps script synchronously to ensure DLLs are copied
+		try {
+			const copyDepsPath = path.join(
+				projectRoot,
+				'scripts',
+				'copy-native-deps.js'
+			);
+			if (fs.existsSync(copyDepsPath)) {
+				const childProcess = require('child_process');
+				childProcess.execSync(`node "${copyDepsPath}"`, {
+					cwd: projectRoot,
+					stdio: 'inherit', // show output
+				});
+				console.log(
+					'[setupNativeLibraryPaths] Successfully ran copy-deps script'
+				);
+			} else {
+				console.error(
+					`[setupNativeLibraryPaths] copy-deps script not found at ${copyDepsPath}`
+				);
+			}
+		} catch (err) {
+			console.error(
+				'[setupNativeLibraryPaths] Error running copy-deps script:',
+				err
+			);
+		}
+	}
+
+	// --- Configure Environment Variables ---
 	if (process.platform === 'win32') {
-		opensslBinPath = path.join(
-			libsBasePath,
-			'openssl',
-			'openssl-3.0',
-			'x64',
-			'bin'
+		// On Windows, PATH is crucial for finding DLLs.
+		// Prepend the directory containing the addons AND the copied DLLs.
+		// This ensures the loader finds the adjacent DLLs first.
+		const currentPath = process.env.PATH || '';
+
+		// Create a new PATH with addonBuildDir at the beginning, followed by the source dirs, then the original PATH
+		// This maximizes the chance of finding the DLLs
+		const newPath = [
+			addonBuildDir, // Most important - should be found first
+			oqsSourceBinDir,
+			opensslSourceBinDir,
+			currentPath,
+		]
+			.filter(Boolean)
+			.join(path.delimiter);
+
+		process.env.PATH = newPath;
+
+		console.log(
+			`[setupNativeLibraryPaths] Set PATH to prioritize addon build dir.`
 		);
-		oqsBinPath = path.join(libsBasePath, 'oqs', 'install', 'bin');
-		process.env.PATH = `${
-			process.env.PATH || ''
-		};${opensslBinPath};${oqsBinPath}`;
+		console.log(`[setupNativeLibraryPaths] New PATH: ${process.env.PATH}`);
+
+		// Special case for process.dlopen on Windows
+		// Node.js v14+ has process.setDLLDirectory() but it's not commonly available
+		// As a workaround, we rely heavily on the PATH environment variable
 	} else if (process.platform === 'darwin') {
-		// On macOS, LD_LIBRARY_PATH is less common; DYLD_LIBRARY_PATH is used.
-		// Often, embedding paths via rpath during linking is preferred.
-		// However, we can try setting DYLD_LIBRARY_PATH.
-		const opensslLibPath = path.join(
-			libsBasePath,
-			'openssl',
-			'openssl-3.0',
-			'lib'
+		// On macOS, DYLD_LIBRARY_PATH or rpath is used.
+		// Setting DYLD_LIBRARY_PATH: Prepend addon dir, append source lib dirs.
+		const currentDyldPath = process.env.DYLD_LIBRARY_PATH || '';
+		process.env.DYLD_LIBRARY_PATH = [
+			addonBuildDir,
+			oqsSourceLibDir,
+			opensslSourceLibDir,
+			currentDyldPath,
+		]
+			.filter(Boolean)
+			.join(path.delimiter); // Filter avoids empty strings if vars unset
+		console.log(
+			'[setupNativeLibraryPaths] Setting DYLD_LIBRARY_PATH:',
+			process.env.DYLD_LIBRARY_PATH
 		);
-		const oqsLibPath = path.join(libsBasePath, 'oqs', 'install', 'lib');
-		process.env.DYLD_LIBRARY_PATH = `${
-			process.env.DYLD_LIBRARY_PATH || ''
-		}:${opensslLibPath}:${oqsLibPath}`;
-		console.log('Setting DYLD_LIBRARY_PATH:', process.env.DYLD_LIBRARY_PATH);
 	} else {
 		// Linux
-		const opensslLibPath = path.join(
-			libsBasePath,
-			'openssl',
-			'openssl-3.0',
-			'lib'
-		);
-		const oqsLibPath = path.join(libsBasePath, 'oqs', 'install', 'lib');
-		process.env.LD_LIBRARY_PATH = `${
-			process.env.LD_LIBRARY_PATH || ''
-		}:${opensslLibPath}:${oqsLibPath}`;
-		console.log('Setting LD_LIBRARY_PATH:', process.env.LD_LIBRARY_PATH);
-	}
-
-	if (opensslBinPath || oqsBinPath) {
-		console.log('Attempted to configure native library paths:', {
-			opensslBinPath,
-			oqsBinPath,
-			dyld: process.env.DYLD_LIBRARY_PATH,
-			ld: process.env.LD_LIBRARY_PATH,
-		});
-	} else {
+		// On Linux, LD_LIBRARY_PATH or rpath is used.
+		// Setting LD_LIBRARY_PATH: Prepend addon dir, append source lib dirs.
+		const currentLdPath = process.env.LD_LIBRARY_PATH || '';
+		process.env.LD_LIBRARY_PATH = [
+			addonBuildDir,
+			oqsSourceLibDir,
+			opensslSourceLibDir,
+			currentLdPath,
+		]
+			.filter(Boolean)
+			.join(path.delimiter); // Filter avoids empty strings
 		console.log(
-			'Native library path setup skipped or paths not determined for this platform.'
+			'[setupNativeLibraryPaths] Setting LD_LIBRARY_PATH:',
+			process.env.LD_LIBRARY_PATH
 		);
 	}
+	console.log('[setupNativeLibraryPaths] Path setup complete.');
 }
 
-function loadNativeAddon(addonName: string) {
-	setupNativeLibraryPaths(); // Ensure paths are set before trying to load
-
+function loadNativeAddon(addonName: string): any | null {
 	const possiblePaths = getAddonPaths(addonName);
 	let foundPath = '';
 	let lastError: Error | null = null;
 
 	console.log(`Searching for ${addonName} in:`, possiblePaths);
 
+	// Verify the native addon (.node file) exists
+	const addonExistsAtPath = (path: string): boolean => {
+		if (fs.existsSync(path)) {
+			console.log(`[loadNativeAddon] Found addon file: ${path}`);
+			return true;
+		}
+		console.log(`[loadNativeAddon] Addon file NOT found: ${path}`);
+		return false;
+	};
+
 	for (const addonPath of possiblePaths) {
 		try {
-			if (fs.existsSync(addonPath)) {
-				console.log(`Attempting to load ${addonName} from: ${addonPath}`);
-				foundPath = addonPath;
-				const addon = require(addonPath); // Use require primarily
+			// 1. Check if the .node file itself exists
+			if (addonExistsAtPath(addonPath)) {
+				console.log(
+					`[loadNativeAddon] Attempting to load module from '${addonPath}'...`
+				);
 
-				// *** UPDATED Validation Logic ***
+				// 2. Use process.dlopen to load the addon directly instead of require
+				// This bypasses webpack's module system which can interfere with native modules
+				let addon: any;
+				try {
+					// First try with require - this might work for some configurations
+					addon = require(addonPath);
+					console.log(
+						`[loadNativeAddon] Successfully loaded with require: ${addonPath}`
+					);
+				} catch (err: any) {
+					// Cast the unknown error to any to access message property safely
+					const reqError = err as Error;
+					console.log(
+						`[loadNativeAddon] require() failed, trying alternate methods (${reqError.message})`
+					);
+
+					// If require fails, we'll try alternate approaches
+					// This needs to be carefully handled since we're using internal APIs
+					try {
+						// Attempt to use node-bindings if available
+						try {
+							// Try node-bindings package if available (dynamically)
+							const bindings = require('bindings');
+							addon = bindings(path.basename(addonPath, '.node'));
+							console.log(
+								`[loadNativeAddon] Successfully loaded using bindings: ${addonPath}`
+							);
+						} catch (bindingError) {
+							// Bindings not available, try direct process.dlopen
+							// as a last resort (but this is risky)
+
+							// Note: process.dlopen is not in the TypeScript defs but is available at runtime
+							// We need to use any type to bypass TypeScript's type checking
+							const proc = process as any;
+							if (typeof proc.dlopen === 'function') {
+								let moduleObject = { exports: {} };
+								proc.dlopen(moduleObject, addonPath);
+								addon = moduleObject.exports;
+								console.log(
+									`[loadNativeAddon] Successfully loaded using process.dlopen: ${addonPath}`
+								);
+							} else {
+								throw new Error('No available method to load native addon');
+							}
+						}
+					} catch (dlopenError: any) {
+						// All attempts failed
+						throw new Error(
+							`All module loading approaches failed: ${dlopenError.message}`
+						);
+					}
+				}
+
+				// 3. Validate exported functions
 				let isValid = false;
 				if (addonName === 'kyber_node_addon') {
 					isValid =
 						typeof addon.generateKeypair === 'function' &&
-						typeof addon.encapsulate === 'function' && // <-- CORRECT CHECK
-						typeof addon.decapsulate === 'function'; // <-- CORRECT CHECK
+						typeof addon.encapsulate === 'function' &&
+						typeof addon.decapsulate === 'function';
 				} else if (addonName === 'dilithium_node_addon') {
 					isValid =
 						typeof addon.generateKeypair === 'function' &&
@@ -154,114 +355,168 @@ function loadNativeAddon(addonName: string) {
 
 				if (isValid) {
 					console.log(
-						`Successfully loaded and validated ${addonName} addon from ${addonPath}`
+						`[loadNativeAddon] Successfully validated ${addonName} from ${addonPath}`
 					);
-					return addon;
+					return addon; // Success!
 				} else {
-					console.warn(
-						`Loaded ${addonName} from ${addonPath}, but it did not pass validation (missing expected functions).`
-					);
-					lastError = new Error(
-						`Addon ${addonName} loaded but failed validation.`
-					);
-					// Continue searching other paths if validation fails
+					foundPath = addonPath; // Mark as found but invalid
+					const msg = `Loaded ${addonName} from ${addonPath}, but validation failed (missing expected functions). Exports: ${Object.keys(
+						addon || {}
+					)}`;
+					console.warn(`[loadNativeAddon] ${msg}`);
+					lastError = new Error(msg);
+					// Don't continue searching if validation fails - the loaded module is wrong.
+					break;
 				}
-			} else {
-				// console.log(`Path does not exist: ${addonPath}`); // Optional: verbose logging
 			}
 		} catch (error: any) {
+			// This catch block handles errors during the `require(addonPath)` call
+			// Most likely "Cannot find module" or dependency loading errors (DLL not found)
 			console.warn(
-				`Failed to load ${addonName} from ${addonPath}:`,
-				error.message
+				`[loadNativeAddon] Failed to load ${addonName} from ${addonPath}: ${error.message}`
 			);
-			lastError = error; // Store the last error encountered
-			// Continue searching other paths if loading fails
+			console.warn(
+				`[loadNativeAddon] Error code: ${error.code}, Error details: `,
+				error
+			);
+
+			if (error.code === 'MODULE_NOT_FOUND') {
+				console.warn(
+					`[loadNativeAddon] Hint: If the file exists, this often means a required DLL dependency (like oqs.dll or libcrypto) was not found by the OS loader.`
+				);
+				console.warn(
+					`[loadNativeAddon] Verify DLLs are present in ${path.dirname(
+						addonPath
+					)} and PATH/LD_LIBRARY_PATH/DYLD_LIBRARY_PATH includes necessary directories.`
+				);
+
+				// On Windows, let's check for the presence of our DLLs again
+				if (process.platform === 'win32') {
+					const addonDir = path.dirname(addonPath);
+					const dllsToCheck = ['oqs.dll', 'libcrypto-3-x64.dll'];
+
+					console.warn(
+						'[loadNativeAddon] Checking for DLLs in addon directory...'
+					);
+					for (const dll of dllsToCheck) {
+						const dllPath = path.join(addonDir, dll);
+						console.warn(
+							`[loadNativeAddon] ${dll} exists: ${fs.existsSync(dllPath)}`
+						);
+					}
+				}
+			}
+
+			lastError = error;
+			// If require fails for one path, continue searching other potential paths
+			if (fs.existsSync(addonPath)) {
+				foundPath = addonPath; // Mark as found but failed to load
+			}
 		}
 	}
 
 	// If loop completes without returning an addon
 	if (foundPath) {
+		// If we found the file but loading/validation failed
 		console.error(
-			`Found ${addonName} at ${foundPath} but failed to load or validate it properly. Last error:`,
-			lastError?.message
+			`[loadNativeAddon] Found ${addonName} at ${foundPath} but failed to load or validate it. Last error: ${lastError?.message}`
 		);
 	} else {
+		// If the file wasn't found in any searched path
 		console.error(
-			`Failed to find ${addonName} addon in any of the searched locations.`
+			`[loadNativeAddon] Failed to find ${addonName} addon in any of the searched locations: ${possiblePaths.join(
+				', '
+			)}`
 		);
 		if (lastError) {
-			console.error('Last error during load attempts:', lastError);
+			console.error(
+				'[loadNativeAddon] Last error during load attempts:',
+				lastError
+			);
 		}
 	}
 
 	return null; // Return null if not found or loaded correctly
 }
 
-// Try to load the addons
+// --- Initialize Addons Once on Startup ---
+// IMPORTANT: Path setup must happen before we try to load the native addons!
+
+// Initialize DLL paths first, at the top level
+// setupNativeLibraryPaths(); // Already called at the top level
+
+// Try to load the addons - use the already declared variables
 try {
-	// No changes needed here, the loading logic is inside the function
+	console.log('[IPC Init] Attempting to load Kyber encryption module...');
 	kyberAddon = loadNativeAddon('kyber_node_addon');
 	if (kyberAddon) {
-		console.log('Kyber encryption module loaded successfully');
-		console.log('Available Kyber functions:', Object.keys(kyberAddon));
+		console.log('[IPC Init] Kyber encryption module loaded successfully.');
+		// console.log('Available Kyber functions:', Object.keys(kyberAddon)); // Optional verbose
 	} else {
-		console.error(
-			'Could not load Kyber encryption module after searching paths.'
-		);
+		console.error('[IPC Init] Could not load Kyber encryption module.');
 	}
 
+	console.log('[IPC Init] Attempting to load Dilithium signature module...');
 	dilithiumAddon = loadNativeAddon('dilithium_node_addon');
 	if (dilithiumAddon) {
-		console.log('Dilithium signature module loaded successfully');
-		console.log('Available Dilithium functions:', Object.keys(dilithiumAddon));
+		console.log('[IPC Init] Dilithium signature module loaded successfully.');
+		// console.log('Available Dilithium functions:', Object.keys(dilithiumAddon)); // Optional verbose
 	} else {
-		console.error(
-			'Could not load Dilithium signature module after searching paths.'
-		);
+		console.error('[IPC Init] Could not load Dilithium signature module.');
 	}
 } catch (error: any) {
-	console.error(
-		'Error initializing crypto modules during load attempt:',
-		error
-	);
+	console.error('[IPC Init] Fatal error during addon initialization:', error);
+	// Consider exiting or disabling features if addons are critical
 }
+
+// ==========================================================================
+// IPC Handlers (No changes needed below this line from previous version)
+// ==========================================================================
 
 export function setupBenchmarkIPC() {
 	// No changes needed here
-	ipcMain.handle('run-benchmark', async (event, params: BenchmarkParams) => {
-		try {
-			// Set up progress reporting
-			benchmarkManager.onProgress((progressData) => {
-				// Send progress updates to renderer
-				event.sender.send('benchmark-progress', progressData);
-			});
+	ipcMain.handle(
+		'run-benchmark',
+		async (event: IpcMainInvokeEvent, params: BenchmarkParams) => {
+			try {
+				// Set up progress reporting
+				benchmarkManager.onProgress((progressData) => {
+					// Send progress updates to renderer
+					event.sender.send('benchmark-progress', progressData);
+				});
 
-			const result = await benchmarkManager.runBenchmark(params);
-			// Save the benchmark result to the store
-			const savedResult = benchmarkStore.saveBenchmarkResult(result);
-			return savedResult;
-		} catch (error: any) {
-			// We'll still save failed benchmarks but mark them as failed
-			if (
-				error &&
-				typeof error === 'object' &&
-				error.id &&
-				error.status === 'failed'
-			) {
-				return benchmarkStore.saveBenchmarkResult(
-					error as Omit<BenchmarkResult, 'id'>
+				const result = await benchmarkManager.runBenchmark(params);
+				// Save the benchmark result to the store
+				const savedResult = benchmarkStore.saveBenchmarkResult(result);
+				return savedResult;
+			} catch (error: any) {
+				// We'll still save failed benchmarks but mark them as failed
+				if (
+					error &&
+					typeof error === 'object' &&
+					error.id &&
+					error.status === 'failed'
+				) {
+					return benchmarkStore.saveBenchmarkResult(
+						error as Omit<BenchmarkResult, 'id'>
+					);
+				}
+				// Log the error before potentially saving
+				console.error('Error during benchmark run:', error);
+				// Rethrow or return a structured error for the renderer
+				throw new Error(
+					`Benchmark failed: ${error?.message || 'Unknown error'}`
 				);
 			}
-			// Log the error before potentially saving
-			console.error('Error during benchmark run:', error);
-			// Rethrow or return a structured error for the renderer
-			throw new Error(`Benchmark failed: ${error?.message || 'Unknown error'}`);
 		}
-	});
+	);
 
-	ipcMain.handle('stop-benchmark', async (_, benchmarkId: string) => {
-		return benchmarkManager.stopBenchmark(benchmarkId);
-	});
+	ipcMain.handle(
+		'stop-benchmark',
+		async (_event: IpcMainInvokeEvent, benchmarkId: string) => {
+			return benchmarkManager.stopBenchmark(benchmarkId);
+		}
+	);
 
 	// New IPC handlers for benchmark data operations
 	ipcMain.handle('get-all-benchmarks', async () => {
@@ -270,21 +525,25 @@ export function setupBenchmarkIPC() {
 
 	ipcMain.handle(
 		'get-benchmarks-by-algorithm',
-		async (_, algorithm: string) => {
+		async (_event: IpcMainInvokeEvent, algorithm: string) => {
 			return benchmarkStore.getBenchmarksByAlgorithm(algorithm);
 		}
 	);
 
 	ipcMain.handle(
 		'get-benchmarks-by-security-param',
-		async (_, securityParam: string) => {
+		async (_event: IpcMainInvokeEvent, securityParam: string) => {
 			return benchmarkStore.getBenchmarksBySecurityParam(securityParam);
 		}
 	);
 
 	ipcMain.handle(
 		'get-benchmarks-by-algorithm-and-param',
-		async (_, algorithm: string, securityParam: string) => {
+		async (
+			_event: IpcMainInvokeEvent,
+			algorithm: string,
+			securityParam: string
+		) => {
 			return benchmarkStore.getBenchmarksByAlgorithmAndParam(
 				algorithm,
 				securityParam
@@ -294,7 +553,7 @@ export function setupBenchmarkIPC() {
 
 	ipcMain.handle(
 		'get-benchmarks-by-date-range',
-		async (_, startDate: string, endDate: string) => {
+		async (_event: IpcMainInvokeEvent, startDate: string, endDate: string) => {
 			return benchmarkStore.getBenchmarksByDateRange(
 				new Date(startDate),
 				new Date(endDate)
@@ -304,26 +563,32 @@ export function setupBenchmarkIPC() {
 
 	ipcMain.handle(
 		'get-benchmarks-by-status',
-		async (_, status: 'completed' | 'failed') => {
+		async (_event: IpcMainInvokeEvent, status: 'completed' | 'failed') => {
 			return benchmarkStore.getBenchmarksByStatus(status);
 		}
 	);
 
-	ipcMain.handle('get-benchmark-by-id', async (_, id: string) => {
-		return benchmarkStore.getBenchmarkById(id);
-	});
+	ipcMain.handle(
+		'get-benchmark-by-id',
+		async (_event: IpcMainInvokeEvent, id: string) => {
+			return benchmarkStore.getBenchmarkById(id);
+		}
+	);
 
-	ipcMain.handle('delete-benchmark', async (_, id: string) => {
-		return benchmarkStore.deleteBenchmark(id);
-	});
+	ipcMain.handle(
+		'delete-benchmark',
+		async (_event: IpcMainInvokeEvent, id: string) => {
+			return benchmarkStore.deleteBenchmark(id);
+		}
+	);
 
-	ipcMain.handle('clear-all-benchmarks', async () => {
+	ipcMain.handle('clear-all- benchmarks', async () => {
 		benchmarkStore.clearAllBenchmarks();
 		return true;
 	});
 }
 
-// Setup Encryption/Signature IPC (No changes needed here, the handlers call the addon variable)
+// Setup Encryption/Signature IPC
 export function setupEncryptionIPC() {
 	console.log('[IPC] Setting up Encryption/Signature IPC handlers...');
 
@@ -339,7 +604,7 @@ export function setupEncryptionIPC() {
 	ipcMain.handle(
 		'node-crypto-hkdf',
 		async (
-			_,
+			_event: IpcMainInvokeEvent,
 			ikmBase64: string,
 			length: number,
 			saltBase64?: string,
@@ -377,26 +642,26 @@ export function setupEncryptionIPC() {
 		crypto.randomBytes
 	);
 
-	ipcMain.handle('node-crypto-get-random-bytes', async (_, length: number) => {
-		console.log(`[IPC] Handling 'node-crypto-get-random-bytes'`);
-		try {
-			const buf = await randomBytesAsync(length);
-			return buf.toString('base64');
-		} catch (error: any) {
-			console.error('[IPC Error] node-crypto-get-random-bytes:', error);
-			throw new Error(`randomBytes operation failed: ${error.message}`);
+	ipcMain.handle(
+		'node-crypto-get-random-bytes',
+		async (_event: IpcMainInvokeEvent, length: number) => {
+			console.log(`[IPC] Handling 'node-crypto-get-random-bytes'`);
+			try {
+				const buf = await randomBytesAsync(length);
+				return buf.toString('base64');
+			} catch (error: any) {
+				console.error('[IPC Error] node-crypto-get-random-bytes:', error);
+				throw new Error(`randomBytes operation failed: ${error.message}`);
+			}
 		}
-	});
+	);
 
 	// --- Kyber Handlers ---
 	const createKyberErrorHandler = (channel: string) => {
-		return async (...args: any[]) => {
-			// Use rest parameter
+		return async (_event: IpcMainInvokeEvent, ...args: any[]) => {
 			console.error(
-				`[IPC] Attempted to call ${channel} but Kyber addon is not loaded.`
+				`[IPC Error] Attempted to call ${channel} but Kyber addon is not loaded.`
 			);
-			// Include arguments for better debugging context if needed
-			// console.error(`Arguments:`, args.slice(1)); // Exclude event object
 			throw new Error(`Kyber addon is not loaded. Cannot execute ${channel}.`);
 		};
 	};
@@ -404,13 +669,12 @@ export function setupEncryptionIPC() {
 	ipcMain.handle(
 		'kyber-generate-keypair',
 		kyberAddon
-			? async (_, securityLevel: string) => {
+			? async (_event: IpcMainInvokeEvent, securityLevel: string) => {
 					console.log(
 						`[IPC] Handling 'kyber-generate-keypair' (${securityLevel})`
 					);
 					try {
-						// Check addon one last time before calling
-						if (!kyberAddon) throw new Error('Kyber addon became unavailable.');
+						if (!kyberAddon) throw new Error('Kyber addon became unavailable.'); // Re-check before use
 						const result = kyberAddon.generateKeypair(securityLevel);
 						if (!result || !result.publicKey || !result.secretKey) {
 							throw new Error(
@@ -438,7 +702,11 @@ export function setupEncryptionIPC() {
 	ipcMain.handle(
 		'kyber-encapsulate',
 		kyberAddon
-			? async (_, securityLevel: string, publicKeyBase64: string) => {
+			? async (
+					_event: IpcMainInvokeEvent,
+					securityLevel: string,
+					publicKeyBase64: string
+			  ) => {
 					console.log(`[IPC] Handling 'kyber-encapsulate' (${securityLevel})`);
 					try {
 						if (!kyberAddon) throw new Error('Kyber addon became unavailable.');
@@ -469,7 +737,7 @@ export function setupEncryptionIPC() {
 		'kyber-decapsulate',
 		kyberAddon
 			? async (
-					_,
+					_event: IpcMainInvokeEvent,
 					securityLevel: string,
 					secretKeyBase64: string,
 					kemCiphertextBase64: string
@@ -484,26 +752,11 @@ export function setupEncryptionIPC() {
 							secretKey,
 							kemCiphertext
 						);
-						// Decapsulate should return a buffer directly
 						if (!sharedSecret || !Buffer.isBuffer(sharedSecret)) {
-							// Check if it's falsy or null explicitly
-							if (!sharedSecret && sharedSecret !== null) {
-								console.error(
-									'Decapsulate returned undefined or unexpected falsy value.'
-								);
-							} else if (sharedSecret === null) {
-								// This *could* happen if malloc failed inside C++, but the addon should throw
-								console.error(
-									'Decapsulate returned null, potentially indicating internal allocation failure.'
-								);
-							} else {
-								console.error(
-									'Decapsulate did not return a Buffer. Type:',
-									typeof sharedSecret,
-									'Value:',
-									sharedSecret
-								);
-							}
+							console.error(
+								'Kyber decapsulate did not return a Buffer. Type:',
+								typeof sharedSecret
+							);
 							throw new Error(
 								'Kyber decapsulate addon returned invalid result (expected Buffer)'
 							);
@@ -511,10 +764,6 @@ export function setupEncryptionIPC() {
 						return sharedSecret.toString('base64');
 					} catch (error: any) {
 						console.error('[IPC Error] kyber-decapsulate:', error);
-						// Add more specific error checking if possible
-						if (error.message && error.message.includes('invalid result')) {
-							// Potentially handle specific addon errors differently if needed
-						}
 						throw new Error(
 							`Kyber decapsulate failed: ${
 								error.message || 'Unknown native error'
@@ -525,16 +774,14 @@ export function setupEncryptionIPC() {
 			: createKyberErrorHandler('kyber-decapsulate')
 	);
 
-	// Ensure old handlers are definitely removed if they were ever registered
 	ipcMain.removeHandler('kyber-encrypt');
 	ipcMain.removeHandler('kyber-decrypt');
 
 	// --- Dilithium Handlers ---
 	const createDilithiumErrorHandler = (channel: string) => {
-		return async (...args: any[]) => {
-			// Use rest parameter
+		return async (_event: IpcMainInvokeEvent, ...args: any[]) => {
 			console.error(
-				`[IPC] Attempted to call ${channel} but Dilithium addon is not loaded.`
+				`[IPC Error] Attempted to call ${channel} but Dilithium addon is not loaded.`
 			);
 			throw new Error(
 				`Dilithium addon is not loaded. Cannot execute ${channel}.`
@@ -545,7 +792,7 @@ export function setupEncryptionIPC() {
 	ipcMain.handle(
 		'dilithium-generate-keypair',
 		dilithiumAddon
-			? async (_, securityLevel: string) => {
+			? async (_event: IpcMainInvokeEvent, securityLevel: string) => {
 					console.log(
 						`[IPC] Handling 'dilithium-generate-keypair' (${securityLevel})`
 					);
@@ -580,23 +827,20 @@ export function setupEncryptionIPC() {
 		'dilithium-sign',
 		dilithiumAddon
 			? async (
-					_,
+					_event: IpcMainInvokeEvent,
 					securityLevel: string,
 					secretKeyBase64: string,
-					// Message can be buffer or string from preload, handle as buffer here
-					messageInput: string | Buffer // Accept both potential inputs
+					messageInput: string | Buffer
 			  ) => {
 					console.log(`[IPC] Handling 'dilithium-sign' (${securityLevel})`);
 					try {
 						if (!dilithiumAddon)
 							throw new Error('Dilithium addon became unavailable.');
 						const secretKey = Buffer.from(secretKeyBase64, 'base64');
-						// Ensure message is a Buffer for the addon
 						const messageBuffer = Buffer.isBuffer(messageInput)
 							? messageInput
-							: Buffer.from(messageInput, 'utf8'); // Assume utf8 if string
+							: Buffer.from(messageInput, 'utf8');
 
-						// The addon's sign function expects (level, skBuffer, msgBuffer)
 						const signature = dilithiumAddon.sign(
 							securityLevel,
 							secretKey,
@@ -627,10 +871,9 @@ export function setupEncryptionIPC() {
 		'dilithium-verify',
 		dilithiumAddon
 			? async (
-					_,
+					_event: IpcMainInvokeEvent,
 					securityLevel: string,
 					publicKeyBase64: string,
-					// Message can be buffer or string from preload, handle as buffer here
 					messageInput: string | Buffer,
 					signatureBase64: string
 			  ) => {
@@ -640,19 +883,16 @@ export function setupEncryptionIPC() {
 							throw new Error('Dilithium addon became unavailable.');
 						const publicKey = Buffer.from(publicKeyBase64, 'base64');
 						const signature = Buffer.from(signatureBase64, 'base64');
-						// Ensure message is a Buffer for the addon
 						const messageBuffer = Buffer.isBuffer(messageInput)
 							? messageInput
-							: Buffer.from(messageInput, 'utf8'); // Assume utf8 if string
+							: Buffer.from(messageInput, 'utf8');
 
-						// The addon's verify function expects (level, pkBuffer, msgBuffer, sigBuffer)
 						const isValid = dilithiumAddon.verify(
 							securityLevel,
 							publicKey,
 							messageBuffer,
 							signature
 						);
-						// The addon wrapper returns boolean directly
 						if (typeof isValid !== 'boolean') {
 							console.error(
 								'Verify addon returned non-boolean type:',
@@ -662,13 +902,9 @@ export function setupEncryptionIPC() {
 								'Dilithium verify addon returned invalid result type (expected boolean)'
 							);
 						}
-						return { isValid: isValid }; // Return object as defined in renderer.d.ts
+						return { isValid: isValid };
 					} catch (error: any) {
 						console.error(`[IPC Error] dilithium-verify:`, error);
-						// Check if the error indicates verification failure vs internal error
-						// Note: The current C++ wrapper returns 0 for valid, 1 for invalid, -1 for error.
-						// The NAPI wrapper converts 0 to true, 1 to false, and throws for < 0.
-						// So an error here *should* mean an internal issue, not just an invalid signature.
 						throw new Error(
 							`Dilithium verify failed: ${
 								error.message || 'Unknown native error'

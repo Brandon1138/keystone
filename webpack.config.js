@@ -23,12 +23,37 @@ module.exports = [
 		externals: [
 			// Add any native modules you want to exclude from webpack processing
 			{
+				// Kyber addon paths
 				'../../build/Release/kyber_node_addon.node':
 					'commonjs2 ../../build/Release/kyber_node_addon.node',
 				'../build/Release/kyber_node_addon.node':
 					'commonjs2 ../build/Release/kyber_node_addon.node',
 				'./build/Release/kyber_node_addon.node':
 					'commonjs2 ./build/Release/kyber_node_addon.node',
+				// Absolute paths to Kyber addon
+				[path.resolve(
+					__dirname,
+					'addons/build/Release/kyber_node_addon.node'
+				)]: `commonjs2 ${path.resolve(
+					__dirname,
+					'addons/build/Release/kyber_node_addon.node'
+				)}`,
+
+				// Dilithium addon paths
+				'../../build/Release/dilithium_node_addon.node':
+					'commonjs2 ../../build/Release/dilithium_node_addon.node',
+				'../build/Release/dilithium_node_addon.node':
+					'commonjs2 ../build/Release/dilithium_node_addon.node',
+				'./build/Release/dilithium_node_addon.node':
+					'commonjs2 ./build/Release/dilithium_node_addon.node',
+				// Absolute paths to Dilithium addon
+				[path.resolve(
+					__dirname,
+					'addons/build/Release/dilithium_node_addon.node'
+				)]: `commonjs2 ${path.resolve(
+					__dirname,
+					'addons/build/Release/dilithium_node_addon.node'
+				)}`,
 			},
 			// Add any native Node.js modules here
 			'fsevents',
@@ -46,9 +71,17 @@ module.exports = [
 				module: /kyber_node_addon/,
 			},
 			{
+				module: /dilithium_node_addon/,
+			},
+			{
 				message: /Critical dependency/,
 			},
 		],
+		// Disable node polyfills for native modules
+		node: {
+			__dirname: false,
+			__filename: false,
+		},
 	},
 	{
 		mode: 'development',

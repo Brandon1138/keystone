@@ -4,29 +4,6 @@ import { setupBenchmarkIPC, setupEncryptionIPC } from './ipc';
 
 let mainWindow: BrowserWindow | null = null;
 
-// Add native library paths to process environment
-if (process.platform === 'win32') {
-	// For Windows, we need to add the OpenSSL and liboqs DLLs to the PATH
-	const appPath = app.getAppPath();
-	const opensslBinPath = path.join(
-		appPath,
-		'libs',
-		'openssl',
-		'openssl-3.0',
-		'x64',
-		'bin'
-	);
-	const oqsBinPath = path.join(appPath, 'libs', 'oqs', 'install', 'bin');
-
-	// Add these paths to the PATH environment variable
-	process.env.PATH = `${process.env.PATH};${opensslBinPath};${oqsBinPath}`;
-	console.log(
-		'Added native library paths to PATH:',
-		opensslBinPath,
-		oqsBinPath
-	);
-}
-
 // Enable live reload in development mode
 /* Commenting out electron-reload for now to fix errors
 if (process.env.NODE_ENV === 'development') {
