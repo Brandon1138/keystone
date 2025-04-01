@@ -39,20 +39,20 @@ type DilithiumSecLevel = '2' | '3' | '5';
 
 // --- Interface for Stored Keys ---
 interface CryptoKeys {
-	senderDilithiumSk: Buffer | null; // ML-DSA Secret Key (Signer)
-	senderDilithiumPk: Buffer | null; // ML-DSA Public Key (Signer)
-	receiverKyberSk: Buffer | null; // ML-KEM Secret Key (Receiver)
-	receiverKyberPk: Buffer | null; // ML-KEM Public Key (Receiver)
+	senderDilithiumSk: Uint8Array | null; // ML-DSA Secret Key (Signer)
+	senderDilithiumPk: Uint8Array | null; // ML-DSA Public Key (Signer)
+	receiverKyberSk: Uint8Array | null; // ML-KEM Secret Key (Receiver)
+	receiverKyberPk: Uint8Array | null; // ML-KEM Public Key (Receiver)
 }
 
 // --- Interface for Encrypted Package ---
 // Structure to hold the output of encryption/signing
 interface EncryptedPackage {
-	kemCiphertext: Buffer | null;
-	iv: Buffer | null;
-	aesCiphertextWithTag: Buffer | null;
-	signature: Buffer | null;
-	salt: Buffer | null;
+	kemCiphertext: Uint8Array | null;
+	iv: Uint8Array | null;
+	aesCiphertextWithTag: Uint8Array | null;
+	signature: Uint8Array | null;
+	salt: Uint8Array | null;
 	kemLevel: KyberSecLevel;
 	sigLevel: DilithiumSecLevel;
 }
@@ -116,12 +116,28 @@ export const EncryptionRunner: React.FC = () => {
 		setErrorMessage('');
 	};
 
-	const bufferToBase64 = (buf: Buffer | null): string => {
-		return buf ? buf.toString('base64') : '';
+	const bufferToBase64 = (buf: Uint8Array | null): string => {
+		if (!buf) return '';
+		// Convert Uint8Array to base64 string
+		let binary = '';
+		const bytes = new Uint8Array(buf);
+		const len = bytes.byteLength;
+		for (let i = 0; i < len; i++) {
+			binary += String.fromCharCode(bytes[i]);
+		}
+		return window.btoa(binary);
 	};
 
-	const base64ToBuffer = (str: string | null | undefined): Buffer => {
-		return str ? Buffer.from(str, 'base64') : Buffer.alloc(0);
+	const base64ToBuffer = (str: string | null | undefined): Uint8Array => {
+		if (!str) return new Uint8Array(0);
+		// Convert base64 string to Uint8Array
+		const binary = window.atob(str);
+		const len = binary.length;
+		const bytes = new Uint8Array(len);
+		for (let i = 0; i < len; i++) {
+			bytes[i] = binary.charCodeAt(i);
+		}
+		return bytes;
 	};
 
 	const formatBytes = (bytes: number | undefined): string => {
@@ -168,15 +184,23 @@ export const EncryptionRunner: React.FC = () => {
 				kemLevel
 			);
 
-			// Decode Base64 strings to Buffers for state storage
-			setKeys({
-				senderDilithiumSk: base64ToBuffer(dilithiumResult.secretKey),
-				senderDilithiumPk: base64ToBuffer(dilithiumResult.publicKey),
-				receiverKyberSk: base64ToBuffer(kyberResult.secretKey),
-				receiverKyberPk: base64ToBuffer(kyberResult.publicKey),
-			});
-			handleSuccess('Sender (ML-DSA) and Receiver (ML-KEM) keys generated.');
-		} catch (error) {
+			try {
+				// Decode Base64 strings to Uint8Arrays for state storage
+				setKeys({
+					senderDilithiumSk: base64ToBuffer(dilithiumResult.secretKey),
+					senderDilithiumPk: base64ToBuffer(dilithiumResult.publicKey),
+					receiverKyberSk: base64ToBuffer(kyberResult.secretKey),
+					receiverKyberPk: base64ToBuffer(kyberResult.publicKey),
+				});
+				handleSuccess('Sender (ML-DSA) and Receiver (ML-KEM) keys generated.');
+			} catch (bufferError) {
+				console.error('Error during base64 conversion:', bufferError);
+				handleError(
+					'Error processing keys',
+					'Failed to convert key data. If this persists, please report the issue.'
+				);
+			}
+		} catch (error: any) {
 			handleError('Key generation failed', error);
 		} finally {
 			setIsLoadingKeys(false);
@@ -202,7 +226,7 @@ export const EncryptionRunner: React.FC = () => {
 			// Pass receiver PK buffer directly to preload, which handles conversion for IPC
 			const encapsResult = await window.electronAPI.kyber.encapsulate(
 				kemLevel,
-				keys.receiverKyberPk! // Pass Buffer
+				keys.receiverKyberPk! // Pass Uint8Array
 			);
 			// Decode Base64 results from IPC immediately
 			const kemCiphertext = base64ToBuffer(encapsResult.kemCiphertext);
@@ -217,28 +241,28 @@ export const EncryptionRunner: React.FC = () => {
 			setStatusMessage('Step 2/5: Deriving AES-256 key (HKDF-SHA256)...');
 			// Generate random salt (IPC returns salt: Base64)
 			const saltBase64 = await window.electronAPI.nodeCrypto.getRandomBytes(16);
-			const salt = base64ToBuffer(saltBase64); // Decode salt Buffer for storage
+			const salt = base64ToBuffer(saltBase64); // Decode salt Uint8Array for storage
 			const info = 'hybrid-aes-256-gcm-key'; // Info can be string for IPC
 
-			// Pass Buffers directly to preload wrapper, info as string
+			// Pass Uint8Arrays directly to preload wrapper, info as string
 			const derivedKeyBase64 = await window.electronAPI.nodeCrypto.hkdf(
-				sharedSecret, // Pass Buffer
+				sharedSecret, // Pass Uint8Array
 				32,
-				salt, // Pass Buffer
+				salt, // Pass Uint8Array
 				info
 			);
-			// Decode derived key Buffer for Web Crypto use
+			// Decode derived key Uint8Array for Web Crypto use
 			const derivedKey = base64ToBuffer(derivedKeyBase64);
 			if (!derivedKey.length) throw new Error('AES Key derivation failed.'); // Check decoded buffer
 			console.log('Derived AES Key Size:', derivedKey.length);
 
-			// 3. AES-GCM Encryption (Uses Web Crypto API directly - needs Buffers/TypedArrays)
+			// 3. AES-GCM Encryption (Uses Web Crypto API directly - needs Uint8Arrays)
 			setStatusMessage('Step 3/5: Encrypting plaintext (AES-256-GCM)...');
 			const iv = window.crypto.getRandomValues(new Uint8Array(12)); // 96-bit IV
-			const ivBuffer = Buffer.from(iv); // Keep as Buffer
-			const plaintextBuffer = Buffer.from(plaintext, 'utf8');
+			const ivBuffer = iv; // Already a Uint8Array
+			const plaintextBuffer = new TextEncoder().encode(plaintext);
 
-			// Use the decoded derivedKey Buffer
+			// Use the decoded derivedKey Uint8Array
 			const aesKey = await window.crypto.subtle.importKey(
 				'raw',
 				derivedKey,
@@ -252,7 +276,7 @@ export const EncryptionRunner: React.FC = () => {
 				aesKey,
 				plaintextBuffer
 			);
-			const aesCiphertextWithTag = Buffer.from(encryptedArrayBuffer); // Keep as Buffer
+			const aesCiphertextWithTag = new Uint8Array(encryptedArrayBuffer);
 			console.log(
 				'AES Ciphertext Size (incl. tag):',
 				aesCiphertextWithTag.length
@@ -261,34 +285,39 @@ export const EncryptionRunner: React.FC = () => {
 			// 4. Prepare Data for Signing
 			setStatusMessage('Step 4/5: Preparing data for signing...');
 			// Sign KEM Ciphertext || IV || AES Ciphertext (including Tag)
-			const dataToSign = Buffer.concat([
-				kemCiphertext, // Use decoded buffer
-				ivBuffer,
+			// Concatenate Uint8Arrays
+			const dataToSign = new Uint8Array(
+				kemCiphertext.length + ivBuffer.length + aesCiphertextWithTag.length
+			);
+			dataToSign.set(kemCiphertext, 0);
+			dataToSign.set(ivBuffer, kemCiphertext.length);
+			dataToSign.set(
 				aesCiphertextWithTag,
-			]);
+				kemCiphertext.length + ivBuffer.length
+			);
 			console.log('Data to Sign Size:', dataToSign.length);
 
 			// 5. ML-DSA Signing (IPC returns { signature: Base64 })
 			setStatusMessage('Step 5/5: Signing package (ML-DSA)...');
-			// Pass Buffers directly to preload wrapper
+			// Pass Uint8Arrays directly to preload wrapper
 			const signResult = await window.electronAPI.dilithium.sign(
 				sigLevel,
-				keys.senderDilithiumSk!, // Pass Buffer
-				dataToSign // Pass Buffer
+				keys.senderDilithiumSk!, // Pass Uint8Array
+				dataToSign // Pass Uint8Array
 			);
-			// Decode signature Buffer for storage
+			// Decode signature Uint8Array for storage
 			const signature = base64ToBuffer(signResult.signature);
 			if (!signature.length)
 				throw new Error('Signing failed to return signature.'); // Check decoded buffer
 			console.log('Signature Size:', signature.length);
 
-			// Store the complete package (with Buffers, including salt)
+			// Store the complete package (with Uint8Arrays, including salt)
 			setEncryptedPackage({
-				kemCiphertext, // Stored as Buffer
-				iv: ivBuffer, // Stored as Buffer
-				aesCiphertextWithTag, // Stored as Buffer
-				signature, // Stored as Buffer
-				salt: salt, // <<< Store the salt Buffer used for HKDF
+				kemCiphertext, // Stored as Uint8Array
+				iv: ivBuffer, // Stored as Uint8Array
+				aesCiphertextWithTag, // Stored as Uint8Array
+				signature, // Stored as Uint8Array
+				salt: salt, // <<< Store the salt Uint8Array used for HKDF
 				kemLevel, // Store levels used
 				sigLevel,
 			});
@@ -317,11 +346,11 @@ export const EncryptionRunner: React.FC = () => {
 		setVerificationStatus('idle');
 
 		const {
-			kemCiphertext, // Buffer
-			iv, // Buffer
-			aesCiphertextWithTag, // Buffer
-			signature, // Buffer
-			salt, // *** Retrieve the salt Buffer from the package ***
+			kemCiphertext, // Uint8Array
+			iv, // Uint8Array
+			aesCiphertextWithTag, // Uint8Array
+			signature, // Uint8Array
+			salt, // *** Retrieve the salt Uint8Array from the package ***
 			kemLevel: pkgKemLevel, // Use levels from package
 			sigLevel: pkgSigLevel,
 		} = encryptedPackage; // No need for assertion due to check above
@@ -344,21 +373,22 @@ export const EncryptionRunner: React.FC = () => {
 		try {
 			// 1. Prepare Data for Verification
 			setStatusMessage('Step 1/5: Preparing data for verification...');
-			// Reconstruct data using the stored Buffers
-			const dataToVerify = Buffer.concat([
-				kemCiphertext,
-				iv,
-				aesCiphertextWithTag,
-			]);
+			// Reconstruct data using the stored Uint8Arrays
+			const dataToVerify = new Uint8Array(
+				kemCiphertext.length + iv.length + aesCiphertextWithTag.length
+			);
+			dataToVerify.set(kemCiphertext, 0);
+			dataToVerify.set(iv, kemCiphertext.length);
+			dataToVerify.set(aesCiphertextWithTag, kemCiphertext.length + iv.length);
 
 			// 2. Verify Signature (IPC returns { isValid: boolean })
 			setStatusMessage('Step 2/5: Verifying signature (ML-DSA)...');
-			// Pass Buffers directly to preload wrapper
+			// Pass Uint8Arrays directly to preload wrapper
 			const verifyResult = await window.electronAPI.dilithium.verify(
 				pkgSigLevel,
-				keys.senderDilithiumPk!, // Pass Buffer
-				dataToVerify, // Pass Buffer
-				signature // Pass Buffer
+				keys.senderDilithiumPk!, // Pass Uint8Array
+				dataToVerify, // Pass Uint8Array
+				signature // Pass Uint8Array
 			);
 			const isValid = verifyResult.isValid; // Directly get boolean
 
@@ -370,33 +400,33 @@ export const EncryptionRunner: React.FC = () => {
 
 			// 3. KEM Decapsulation (IPC returns ss: Base64)
 			setStatusMessage('Step 3/5: Running ML-KEM Decapsulation...');
-			// Pass Buffers directly to preload wrapper
+			// Pass Uint8Arrays directly to preload wrapper
 			const sharedSecretBase64 = await window.electronAPI.kyber.decapsulate(
 				pkgKemLevel,
-				keys.receiverKyberSk!, // Pass Buffer
-				kemCiphertext // Pass Buffer
+				keys.receiverKyberSk!, // Pass Uint8Array
+				kemCiphertext // Pass Uint8Array
 			);
-			// Decode shared secret Buffer for HKDF use
+			// Decode shared secret Uint8Array for HKDF use
 			const sharedSecret = base64ToBuffer(sharedSecretBase64);
 			if (!sharedSecret.length) throw new Error('KEM decapsulation failed.'); // Check decoded buffer
 
 			// 4. Derive AES Key (IPC returns derivedKey: Base64)
 			setStatusMessage('Step 4/5: Deriving AES-256 key (HKDF-SHA256)...');
 			const info = 'hybrid-aes-256-gcm-key'; // Must match info used in encryption
-			// Pass Buffers directly to preload wrapper, use retrieved salt Buffer
+			// Pass Uint8Arrays directly to preload wrapper, use retrieved salt Uint8Array
 			const derivedKeyBase64 = await window.electronAPI.nodeCrypto.hkdf(
-				sharedSecret, // Pass Buffer
+				sharedSecret, // Pass Uint8Array
 				32,
-				salt, // <<< Use the salt Buffer retrieved from the package
+				salt, // <<< Use the salt Uint8Array retrieved from the package
 				info
 			);
-			// Decode derived key Buffer for Web Crypto use
+			// Decode derived key Uint8Array for Web Crypto use
 			const derivedKey = base64ToBuffer(derivedKeyBase64);
 			if (!derivedKey.length) throw new Error('AES key derivation failed.'); // Check decoded buffer
 
 			// 5. AES-GCM Decryption (Uses Web Crypto API directly)
 			setStatusMessage('Step 5/5: Decrypting ciphertext (AES-256-GCM)...');
-			// Use the decoded derivedKey Buffer
+			// Use the decoded derivedKey Uint8Array
 			const aesKey = await window.crypto.subtle.importKey(
 				'raw',
 				derivedKey,
@@ -407,12 +437,12 @@ export const EncryptionRunner: React.FC = () => {
 
 			// The decrypt function will throw if the tag verification fails
 			const decryptedArrayBuffer = await window.crypto.subtle.decrypt(
-				{ name: 'AES-GCM', iv: iv }, // Pass IV buffer
+				{ name: 'AES-GCM', iv: iv }, // Pass IV Uint8Array
 				aesKey,
-				aesCiphertextWithTag // Pass ciphertext WITH tag Buffer
+				aesCiphertextWithTag // Pass ciphertext WITH tag Uint8Array
 			);
 
-			const finalPlaintext = Buffer.from(decryptedArrayBuffer).toString('utf8');
+			const finalPlaintext = new TextDecoder().decode(decryptedArrayBuffer);
 			setDecryptedPlaintext(finalPlaintext);
 			handleSuccess('Decryption and verification successful!');
 		} catch (error) {
@@ -758,7 +788,7 @@ export const EncryptionRunner: React.FC = () => {
 	// Helper component to render Key fields consistently
 	function renderKeyField(
 		label: string,
-		keyBuffer: Buffer | null,
+		keyBuffer: Uint8Array | null,
 		isSecretVisible: boolean,
 		toggleVisibility: () => void,
 		isToggleable: boolean
@@ -824,7 +854,7 @@ export const EncryptionRunner: React.FC = () => {
 	}
 
 	// Helper component to render result fields (like ciphertext, signature, salt)
-	function renderResultField(label: string, dataBuffer: Buffer | null) {
+	function renderResultField(label: string, dataBuffer: Uint8Array | null) {
 		const dataBase64 = bufferToBase64(dataBuffer);
 		return (
 			<div className="mb-2">
