@@ -557,9 +557,12 @@ export const EncryptionRunner: React.FC = () => {
 							sx={{
 								bgcolor: '#9747FF',
 								'&:hover': { bgcolor: '#8030E0' },
-								textTransform: 'none',
+								textTransform: 'uppercase',
 								fontWeight: 'bold',
-								padding: '10px 0', // Adjust padding for consistency
+								padding: '10px 24px',
+								fontSize: '0.9rem',
+								borderRadius: '8px',
+								mt: 'auto', // Push button to bottom
 							}}
 						>
 							{isLoadingKeys ? (
@@ -658,8 +661,11 @@ export const EncryptionRunner: React.FC = () => {
 							sx={{
 								bgcolor: '#5a67d8', // Indigo-like color
 								'&:hover': { bgcolor: '#4c51bf' },
-								textTransform: 'none',
+								textTransform: 'uppercase',
 								fontWeight: 'bold',
+								padding: '10px 24px',
+								fontSize: '0.9rem',
+								borderRadius: '8px',
 								mt: 'auto', // Push button to bottom
 							}}
 						>
@@ -715,8 +721,11 @@ export const EncryptionRunner: React.FC = () => {
 							sx={{
 								bgcolor: '#38a169', // Green-like color
 								'&:hover': { bgcolor: '#2f855a' },
-								textTransform: 'none',
+								textTransform: 'uppercase',
 								fontWeight: 'bold',
+								padding: '10px 24px',
+								fontSize: '0.9rem',
+								borderRadius: '8px',
 								mb: 2, // Margin bottom before results
 							}}
 						>
@@ -770,11 +779,34 @@ export const EncryptionRunner: React.FC = () => {
 						{decryptedPlaintext && verificationStatus === 'valid' && (
 							<Button
 								size="small"
+								variant="outlined"
 								startIcon={<ContentCopyIcon />}
 								onClick={() =>
 									copyToClipboard(decryptedPlaintext, 'Decrypted plaintext')
 								}
-								sx={{ alignSelf: 'flex-end', mt: 1, textTransform: 'none' }}
+								sx={{
+									alignSelf: 'flex-end',
+									mt: 1,
+									textTransform: 'uppercase',
+									backgroundColor: isDarkMode
+										? 'rgba(255, 255, 255, 0.08)'
+										: 'rgba(0, 0, 0, 0.04)',
+									color: isDarkMode
+										? 'rgba(255, 255, 255, 0.85)'
+										: 'rgba(0, 0, 0, 0.75)',
+									borderColor: isDarkMode
+										? 'rgba(255, 255, 255, 0.23)'
+										: 'rgba(0, 0, 0, 0.23)',
+									fontSize: '0.8rem',
+									'&:hover': {
+										backgroundColor: isDarkMode
+											? 'rgba(255, 255, 255, 0.12)'
+											: 'rgba(0, 0, 0, 0.08)',
+										borderColor: isDarkMode
+											? 'rgba(255, 255, 255, 0.3)'
+											: 'rgba(0, 0, 0, 0.3)',
+									},
+								}}
 							>
 								Copy Decrypted Text
 							</Button>

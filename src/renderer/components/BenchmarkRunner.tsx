@@ -292,18 +292,27 @@ export const BenchmarkRunner: React.FC = () => {
 								variant="outlined"
 								sx={{
 									backgroundColor: isDarkMode ? '#2a2a2a' : '#f8f8f8',
+									borderRadius: '8px',
+									overflow: 'visible',
 									'& .MuiInputBase-input': {
 										color: isDarkMode ? '#ffffff' : '#111111',
 									},
 									'& .MuiOutlinedInput-root': {
+										borderRadius: '8px',
+										overflow: 'hidden',
 										'& fieldset': {
 											borderColor: 'rgba(0, 0, 0, 0.23)',
+											borderRadius: '8px',
 										},
 									},
 									'& .MuiInputLabel-root': {
 										color: isDarkMode
 											? 'rgba(255, 255, 255, 0.7)'
 											: 'rgba(0, 0, 0, 0.6)',
+										transform: 'translate(14px, -9px) scale(0.75)',
+										'&.MuiInputLabel-shrink': {
+											transform: 'translate(14px, -9px) scale(0.75)',
+										},
 									},
 								}}
 							/>
@@ -327,34 +336,41 @@ export const BenchmarkRunner: React.FC = () => {
 							padding: '10px 24px',
 							textTransform: 'uppercase',
 							fontWeight: 'bold',
-							borderRadius: '8px !important',
+							borderRadius: '8px',
 							opacity: isRunning ? 0.7 : 1,
 							cursor: isRunning ? 'not-allowed' : 'pointer',
-							'& .MuiButton-root': {
-								borderRadius: '8px',
-							},
 						}}
 					>
 						RUN BENCHMARK
 					</Button>
 					{isRunning && (
 						<Button
-							variant="contained"
+							variant="outlined"
 							disableElevation
 							onClick={stopBenchmark}
 							sx={{
-								bgcolor: '#ff4757',
+								backgroundColor: isDarkMode
+									? 'rgba(255, 0, 0, 0.08)'
+									: 'rgba(255, 0, 0, 0.04)',
+								color: isDarkMode
+									? 'rgba(255, 100, 100, 0.9)'
+									: 'rgba(220, 0, 0, 0.8)',
+								borderColor: isDarkMode
+									? 'rgba(255, 100, 100, 0.5)'
+									: 'rgba(220, 0, 0, 0.5)',
 								'&:hover': {
-									bgcolor: '#e01e37',
+									backgroundColor: isDarkMode
+										? 'rgba(255, 0, 0, 0.12)'
+										: 'rgba(255, 0, 0, 0.08)',
+									borderColor: isDarkMode
+										? 'rgba(255, 100, 100, 0.7)'
+										: 'rgba(220, 0, 0, 0.7)',
 								},
 								fontSize: '0.9rem',
 								padding: '10px 24px',
 								textTransform: 'uppercase',
 								fontWeight: 'bold',
-								borderRadius: '8px !important',
-								'& .MuiButton-root': {
-									borderRadius: '8px',
-								},
+								borderRadius: '8px',
 							}}
 						>
 							Stop
