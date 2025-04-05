@@ -32,12 +32,18 @@ import { Speedometer } from './Speedometer';
  */
 export const QuantumWorkloadRunner: React.FC = () => {
 	const [algorithm, setAlgorithm] = useState('shors');
-	const [ibmApiKey, setIbmApiKey] = useState('');
+	const [shots, setShots] = useState('4096');
 	const [showApiKey, setShowApiKey] = useState(false);
 	const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
 	const [plotFullscreen, setPlotFullscreen] = useState(false);
 	const theme = useTheme();
 	const isDarkMode = theme.palette.mode === 'dark';
+
+	// Update shots when algorithm changes
+	const handleAlgorithmChange = (value: string) => {
+		setAlgorithm(value);
+		setShots(value === 'shors' ? '4096' : '10000');
+	};
 
 	// Mock simulation results
 	const simulationResults = {
@@ -149,7 +155,7 @@ export const QuantumWorkloadRunner: React.FC = () => {
 								labelId="algorithm-label"
 								id="algorithm"
 								value={algorithm}
-								onChange={(e) => setAlgorithm(e.target.value)}
+								onChange={(e) => handleAlgorithmChange(e.target.value)}
 								sx={{
 									backgroundColor: isDarkMode ? '#2a2a2a' : '#f8f8f8',
 									color: isDarkMode ? '#ffffff' : '#111111',
@@ -202,39 +208,17 @@ export const QuantumWorkloadRunner: React.FC = () => {
 						/>
 					</div>
 
-					{/* IBM Quantum API Key Field */}
+					{/* Shots Field */}
 					<div>
 						<TextField
 							fullWidth
-							label="IBM Quantum API Key"
+							label="Shots"
 							variant="outlined"
-							value={ibmApiKey}
-							onChange={(e) => setIbmApiKey(e.target.value)}
-							type={showApiKey ? 'text' : 'password'}
+							value={shots}
+							onChange={(e) => setShots(e.target.value)}
+							type="number"
 							InputProps={{
-								endAdornment: (
-									<InputAdornment position="end">
-										<IconButton
-											onClick={() => setShowApiKey(!showApiKey)}
-											edge="end"
-											size="small"
-										>
-											{showApiKey ? (
-												<VisibilityOffIcon fontSize="small" />
-											) : (
-												<VisibilityIcon fontSize="small" />
-											)}
-										</IconButton>
-										<IconButton
-											onClick={() => copyToClipboard(ibmApiKey, 'API Key')}
-											edge="end"
-											size="small"
-											disabled={!ibmApiKey}
-										>
-											<ContentCopyIcon fontSize="small" />
-										</IconButton>
-									</InputAdornment>
-								),
+								inputProps: { min: 1 },
 							}}
 							sx={{
 								backgroundColor: isDarkMode ? '#2a2a2a' : '#f8f8f8',
@@ -250,7 +234,6 @@ export const QuantumWorkloadRunner: React.FC = () => {
 								},
 								'.MuiInputBase-input': {
 									color: isDarkMode ? '#ffffff' : '#111111',
-									fontFamily: 'monospace',
 								},
 								'.MuiInputLabel-root': {
 									color: isDarkMode
@@ -295,7 +278,6 @@ export const QuantumWorkloadRunner: React.FC = () => {
 					</Button>
 					<Button
 						variant="contained"
-						disabled={!ibmApiKey}
 						sx={{
 							backgroundColor: '#9747FF',
 							padding: '10px 24px',
