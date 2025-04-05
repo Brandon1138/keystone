@@ -1,6 +1,10 @@
 import { app, BrowserWindow } from 'electron';
 import * as path from 'path';
-import { setupBenchmarkIPC, setupEncryptionIPC } from './ipc';
+import {
+	setupBenchmarkIPC,
+	setupEncryptionIPC,
+	setupQuantumWorkloadIPC,
+} from './ipc';
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -61,6 +65,7 @@ app.whenReady().then(() => {
 	createWindow();
 	setupBenchmarkIPC();
 	setupEncryptionIPC(); // Set up both Kyber encryption and Dilithium signature IPC handlers
+	setupQuantumWorkloadIPC(); // Set up Quantum Workload IPC handlers
 
 	app.on('activate', () => {
 		// On macOS, re-create a window when the dock icon is clicked and no other windows are open

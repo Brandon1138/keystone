@@ -1,0 +1,28 @@
+{
+	"appId": "com.pqcbenchgui4.app",
+	"productName": "PQCBenchGUI4",
+	"directories": {
+		"output": "release",
+		"buildResources": "build"
+	},
+	"files": ["dist/**/*", "package.json"],
+	"extraResources": [
+		{
+			"from": "quantum",
+			"to": "quantum",
+			"filter": ["**/*"]
+		}
+	],
+	"win": {
+		"target": ["nsis"],
+		"icon": "build/icon.ico"
+	},
+	"mac": {
+		"target": ["dmg"],
+		"icon": "build/icon.icns"
+	},
+	"linux": {
+		"target": ["AppImage"],
+		"icon": "build/icon.png"
+	}
+}

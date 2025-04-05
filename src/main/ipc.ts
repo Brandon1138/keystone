@@ -6,8 +6,10 @@ import { BenchmarkParams, BenchmarkResult } from '../types/benchmark';
 import { benchmarkStore } from './store';
 import * as path from 'path';
 import * as fs from 'fs';
+import { access } from 'fs/promises'; // Import for checking if venv Python exists
 import * as crypto from 'crypto'; // Import Node crypto
 import { promisify } from 'util'; // Import promisify
+import * as childProcess from 'child_process'; // Import for spawning the Python script
 
 // IMPORTANT: Set up native library paths BEFORE loading any modules
 // This must happen at the top level, not inside a function
@@ -916,4 +918,251 @@ export function setupEncryptionIPC() {
 	);
 
 	console.log('[IPC] Encryption/Signature IPC handlers registration complete.');
+}
+
+// --- Quantum Workload Functions ---
+/**
+ * Runs the Shor's algorithm quantum workload using the Python script
+ * @param {string} apiToken - IBM Quantum API token (required for hardware runs)
+ * @param {number} shots - Number of shots to run
+ * @param {boolean} runOnHardware - Whether to run on real quantum hardware
+ * @param {string} plotTheme - Plot theme (light or dark)
+ * @returns {Promise<Object>} Result object with status, output data, logs, and plot path
+ */
+async function runQuantumWorkload(
+	apiToken: string,
+	shots: number,
+	runOnHardware: boolean,
+	plotTheme: 'light' | 'dark'
+): Promise<any> {
+	console.log('[Quantum Workload] Starting quantum workload execution...');
+
+	// Generate unique filenames for outputs using timestamp and random ID
+	const timestamp = Date.now();
+	const randomId = Math.random().toString(36).substring(2, 10);
+	const userDataPath = app.getPath('userData');
+	const outputPath = path.join(userDataPath, 'quantum_outputs');
+
+	// Ensure the output directory exists
+	if (!fs.existsSync(outputPath)) {
+		fs.mkdirSync(outputPath, { recursive: true });
+	}
+
+	// Generate paths for output files
+	const plotFilePath = path.join(
+		outputPath,
+		`plot_${timestamp}_${randomId}.png`
+	);
+	const jsonFilePath = path.join(
+		outputPath,
+		`result_${timestamp}_${randomId}.json`
+	);
+
+	// Determine the path to the Python script
+	const isDevelopment = process.env.NODE_ENV === 'development';
+	const projectRoot = getProjectRoot();
+
+	// In development, use the script in the project directory
+	// In production, the script should be in resources/quantum
+	let scriptPath = '';
+	if (isDevelopment) {
+		scriptPath = path.join(projectRoot, 'quantum', 'shor_n15.py');
+	} else {
+		// In production, resources folder contains our extra resources
+		scriptPath = path.join(process.resourcesPath, 'quantum', 'shor_n15.py');
+	}
+
+	// Verify the script exists
+	if (!fs.existsSync(scriptPath)) {
+		console.error(
+			`[Quantum Workload] ERROR: Script not found at ${scriptPath}`
+		);
+		return {
+			status: 'error',
+			error: `Python script not found at ${scriptPath}`,
+			logs: [`ERROR: Python script not found at ${scriptPath}`],
+		};
+	}
+
+	// Determine the Python executable path from virtual environment
+	let pythonExecutable = 'python'; // Default fallback
+	const venvPythonPath = path.join(
+		projectRoot,
+		'.venv',
+		'Scripts',
+		'python.exe'
+	); // Windows path
+
+	// Check if the venv Python executable exists and is accessible
+	try {
+		await access(venvPythonPath);
+		pythonExecutable = venvPythonPath;
+		console.log(
+			`[Quantum Workload] Using Python from virtual environment: ${pythonExecutable}`
+		);
+	} catch (err) {
+		console.warn(
+			`[Quantum Workload] Virtual environment Python not found at ${venvPythonPath}, falling back to system Python`
+		);
+	}
+
+	// Build command arguments
+	const args = [
+		'--api_token',
+		apiToken,
+		'--shots',
+		shots.toString(),
+		'--plot_file',
+		plotFilePath,
+		'--plot_theme',
+		plotTheme,
+		'--output_json',
+		jsonFilePath,
+	];
+
+	// Add run_on_hardware flag if true
+	if (runOnHardware) {
+		args.push('--run_on_hardware');
+	}
+
+	// Store logs
+	const logs: string[] = [];
+
+	console.log(
+		`[Quantum Workload] Executing Python script: ${pythonExecutable} ${scriptPath} ${args.join(
+			' '
+		)}`
+	);
+
+	// Execute the script using spawn to capture real-time output
+	return new Promise((resolve, reject) => {
+		// When using the full path to python.exe, we need to pass the script path as the first argument
+		const pythonProcess = childProcess.spawn(pythonExecutable, [
+			scriptPath,
+			...args,
+		]);
+
+		// Capture stderr output for logs (script logs to stderr)
+		pythonProcess.stderr.on('data', (data) => {
+			const logLines = data.toString().split('\n').filter(Boolean);
+			logs.push(...logLines);
+			console.log(`[Quantum Workload Log] ${data.toString().trim()}`);
+		});
+
+		// Handle process completion
+		pythonProcess.on('close', (code) => {
+			console.log(`[Quantum Workload] Python process exited with code ${code}`);
+
+			// Check if output JSON exists and is readable
+			if (fs.existsSync(jsonFilePath)) {
+				try {
+					const resultData = JSON.parse(fs.readFileSync(jsonFilePath, 'utf8'));
+
+					// Check if plot file exists
+					const plotExists = fs.existsSync(plotFilePath);
+					if (!plotExists) {
+						logs.push('WARNING: Plot file was not generated.');
+					}
+
+					// Return comprehensive result object
+					resolve({
+						status: code === 0 ? 'success' : 'error',
+						exitCode: code,
+						data: resultData,
+						logs: logs,
+						plotFilePath: plotExists ? plotFilePath : null,
+						jsonFilePath: jsonFilePath,
+					});
+				} catch (err) {
+					console.error('[Quantum Workload] Error parsing result JSON:', err);
+					reject({
+						status: 'error',
+						error: 'Failed to parse result JSON',
+						logs: logs,
+						exitCode: code,
+					});
+				}
+			} else {
+				console.error('[Quantum Workload] Result JSON file not found');
+				reject({
+					status: 'error',
+					error: 'Result file not generated',
+					logs: logs,
+					exitCode: code,
+				});
+			}
+		});
+
+		// Handle process errors
+		pythonProcess.on('error', (err) => {
+			console.error('[Quantum Workload] Failed to start Python process:', err);
+			reject({
+				status: 'error',
+				error: `Failed to start Python process: ${err.message}`,
+				logs: logs,
+			});
+		});
+	});
+}
+
+// Setup Quantum Workload IPC Handlers
+export function setupQuantumWorkloadIPC() {
+	console.log('[IPC] Setting up Quantum Workload IPC handlers...');
+
+	ipcMain.handle(
+		'run-quantum-workload',
+		async (
+			_event: IpcMainInvokeEvent,
+			apiToken: string,
+			shots: number,
+			runOnHardware: boolean,
+			plotTheme: 'light' | 'dark'
+		) => {
+			try {
+				return await runQuantumWorkload(
+					apiToken,
+					shots,
+					runOnHardware,
+					plotTheme
+				);
+			} catch (error: any) {
+				console.error('[IPC Error] run-quantum-workload:', error);
+				return {
+					status: 'error',
+					error:
+						error.message || 'Unknown error during quantum workload execution',
+					logs: error.logs || [],
+				};
+			}
+		}
+	);
+
+	ipcMain.handle(
+		'get-quantum-plot',
+		async (_event: IpcMainInvokeEvent, plotFilePath: string) => {
+			try {
+				if (fs.existsSync(plotFilePath)) {
+					// Read the file as a base64 string
+					const plotData = fs.readFileSync(plotFilePath);
+					return {
+						status: 'success',
+						plotBase64: plotData.toString('base64'),
+					};
+				} else {
+					return {
+						status: 'error',
+						error: 'Plot file not found',
+					};
+				}
+			} catch (error: any) {
+				console.error('[IPC Error] get-quantum-plot:', error);
+				return {
+					status: 'error',
+					error: error.message || 'Unknown error when retrieving plot',
+				};
+			}
+		}
+	);
+
+	console.log('[IPC] Quantum Workload IPC handlers registration complete.');
 }

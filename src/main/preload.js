@@ -163,3 +163,27 @@ contextBridge.exposeInMainWorld('process', {
 });
 
 console.log('[preload] Context bridge APIs exposed using IPC.');
+
+// --- Add Quantum Workload API ---
+contextBridge.exposeInMainWorld('quantumAPI', {
+	runQuantumWorkload: (apiToken, shots, runOnHardware, plotTheme) => {
+		console.log('[preload] invoking run-quantum-workload');
+		return ipcRenderer.invoke(
+			'run-quantum-workload',
+			apiToken,
+			shots,
+			runOnHardware,
+			plotTheme
+		);
+	},
+	getQuantumPlot: (plotFilePath) => {
+		console.log('[preload] invoking get-quantum-plot');
+		return ipcRenderer.invoke('get-quantum-plot', plotFilePath);
+	},
+	// Allow subscribing to log events (like progress updates)
+	onLogUpdate: (callback) => {
+		const subscription = (_event, ...args) => callback(...args);
+		ipcRenderer.on('quantum-log-update', subscription);
+		return () => ipcRenderer.removeListener('quantum-log-update', subscription);
+	},
+});

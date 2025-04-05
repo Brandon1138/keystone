@@ -16,6 +16,32 @@ declare global {
 				electron: string;
 			};
 		};
+
+		// Quantum API for Shor's algorithm
+		quantumAPI: {
+			runQuantumWorkload(
+				apiToken: string,
+				shots: number,
+				runOnHardware: boolean,
+				plotTheme: 'light' | 'dark'
+			): Promise<{
+				status: 'success' | 'error';
+				exitCode?: number;
+				data?: any;
+				logs?: string[];
+				plotFilePath?: string | null;
+				jsonFilePath?: string;
+				error?: string;
+			}>;
+
+			getQuantumPlot(plotFilePath: string): Promise<{
+				status: 'success' | 'error';
+				plotBase64?: string;
+				error?: string;
+			}>;
+
+			onLogUpdate(callback: (logMessage: string) => void): () => void;
+		};
 	}
 }
 
