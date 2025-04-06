@@ -38,9 +38,16 @@ import { Speedometer } from './Speedometer';
 interface QuantumWorkloadResult {
 	status: 'success' | 'error' | 'running' | 'idle';
 	data?: {
-		n_value: number;
-		a_value: number;
-		factors: number[] | null;
+		// Shor's algorithm fields
+		n_value?: number;
+		a_value?: number;
+		factors?: number[] | null;
+		// Grover's algorithm fields
+		input_marked_states?: string[];
+		top_measured_state?: string;
+		top_measured_count?: number;
+		found_correct_state?: boolean;
+		// Common fields
 		execution_time_sec: number | null;
 		circuit_depth: number | null;
 		cx_gate_count: number | null;
@@ -64,6 +71,7 @@ interface QuantumWorkloadResult {
 export const QuantumWorkloadRunner: React.FC = () => {
 	const [algorithm, setAlgorithm] = useState('shors');
 	const [shots, setShots] = useState('4096');
+	const [markedStates, setMarkedStates] = useState('101,010');
 	const [apiKey, setApiKey] = useState('');
 	const [showApiKey, setShowApiKey] = useState(false);
 	const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
@@ -96,6 +104,22 @@ export const QuantumWorkloadRunner: React.FC = () => {
 	const handleAlgorithmChange = (value: string) => {
 		setAlgorithm(value);
 		setShots(value === 'shors' ? '4096' : '10000');
+	};
+
+	// Validate marked states input (for Grover's algorithm)
+	const validateMarkedStates = (input: string): boolean => {
+		if (!input.trim()) return false;
+
+		const states = input.split(',').map((s) => s.trim());
+		if (states.length === 0) return false;
+
+		// Check if all states are binary strings
+		const allBinary = states.every((state) => /^[01]+$/.test(state));
+		if (!allBinary) return false;
+
+		// Check if all states have the same length
+		const firstLength = states[0].length;
+		return states.every((state) => state.length === firstLength);
 	};
 
 	const copyToClipboard = (text: string, description: string) => {
@@ -134,13 +158,32 @@ export const QuantumWorkloadRunner: React.FC = () => {
 			const shotsNumber = parseInt(shots, 10);
 			const plotTheme = isDarkMode ? 'dark' : 'light';
 
-			// Run the workload
-			const result = await window.quantumAPI.runQuantumWorkload(
-				apiKey,
-				shotsNumber,
-				useHardware,
-				plotTheme
-			);
+			// Run the workload based on selected algorithm
+			let result;
+			if (algorithm === 'grovers') {
+				// Validate marked states input
+				if (!validateMarkedStates(markedStates)) {
+					throw new Error(
+						'Invalid marked states. Please enter valid comma-separated binary strings (e.g., 101,010).'
+					);
+				}
+
+				result = await window.quantumAPI.runGroverSearch(
+					apiKey,
+					markedStates,
+					shotsNumber,
+					useHardware,
+					plotTheme
+				);
+			} else {
+				// Run Shor's algorithm
+				result = await window.quantumAPI.runQuantumWorkload(
+					apiKey,
+					shotsNumber,
+					useHardware,
+					plotTheme
+				);
+			}
 
 			console.log('Workload result:', result);
 
@@ -196,6 +239,85 @@ export const QuantumWorkloadRunner: React.FC = () => {
 			setTimeout(() => {
 				window.scrollTo(0, scrollPosition);
 			}, 50);
+		}
+	};
+
+	// Render different result fields based on algorithm
+	const renderAlgorithmResults = () => {
+		if (!workloadResult.data) return null;
+
+		if (algorithm === 'grovers') {
+			return (
+				<>
+					<div className="flex justify-between items-center">
+						<div className="text-sm" style={{ color: '#999999' }}>
+							Marked States:
+						</div>
+						<div
+							className="text-lg font-medium"
+							style={{ color: isDarkMode ? '#FFFFFF' : '#000000' }}
+						>
+							{workloadResult.data.input_marked_states
+								? workloadResult.data.input_marked_states.join(', ')
+								: 'None'}
+						</div>
+					</div>
+					<div className="flex justify-between items-center">
+						<div className="text-sm" style={{ color: '#999999' }}>
+							Top State Measured:
+						</div>
+						<div
+							className="text-lg font-medium"
+							style={{ color: isDarkMode ? '#FFFFFF' : '#000000' }}
+						>
+							{workloadResult.data.top_measured_state || 'N/A'}
+						</div>
+					</div>
+					<div className="flex justify-between items-center">
+						<div className="text-sm" style={{ color: '#999999' }}>
+							Found Correct State:
+						</div>
+						<div
+							className="text-lg font-medium"
+							style={{
+								color: workloadResult.data.found_correct_state
+									? '#4caf50' // green for success
+									: '#f44336', // red for failure
+							}}
+						>
+							{workloadResult.data.found_correct_state ? 'Yes' : 'No'}
+						</div>
+					</div>
+					<div className="flex justify-between items-center">
+						<div className="text-sm" style={{ color: '#999999' }}>
+							Top State Count:
+						</div>
+						<div
+							className="text-lg font-medium"
+							style={{ color: isDarkMode ? '#FFFFFF' : '#000000' }}
+						>
+							{workloadResult.data.top_measured_count || 'N/A'}
+						</div>
+					</div>
+				</>
+			);
+		} else {
+			// Shor's algorithm results
+			return (
+				<div className="flex justify-between items-center">
+					<div className="text-sm" style={{ color: '#999999' }}>
+						Factors Found:
+					</div>
+					<div
+						className="text-lg font-medium"
+						style={{ color: isDarkMode ? '#FFFFFF' : '#000000' }}
+					>
+						{workloadResult.data.factors
+							? workloadResult.data.factors.join(', ')
+							: 'None'}
+					</div>
+				</div>
+			);
 		}
 	};
 
@@ -301,49 +423,88 @@ export const QuantumWorkloadRunner: React.FC = () => {
 								}}
 							>
 								<MenuItem value="shors">Shor's Algorithm</MenuItem>
-								<MenuItem value="grovers" disabled>
-									Grover's Algorithm
-								</MenuItem>
+								<MenuItem value="grovers">Grover's Algorithm</MenuItem>
 							</Select>
 						</FormControl>
 					</div>
 
-					{/* N-Value Field */}
+					{/* N-Value or Marked States Field (conditional) */}
 					<div>
-						<TextField
-							fullWidth
-							label="N-value"
-							variant="outlined"
-							defaultValue="15"
-							InputProps={{
-								readOnly: true,
-							}}
-							sx={{
-								backgroundColor: isDarkMode ? '#2a2a2a' : '#f8f8f8',
-								borderRadius: '8px',
-								overflow: 'visible',
-								'& .MuiOutlinedInput-root': {
+						{algorithm === 'shors' ? (
+							<TextField
+								fullWidth
+								label="N-value"
+								variant="outlined"
+								defaultValue="15"
+								InputProps={{
+									readOnly: true,
+								}}
+								sx={{
+									backgroundColor: isDarkMode ? '#2a2a2a' : '#f8f8f8',
 									borderRadius: '8px',
-									overflow: 'hidden',
-								},
-								'.MuiOutlinedInput-notchedOutline': {
-									borderColor: 'rgba(0, 0, 0, 0.23)',
-									borderRadius: '8px',
-								},
-								'.MuiInputBase-input': {
-									color: isDarkMode ? '#ffffff' : '#111111',
-								},
-								'.MuiInputLabel-root': {
-									color: isDarkMode
-										? 'rgba(255, 255, 255, 0.7)'
-										: 'rgba(0, 0, 0, 0.6)',
-									transform: 'translate(14px, -9px) scale(0.75)',
-									'&.MuiInputLabel-shrink': {
-										transform: 'translate(14px, -9px) scale(0.75)',
+									overflow: 'visible',
+									'& .MuiOutlinedInput-root': {
+										borderRadius: '8px',
+										overflow: 'hidden',
 									},
-								},
-							}}
-						/>
+									'.MuiOutlinedInput-notchedOutline': {
+										borderColor: 'rgba(0, 0, 0, 0.23)',
+										borderRadius: '8px',
+									},
+									'.MuiInputBase-input': {
+										color: isDarkMode ? '#ffffff' : '#111111',
+									},
+									'.MuiInputLabel-root': {
+										color: isDarkMode
+											? 'rgba(255, 255, 255, 0.7)'
+											: 'rgba(0, 0, 0, 0.6)',
+										transform: 'translate(14px, -9px) scale(0.75)',
+										'&.MuiInputLabel-shrink': {
+											transform: 'translate(14px, -9px) scale(0.75)',
+										},
+									},
+								}}
+							/>
+						) : (
+							<TextField
+								fullWidth
+								label="Marked States"
+								variant="outlined"
+								placeholder="e.g. 101,010"
+								value={markedStates}
+								onChange={(e) => setMarkedStates(e.target.value)}
+								disabled={isRunning}
+								error={
+									markedStates !== '' && !validateMarkedStates(markedStates)
+								}
+								helperText={
+									markedStates !== '' && !validateMarkedStates(markedStates)
+										? 'Enter comma-separated binary strings of equal length'
+										: ''
+								}
+								sx={{
+									backgroundColor: isDarkMode ? '#2a2a2a' : '#f8f8f8',
+									borderRadius: '8px',
+									overflow: 'visible',
+									'& .MuiOutlinedInput-root': {
+										borderRadius: '8px',
+										overflow: 'hidden',
+									},
+									'.MuiOutlinedInput-notchedOutline': {
+										borderColor: 'rgba(0, 0, 0, 0.23)',
+										borderRadius: '8px',
+									},
+									'.MuiInputBase-input': {
+										color: isDarkMode ? '#ffffff' : '#111111',
+									},
+									'.MuiInputLabel-root': {
+										color: isDarkMode
+											? 'rgba(255, 255, 255, 0.7)'
+											: 'rgba(0, 0, 0, 0.6)',
+									},
+								}}
+							/>
+						)}
 					</div>
 
 					{/* Shots Field */}
@@ -450,7 +611,11 @@ export const QuantumWorkloadRunner: React.FC = () => {
 				<div className="flex space-x-4">
 					<Button
 						variant="outlined"
-						disabled={isRunning || !apiKey}
+						disabled={
+							isRunning ||
+							!apiKey ||
+							(algorithm === 'grovers' && !validateMarkedStates(markedStates))
+						}
 						onClick={() => runQuantumWorkload(false)}
 						sx={{
 							backgroundColor: isDarkMode
@@ -482,7 +647,11 @@ export const QuantumWorkloadRunner: React.FC = () => {
 					</Button>
 					<Button
 						variant="contained"
-						disabled={isRunning || !apiKey}
+						disabled={
+							isRunning ||
+							!apiKey ||
+							(algorithm === 'grovers' && !validateMarkedStates(markedStates))
+						}
 						onClick={() => runQuantumWorkload(true)}
 						sx={{
 							backgroundColor: '#9747FF',
@@ -563,19 +732,10 @@ export const QuantumWorkloadRunner: React.FC = () => {
 							</div>
 						) : (
 							<div className="space-y-2">
-								<div className="flex justify-between items-center">
-									<div className="text-sm" style={{ color: '#999999' }}>
-										Factors Found:
-									</div>
-									<div
-										className="text-lg font-medium"
-										style={{ color: isDarkMode ? '#FFFFFF' : '#000000' }}
-									>
-										{workloadResult.data?.factors
-											? workloadResult.data.factors.join(', ')
-											: 'None'}
-									</div>
-								</div>
+								{/* Algorithm-specific result fields */}
+								{renderAlgorithmResults()}
+
+								{/* Common result fields */}
 								<div className="flex justify-between items-center">
 									<div className="text-sm" style={{ color: '#999999' }}>
 										Execution Time:
@@ -741,6 +901,14 @@ export const QuantumWorkloadRunner: React.FC = () => {
 						) : (
 							<div className="w-full h-[200px] flex justify-center items-center">
 								<Typography variant="body2">No plot available</Typography>
+							</div>
+						)}
+						{algorithm === 'grovers' && workloadResult.plotDataUrl && (
+							<div
+								className="mt-2 text-xs text-center"
+								style={{ color: isDarkMode ? '#999999' : '#666666' }}
+							>
+								Highlighted bars represent marked states being searched for
 							</div>
 						)}
 					</Card>

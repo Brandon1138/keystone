@@ -1105,6 +1105,196 @@ async function runQuantumWorkload(
 	});
 }
 
+/**
+ * Runs Grover's search algorithm quantum workload using the Python script
+ * @param {string} apiToken - IBM Quantum API token (required for hardware runs)
+ * @param {string} markedStates - Comma-separated list of binary strings to mark
+ * @param {number} shots - Number of shots to run
+ * @param {boolean} runOnHardware - Whether to run on real quantum hardware
+ * @param {string} plotTheme - Plot theme (light or dark)
+ * @returns {Promise<Object>} Result object with status, output data, logs, and plot path
+ */
+async function runGroverSearch(
+	apiToken: string,
+	markedStates: string,
+	shots: number,
+	runOnHardware: boolean,
+	plotTheme: 'light' | 'dark'
+): Promise<any> {
+	console.log('[Grover Search] Starting Grover search execution...');
+
+	// Generate unique filenames for outputs using timestamp and random ID
+	const timestamp = Date.now();
+	const randomId = Math.random().toString(36).substring(2, 10);
+	const userDataPath = app.getPath('userData');
+	const outputPath = path.join(userDataPath, 'quantum_outputs');
+
+	// Ensure the output directory exists
+	if (!fs.existsSync(outputPath)) {
+		fs.mkdirSync(outputPath, { recursive: true });
+	}
+
+	// Generate paths for output files
+	const plotFilePath = path.join(
+		outputPath,
+		`grover_plot_${timestamp}_${randomId}.png`
+	);
+	const jsonFilePath = path.join(
+		outputPath,
+		`grover_result_${timestamp}_${randomId}.json`
+	);
+
+	// Determine the path to the Python script
+	const isDevelopment = process.env.NODE_ENV === 'development';
+	const projectRoot = getProjectRoot();
+
+	// In development, use the script in the project directory
+	// In production, the script should be in resources/quantum
+	let scriptPath = '';
+	if (isDevelopment) {
+		scriptPath = path.join(projectRoot, 'quantum', 'grover_search.py');
+	} else {
+		// In production, resources folder contains our extra resources
+		scriptPath = path.join(
+			process.resourcesPath,
+			'quantum',
+			'grover_search.py'
+		);
+	}
+
+	// Verify the script exists
+	if (!fs.existsSync(scriptPath)) {
+		console.error(`[Grover Search] ERROR: Script not found at ${scriptPath}`);
+		return {
+			status: 'error',
+			error: `Python script not found at ${scriptPath}`,
+			logs: [`ERROR: Python script not found at ${scriptPath}`],
+		};
+	}
+
+	// Determine the Python executable path from virtual environment
+	let pythonExecutable = 'python'; // Default fallback
+	const venvPythonPath = path.join(
+		projectRoot,
+		'.venv',
+		'Scripts',
+		'python.exe'
+	); // Windows path
+
+	// Check if the venv Python executable exists and is accessible
+	try {
+		await access(venvPythonPath);
+		pythonExecutable = venvPythonPath;
+		console.log(
+			`[Grover Search] Using Python from virtual environment: ${pythonExecutable}`
+		);
+	} catch (err) {
+		console.warn(
+			`[Grover Search] Virtual environment Python not found at ${venvPythonPath}, falling back to system Python`
+		);
+	}
+
+	// Build command arguments
+	const args = [
+		'--api_token',
+		apiToken,
+		'--marked_states',
+		markedStates,
+		'--shots',
+		shots.toString(),
+		'--plot_file',
+		plotFilePath,
+		'--plot_theme',
+		plotTheme,
+		'--output_json',
+		jsonFilePath,
+	];
+
+	// Add run_on_hardware flag if true
+	if (runOnHardware) {
+		args.push('--run_on_hardware');
+	}
+
+	// Store logs
+	const logs: string[] = [];
+
+	console.log(
+		`[Grover Search] Executing Python script: ${pythonExecutable} ${scriptPath} ${args.join(
+			' '
+		)}`
+	);
+
+	// Execute the script using spawn to capture real-time output
+	return new Promise((resolve, reject) => {
+		// When using the full path to python.exe, we need to pass the script path as the first argument
+		const pythonProcess = childProcess.spawn(pythonExecutable, [
+			scriptPath,
+			...args,
+		]);
+
+		// Capture stderr output for logs (script logs to stderr)
+		pythonProcess.stderr.on('data', (data) => {
+			const logLines = data.toString().split('\n').filter(Boolean);
+			logs.push(...logLines);
+			console.log(`[Grover Search Log] ${data.toString().trim()}`);
+		});
+
+		// Handle process completion
+		pythonProcess.on('close', (code) => {
+			console.log(`[Grover Search] Python process exited with code ${code}`);
+
+			// Check if output JSON exists and is readable
+			if (fs.existsSync(jsonFilePath)) {
+				try {
+					const resultData = JSON.parse(fs.readFileSync(jsonFilePath, 'utf8'));
+
+					// Check if plot file exists
+					const plotExists = fs.existsSync(plotFilePath);
+					if (!plotExists) {
+						logs.push('WARNING: Plot file was not generated.');
+					}
+
+					// Return comprehensive result object
+					resolve({
+						status: code === 0 ? 'success' : 'error',
+						exitCode: code,
+						data: resultData,
+						logs: logs,
+						plotFilePath: plotExists ? plotFilePath : null,
+						jsonFilePath: jsonFilePath,
+					});
+				} catch (err) {
+					console.error('[Grover Search] Error parsing result JSON:', err);
+					reject({
+						status: 'error',
+						error: 'Failed to parse result JSON',
+						logs: logs,
+						exitCode: code,
+					});
+				}
+			} else {
+				console.error('[Grover Search] Result JSON file not found');
+				reject({
+					status: 'error',
+					error: 'Result file not generated',
+					logs: logs,
+					exitCode: code,
+				});
+			}
+		});
+
+		// Handle process errors
+		pythonProcess.on('error', (err) => {
+			console.error('[Grover Search] Failed to start Python process:', err);
+			reject({
+				status: 'error',
+				error: `Failed to start Python process: ${err.message}`,
+				logs: logs,
+			});
+		});
+	});
+}
+
 // Setup Quantum Workload IPC Handlers
 export function setupQuantumWorkloadIPC() {
 	console.log('[IPC] Setting up Quantum Workload IPC handlers...');
@@ -1131,6 +1321,37 @@ export function setupQuantumWorkloadIPC() {
 					status: 'error',
 					error:
 						error.message || 'Unknown error during quantum workload execution',
+					logs: error.logs || [],
+				};
+			}
+		}
+	);
+
+	// Add handler for Grover's search algorithm
+	ipcMain.handle(
+		'run-grover-search',
+		async (
+			_event: IpcMainInvokeEvent,
+			apiToken: string,
+			markedStates: string,
+			shots: number,
+			runOnHardware: boolean,
+			plotTheme: 'light' | 'dark'
+		) => {
+			try {
+				return await runGroverSearch(
+					apiToken,
+					markedStates,
+					shots,
+					runOnHardware,
+					plotTheme
+				);
+			} catch (error: any) {
+				console.error('[IPC Error] run-grover-search:', error);
+				return {
+					status: 'error',
+					error:
+						error.message || 'Unknown error during Grover search execution',
 					logs: error.logs || [],
 				};
 			}

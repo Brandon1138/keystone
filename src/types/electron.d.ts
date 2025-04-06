@@ -34,6 +34,22 @@ declare global {
 				error?: string;
 			}>;
 
+			runGroverSearch(
+				apiToken: string,
+				markedStates: string,
+				shots: number,
+				runOnHardware: boolean,
+				plotTheme: 'light' | 'dark'
+			): Promise<{
+				status: 'success' | 'error';
+				exitCode?: number;
+				data?: any;
+				logs?: string[];
+				plotFilePath?: string | null;
+				jsonFilePath?: string;
+				error?: string;
+			}>;
+
 			getQuantumPlot(plotFilePath: string): Promise<{
 				status: 'success' | 'error';
 				plotBase64?: string;

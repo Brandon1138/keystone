@@ -176,6 +176,23 @@ contextBridge.exposeInMainWorld('quantumAPI', {
 			plotTheme
 		);
 	},
+	runGroverSearch: (
+		apiToken,
+		markedStates,
+		shots,
+		runOnHardware,
+		plotTheme
+	) => {
+		console.log('[preload] invoking run-grover-search');
+		return ipcRenderer.invoke(
+			'run-grover-search',
+			apiToken,
+			markedStates,
+			shots,
+			runOnHardware,
+			plotTheme
+		);
+	},
 	getQuantumPlot: (plotFilePath) => {
 		console.log('[preload] invoking get-quantum-plot');
 		return ipcRenderer.invoke('get-quantum-plot', plotFilePath);
