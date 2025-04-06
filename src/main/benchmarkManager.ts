@@ -52,23 +52,13 @@ class BenchmarkManager {
 		// Build args based on algorithm
 		const args: string[] = [];
 
-		// Add security parameter
-		args.push(params.securityParam);
-
-		// Add iterations parameter if needed
-		// Dilithium and McEliece don't accept the --iterations flag
-		if (
-			params.iterations &&
-			params.algorithm !== 'dilithium' &&
-			params.algorithm !== 'mceliece' &&
-			params.algorithm !== 'falcon' &&
-			params.algorithm !== 'sphincs' &&
-			params.algorithm !== 'rsa' &&
-			params.algorithm !== 'ecdh' &&
-			params.algorithm !== 'ecdsa'
-		) {
-			args.push('--iterations', params.iterations.toString());
+		// Add iterations parameter with required format: --iterations=VALUE
+		if (params.iterations) {
+			args.push(`--iterations=${params.iterations}`);
 		}
+
+		// Add security parameter (always as positional argument)
+		args.push(params.securityParam);
 
 		return new Promise((resolve, reject) => {
 			const metrics: { [key: string]: number } = {};

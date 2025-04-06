@@ -26,6 +26,7 @@ import {
 	InputLabel,
 	FormControl,
 	SelectChangeEvent,
+	CircularProgress,
 } from '@mui/material';
 import { getOperationDisplayName } from '../../types/algorithm-types';
 
@@ -62,6 +63,15 @@ export const BenchmarkRunner: React.FC = () => {
 		const algorithm = event.target.value;
 		setSelectedAlgorithm(algorithm);
 		setSelectedParam(SECURITY_PARAMS[algorithm][0]);
+
+		// Set default iterations based on algorithm type
+		if (['kyber', 'aes'].includes(algorithm)) {
+			setIterations(10000);
+		} else if (['ecdsa', 'ecdh', 'falcon', 'dilithium'].includes(algorithm)) {
+			setIterations(1000);
+		} else if (['mceliece', 'sphincs', 'rsa'].includes(algorithm)) {
+			setIterations(100);
+		}
 	};
 
 	const handleParamChange = (event: SelectChangeEvent) => {
@@ -219,7 +229,16 @@ export const BenchmarkRunner: React.FC = () => {
 					{/* Algorithm Selection */}
 					<div>
 						<FormControl fullWidth>
-							<InputLabel id="algorithm-label">Algorithm</InputLabel>
+							<InputLabel
+								id="algorithm-label"
+								sx={{
+									backgroundColor: isDarkMode ? '#2a2a2a' : '#f8f8f8',
+									paddingLeft: '5px',
+									paddingRight: '5px',
+								}}
+							>
+								Algorithm
+							</InputLabel>
 							<Select
 								labelId="algorithm-label"
 								id="algorithm"
@@ -229,8 +248,18 @@ export const BenchmarkRunner: React.FC = () => {
 								sx={{
 									backgroundColor: isDarkMode ? '#2a2a2a' : '#f8f8f8',
 									color: isDarkMode ? '#ffffff' : '#111111',
-									'.MuiOutlinedInput-notchedOutline': {
-										borderColor: 'rgba(0, 0, 0, 0.23)',
+									'& .MuiOutlinedInput-notchedOutline': {
+										borderColor: 'transparent',
+									},
+									'&:hover .MuiOutlinedInput-notchedOutline': {
+										borderColor: isDarkMode
+											? 'rgba(255, 255, 255, 0.6)'
+											: 'rgba(0, 0, 0, 0.5)',
+										borderWidth: '1px',
+									},
+									'&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+										borderColor: '#9747FF',
+										borderWidth: '1px',
 									},
 								}}
 							>
@@ -249,7 +278,14 @@ export const BenchmarkRunner: React.FC = () => {
 					{/* Security Parameter Selection */}
 					<div>
 						<FormControl fullWidth>
-							<InputLabel id="security-param-label">
+							<InputLabel
+								id="security-param-label"
+								sx={{
+									backgroundColor: isDarkMode ? '#2a2a2a' : '#f8f8f8',
+									paddingLeft: '5px',
+									paddingRight: '5px',
+								}}
+							>
 								Security Parameter
 							</InputLabel>
 							<Select
@@ -261,8 +297,18 @@ export const BenchmarkRunner: React.FC = () => {
 								sx={{
 									backgroundColor: isDarkMode ? '#2a2a2a' : '#f8f8f8',
 									color: isDarkMode ? '#ffffff' : '#111111',
-									'.MuiOutlinedInput-notchedOutline': {
-										borderColor: 'rgba(0, 0, 0, 0.23)',
+									'& .MuiOutlinedInput-notchedOutline': {
+										borderColor: 'transparent',
+									},
+									'&:hover .MuiOutlinedInput-notchedOutline': {
+										borderColor: isDarkMode
+											? 'rgba(255, 255, 255, 0.6)'
+											: 'rgba(0, 0, 0, 0.5)',
+										borderWidth: '1px',
+									},
+									'&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+										borderColor: '#9747FF',
+										borderWidth: '1px',
 									},
 								}}
 							>
@@ -301,9 +347,19 @@ export const BenchmarkRunner: React.FC = () => {
 										borderRadius: '8px',
 										overflow: 'hidden',
 										'& fieldset': {
-											borderColor: 'rgba(0, 0, 0, 0.23)',
+											borderColor: 'transparent',
 											borderRadius: '8px',
 										},
+									},
+									'&:hover .MuiOutlinedInput-root fieldset': {
+										borderColor: isDarkMode
+											? 'rgba(255, 255, 255, 0.6)'
+											: 'rgba(0, 0, 0, 0.5)',
+										borderWidth: '1px',
+									},
+									'& .MuiOutlinedInput-root.Mui-focused fieldset': {
+										borderColor: '#9747FF',
+										borderWidth: '1px',
 									},
 									'& .MuiInputLabel-root': {
 										color: isDarkMode
@@ -340,8 +396,11 @@ export const BenchmarkRunner: React.FC = () => {
 							opacity: isRunning ? 0.7 : 1,
 							cursor: isRunning ? 'not-allowed' : 'pointer',
 						}}
+						startIcon={
+							isRunning ? <CircularProgress size={20} color="inherit" /> : null
+						}
 					>
-						RUN BENCHMARK
+						{isRunning ? 'RUNNING...' : 'RUN BENCHMARK'}
 					</Button>
 					{isRunning && (
 						<Button

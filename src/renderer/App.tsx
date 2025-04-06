@@ -120,8 +120,8 @@ const App: React.FC = () => {
 								className="text-xl mb-2"
 								style={{ color: lightMode ? '#000000' : '#FFFFFF' }}
 							>
-								Advanced benchmarking and visualization for post-quantum
-								cryptography
+								A Multi-Backend Workbench for Post-Quantum Cryptography &
+								Quantum Runtimes
 							</p>
 						</header>
 
@@ -142,6 +142,11 @@ const App: React.FC = () => {
 									path="/quantum-workloads"
 									element={<RunQuantumWorkloadsPage />}
 								/>
+								<Route
+									path="/schedule-jobs"
+									element={<div>Schedule Jobs Page</div>}
+								/>
+								<Route path="/import" element={<div>Import Page</div>} />
 								<Route path="/settings" element={<div>Settings Page</div>} />
 							</Routes>
 						</main>
@@ -172,12 +177,15 @@ const Navigation: React.FC<{
 	// Navigation items
 	const navItems = [
 		{ text: 'Home', href: '/home' },
+		{ text: 'Run Quantum Workloads', href: '/quantum-workloads' },
 		{ text: 'Run Benchmark', href: '/run-benchmark' },
 		{ text: 'Run Encryption', href: '/run-encryption' },
-		{ text: 'Run Quantum Workloads', href: '/quantum-workloads' },
+		{ text: 'Schedule Jobs', href: '/schedule-jobs' },
 		{ text: 'Visualize', href: '/visualization' },
 		{ text: 'Compare', href: '/compare' },
+		{ text: 'Import', href: '/import' },
 		{ text: 'Export', href: '/export' },
+		{ text: 'Settings', href: '/settings' },
 	];
 
 	return (

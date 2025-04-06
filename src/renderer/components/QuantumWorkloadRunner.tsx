@@ -18,6 +18,8 @@ import {
 	Alert,
 	LinearProgress,
 	Fab,
+	Checkbox,
+	FormControlLabel,
 } from '@mui/material';
 import NetworkPingIcon from '@mui/icons-material/NetworkPing';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
@@ -28,6 +30,9 @@ import ComputerIcon from '@mui/icons-material/Computer';
 import FullscreenIcon from '@mui/icons-material/Fullscreen';
 import FullscreenExitIcon from '@mui/icons-material/FullscreenExit';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
+import SaveIcon from '@mui/icons-material/Save';
+import DeleteIcon from '@mui/icons-material/Delete';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import { useTheme } from '@mui/material/styles';
 import { Card } from './ui/card';
 import { Speedometer } from './Speedometer';
@@ -72,11 +77,17 @@ export const QuantumWorkloadRunner: React.FC = () => {
 	const [algorithm, setAlgorithm] = useState('shors');
 	const [shots, setShots] = useState('4096');
 	const [markedStates, setMarkedStates] = useState('101,010');
-	const [apiKey, setApiKey] = useState('');
-	const [showApiKey, setShowApiKey] = useState(false);
+	const [nValue, setNValue] = useState('15');
+	const [apiToken, setApiToken] = useState('');
+	const [showApiToken, setShowApiToken] = useState(false);
+	const [tokenStatus, setTokenStatus] = useState<'saved' | 'new' | 'none'>(
+		'none'
+	);
 	const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
 	const [plotFullscreen, setPlotFullscreen] = useState(false);
-	const [isRunning, setIsRunning] = useState(false);
+	const [runningMode, setRunningMode] = useState<
+		'simulation' | 'hardware' | null
+	>(null);
 	const [workloadResult, setWorkloadResult] = useState<QuantumWorkloadResult>({
 		status: 'idle',
 		logs: [],
@@ -88,6 +99,39 @@ export const QuantumWorkloadRunner: React.FC = () => {
 
 	const theme = useTheme();
 	const isDarkMode = theme.palette.mode === 'dark';
+
+	// Derived state - true if any mode is running
+	const isRunning = runningMode !== null;
+
+	// Load saved API token on component mount
+	useEffect(() => {
+		const loadSavedToken = async () => {
+			try {
+				const savedToken = await window.quantumAPI.loadApiToken();
+				if (savedToken) {
+					setApiToken(savedToken);
+					setTokenStatus('saved');
+					console.log('Loaded saved API token');
+				} else {
+					setTokenStatus('none');
+				}
+			} catch (err) {
+				console.error('Failed to load saved API token:', err);
+				setTokenStatus('none');
+			}
+		};
+
+		loadSavedToken();
+	}, []);
+
+	// Update token status when API token changes
+	useEffect(() => {
+		if (apiToken) {
+			setTokenStatus((prev) => (prev === 'saved' ? 'saved' : 'new'));
+		} else {
+			setTokenStatus('none');
+		}
+	}, [apiToken]);
 
 	// Scroll logs to bottom when new logs are added, but don't affect the page scroll position
 	useEffect(() => {
@@ -103,7 +147,61 @@ export const QuantumWorkloadRunner: React.FC = () => {
 	// Update shots when algorithm changes
 	const handleAlgorithmChange = (value: string) => {
 		setAlgorithm(value);
-		setShots(value === 'shors' ? '4096' : '10000');
+		setShots(value === 'shors' ? '4096' : '8196');
+		// Ensure nValue is always set to default '15' for Shor's algorithm
+		if (value === 'shors') {
+			setNValue('15');
+		}
+	};
+
+	// Handle API token change
+	const handleApiTokenChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+		const newToken = e.target.value;
+		setApiToken(newToken);
+		if (tokenStatus === 'saved' && newToken !== apiToken) {
+			setTokenStatus('new');
+		}
+	};
+
+	// Save API token
+	const handleSaveToken = async () => {
+		if (!apiToken) return;
+
+		try {
+			const success = await window.quantumAPI.saveApiToken(apiToken);
+			if (success) {
+				setTokenStatus('saved');
+				setCopyFeedback('API Token saved successfully!');
+				setTimeout(() => setCopyFeedback(null), 2000);
+			} else {
+				setCopyFeedback('Failed to save API Token');
+				setTimeout(() => setCopyFeedback(null), 2000);
+			}
+		} catch (err) {
+			console.error('Error saving API token:', err);
+			setCopyFeedback('Error saving API Token');
+			setTimeout(() => setCopyFeedback(null), 2000);
+		}
+	};
+
+	// Delete saved API token
+	const handleDeleteToken = async () => {
+		try {
+			const success = await window.quantumAPI.deleteApiToken();
+			if (success) {
+				setApiToken('');
+				setTokenStatus('none');
+				setCopyFeedback('API Token deleted');
+				setTimeout(() => setCopyFeedback(null), 2000);
+			} else {
+				setCopyFeedback('Failed to delete API Token');
+				setTimeout(() => setCopyFeedback(null), 2000);
+			}
+		} catch (err) {
+			console.error('Error deleting API token:', err);
+			setCopyFeedback('Error deleting API Token');
+			setTimeout(() => setCopyFeedback(null), 2000);
+		}
 	};
 
 	// Validate marked states input (for Grover's algorithm)
@@ -145,8 +243,8 @@ export const QuantumWorkloadRunner: React.FC = () => {
 		const scrollPosition = window.scrollY;
 
 		try {
-			// Reset state
-			setIsRunning(true);
+			// Reset state and set which mode is running
+			setRunningMode(useHardware ? 'hardware' : 'simulation');
 			setWorkloadResult({
 				status: 'running',
 				logs: [],
@@ -157,6 +255,11 @@ export const QuantumWorkloadRunner: React.FC = () => {
 			// Parse shots and get plot theme
 			const shotsNumber = parseInt(shots, 10);
 			const plotTheme = isDarkMode ? 'dark' : 'light';
+
+			// Save token if token is new
+			if (tokenStatus === 'new') {
+				await handleSaveToken();
+			}
 
 			// Run the workload based on selected algorithm
 			let result;
@@ -169,7 +272,7 @@ export const QuantumWorkloadRunner: React.FC = () => {
 				}
 
 				result = await window.quantumAPI.runGroverSearch(
-					apiKey,
+					apiToken,
 					markedStates,
 					shotsNumber,
 					useHardware,
@@ -178,7 +281,7 @@ export const QuantumWorkloadRunner: React.FC = () => {
 			} else {
 				// Run Shor's algorithm
 				result = await window.quantumAPI.runQuantumWorkload(
-					apiKey,
+					apiToken,
 					shotsNumber,
 					useHardware,
 					plotTheme
@@ -232,7 +335,7 @@ export const QuantumWorkloadRunner: React.FC = () => {
 				plotDataUrl: null,
 			});
 		} finally {
-			setIsRunning(false);
+			setRunningMode(null);
 
 			// Restore the scroll position after the operation completes
 			// Use a small delay to ensure the DOM has updated
@@ -246,7 +349,13 @@ export const QuantumWorkloadRunner: React.FC = () => {
 	const renderAlgorithmResults = () => {
 		if (!workloadResult.data) return null;
 
-		if (algorithm === 'grovers') {
+		// Use the algorithm that was used for the current results,
+		// not the currently selected algorithm
+		const resultAlgorithm = workloadResult.data.input_marked_states
+			? 'grovers'
+			: 'shors';
+
+		if (resultAlgorithm === 'grovers') {
 			return (
 				<>
 					<div className="flex justify-between items-center">
@@ -407,7 +516,16 @@ export const QuantumWorkloadRunner: React.FC = () => {
 					{/* Algorithm Selection */}
 					<div>
 						<FormControl fullWidth>
-							<InputLabel id="algorithm-label">Algorithm</InputLabel>
+							<InputLabel
+								id="algorithm-label"
+								sx={{
+									backgroundColor: isDarkMode ? '#2a2a2a' : '#f8f8f8',
+									paddingLeft: '5px',
+									paddingRight: '5px',
+								}}
+							>
+								Algorithm
+							</InputLabel>
 							<Select
 								labelId="algorithm-label"
 								id="algorithm"
@@ -417,8 +535,18 @@ export const QuantumWorkloadRunner: React.FC = () => {
 								sx={{
 									backgroundColor: isDarkMode ? '#2a2a2a' : '#f8f8f8',
 									color: isDarkMode ? '#ffffff' : '#111111',
-									'.MuiOutlinedInput-notchedOutline': {
-										borderColor: 'rgba(0, 0, 0, 0.23)',
+									'& .MuiOutlinedInput-notchedOutline': {
+										borderColor: 'transparent',
+									},
+									'&:hover .MuiOutlinedInput-notchedOutline': {
+										borderColor: isDarkMode
+											? 'rgba(255, 255, 255, 0.6)'
+											: 'rgba(0, 0, 0, 0.5)',
+										borderWidth: '1px',
+									},
+									'&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+										borderColor: '#9747FF',
+										borderWidth: '1px',
 									},
 								}}
 							>
@@ -435,10 +563,9 @@ export const QuantumWorkloadRunner: React.FC = () => {
 								fullWidth
 								label="N-value"
 								variant="outlined"
-								defaultValue="15"
-								InputProps={{
-									readOnly: true,
-								}}
+								value={nValue}
+								onChange={(e) => setNValue(e.target.value)}
+								disabled={true}
 								sx={{
 									backgroundColor: isDarkMode ? '#2a2a2a' : '#f8f8f8',
 									borderRadius: '8px',
@@ -447,9 +574,19 @@ export const QuantumWorkloadRunner: React.FC = () => {
 										borderRadius: '8px',
 										overflow: 'hidden',
 									},
-									'.MuiOutlinedInput-notchedOutline': {
-										borderColor: 'rgba(0, 0, 0, 0.23)',
+									'& .MuiOutlinedInput-notchedOutline': {
+										borderColor: 'transparent',
 										borderRadius: '8px',
+									},
+									'&:hover .MuiOutlinedInput-notchedOutline': {
+										borderColor: isDarkMode
+											? 'rgba(255, 255, 255, 0.6)'
+											: 'rgba(0, 0, 0, 0.5)',
+										borderWidth: '1px',
+									},
+									'&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+										borderColor: '#9747FF',
+										borderWidth: '1px',
 									},
 									'.MuiInputBase-input': {
 										color: isDarkMode ? '#ffffff' : '#111111',
@@ -490,9 +627,19 @@ export const QuantumWorkloadRunner: React.FC = () => {
 										borderRadius: '8px',
 										overflow: 'hidden',
 									},
-									'.MuiOutlinedInput-notchedOutline': {
-										borderColor: 'rgba(0, 0, 0, 0.23)',
+									'& .MuiOutlinedInput-notchedOutline': {
+										borderColor: 'transparent',
 										borderRadius: '8px',
+									},
+									'&:hover .MuiOutlinedInput-notchedOutline': {
+										borderColor: isDarkMode
+											? 'rgba(255, 255, 255, 0.6)'
+											: 'rgba(0, 0, 0, 0.5)',
+										borderWidth: '1px',
+									},
+									'&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+										borderColor: '#9747FF',
+										borderWidth: '1px',
 									},
 									'.MuiInputBase-input': {
 										color: isDarkMode ? '#ffffff' : '#111111',
@@ -528,9 +675,19 @@ export const QuantumWorkloadRunner: React.FC = () => {
 									borderRadius: '8px',
 									overflow: 'hidden',
 								},
-								'.MuiOutlinedInput-notchedOutline': {
-									borderColor: 'rgba(0, 0, 0, 0.23)',
+								'& .MuiOutlinedInput-notchedOutline': {
+									borderColor: 'transparent',
 									borderRadius: '8px',
+								},
+								'&:hover .MuiOutlinedInput-notchedOutline': {
+									borderColor: isDarkMode
+										? 'rgba(255, 255, 255, 0.6)'
+										: 'rgba(0, 0, 0, 0.5)',
+									borderWidth: '1px',
+								},
+								'&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+									borderColor: '#9747FF',
+									borderWidth: '1px',
 								},
 								'.MuiInputBase-input': {
 									color: isDarkMode ? '#ffffff' : '#111111',
@@ -545,57 +702,106 @@ export const QuantumWorkloadRunner: React.FC = () => {
 					</div>
 				</div>
 
-				{/* IBM API Key Field */}
+				{/* IBM API Token Field */}
 				<div className="mb-6">
-					<TextField
-						fullWidth
-						label="IBM Quantum API Key"
-						variant="outlined"
-						value={apiKey}
-						onChange={(e) => setApiKey(e.target.value)}
-						disabled={isRunning}
-						type={showApiKey ? 'text' : 'password'}
-						InputProps={{
-							endAdornment: (
-								<InputAdornment position="end">
-									<IconButton
-										aria-label="toggle api key visibility"
-										onClick={() => setShowApiKey(!showApiKey)}
-										edge="end"
-									>
-										{showApiKey ? <VisibilityOffIcon /> : <VisibilityIcon />}
-									</IconButton>
-								</InputAdornment>
-							),
-						}}
-						sx={{
-							backgroundColor: isDarkMode ? '#2a2a2a' : '#f8f8f8',
-							borderRadius: '8px',
-							overflow: 'visible',
-							'& .MuiOutlinedInput-root': {
+					<div className="flex items-center mb-2">
+						<TextField
+							fullWidth
+							label="IBM Quantum API Token"
+							variant="outlined"
+							value={apiToken}
+							onChange={handleApiTokenChange}
+							disabled={isRunning}
+							type={showApiToken ? 'text' : 'password'}
+							InputProps={{
+								endAdornment: (
+									<InputAdornment position="end">
+										<IconButton
+											aria-label="toggle api token visibility"
+											onClick={() => setShowApiToken(!showApiToken)}
+											edge="end"
+										>
+											{showApiToken ? (
+												<VisibilityOffIcon />
+											) : (
+												<VisibilityIcon />
+											)}
+										</IconButton>
+										{apiToken && (
+											<>
+												<IconButton
+													aria-label="save api token"
+													onClick={handleSaveToken}
+													disabled={tokenStatus === 'saved' || !apiToken}
+													color={
+														tokenStatus === 'saved' ? 'success' : 'default'
+													}
+												>
+													{tokenStatus === 'saved' ? (
+														<CheckCircleIcon />
+													) : (
+														<SaveIcon />
+													)}
+												</IconButton>
+												<IconButton
+													aria-label="delete api token"
+													onClick={handleDeleteToken}
+													disabled={!apiToken}
+													color="error"
+												>
+													<DeleteIcon />
+												</IconButton>
+											</>
+										)}
+									</InputAdornment>
+								),
+							}}
+							sx={{
+								backgroundColor: isDarkMode ? '#2a2a2a' : '#f8f8f8',
 								borderRadius: '8px',
-								overflow: 'hidden',
-							},
-							'.MuiOutlinedInput-notchedOutline': {
-								borderColor: 'rgba(0, 0, 0, 0.23)',
-								borderRadius: '8px',
-							},
-							'.MuiInputBase-input': {
-								color: isDarkMode ? '#ffffff' : '#111111',
-							},
-							'.MuiInputLabel-root': {
-								color: isDarkMode
-									? 'rgba(255, 255, 255, 0.7)'
-									: 'rgba(0, 0, 0, 0.6)',
-							},
-						}}
-					/>
+								overflow: 'visible',
+								'& .MuiOutlinedInput-root': {
+									borderRadius: '8px',
+									overflow: 'hidden',
+								},
+								'& .MuiOutlinedInput-notchedOutline': {
+									borderColor: 'transparent',
+									borderRadius: '8px',
+								},
+								'&:hover .MuiOutlinedInput-notchedOutline': {
+									borderColor: isDarkMode
+										? 'rgba(255, 255, 255, 0.6)'
+										: 'rgba(0, 0, 0, 0.5)',
+									borderWidth: '1px',
+								},
+								'&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+									borderColor: '#9747FF',
+									borderWidth: '1px',
+								},
+								'.MuiInputBase-input': {
+									color: isDarkMode ? '#ffffff' : '#111111',
+								},
+								'.MuiInputLabel-root': {
+									color: isDarkMode
+										? 'rgba(255, 255, 255, 0.7)'
+										: 'rgba(0, 0, 0, 0.6)',
+								},
+							}}
+						/>
+					</div>
+					<div className="flex justify-between items-center">
+						{tokenStatus === 'saved' && (
+							<Typography variant="caption" style={{ color: '#4caf50' }}>
+								Using saved API Token
+							</Typography>
+						)}
+					</div>
 					<Typography
 						variant="caption"
 						className="mt-1 block"
 						style={{ color: isDarkMode ? '#AAAAAA' : '#666666' }}
 					>
-						Required for both simulation and hardware runs. Get your key from{' '}
+						Required for both simulation and hardware runs. Get your token from{' '}
 						<a
 							href="https://quantum-computing.ibm.com/account"
 							target="_blank"
@@ -613,7 +819,7 @@ export const QuantumWorkloadRunner: React.FC = () => {
 						variant="outlined"
 						disabled={
 							isRunning ||
-							!apiKey ||
+							!apiToken ||
 							(algorithm === 'grovers' && !validateMarkedStates(markedStates))
 						}
 						onClick={() => runQuantumWorkload(false)}
@@ -641,15 +847,19 @@ export const QuantumWorkloadRunner: React.FC = () => {
 									: 'rgba(0, 0, 0, 0.3)',
 							},
 						}}
-						startIcon={isRunning ? <CircularProgress size={20} /> : null}
+						startIcon={
+							runningMode === 'simulation' ? (
+								<CircularProgress size={20} />
+							) : null
+						}
 					>
-						{isRunning ? 'Running...' : 'Run Simulation'}
+						{runningMode === 'simulation' ? 'Running...' : 'Run Simulation'}
 					</Button>
 					<Button
 						variant="contained"
 						disabled={
 							isRunning ||
-							!apiKey ||
+							!apiToken ||
 							(algorithm === 'grovers' && !validateMarkedStates(markedStates))
 						}
 						onClick={() => runQuantumWorkload(true)}
@@ -673,10 +883,12 @@ export const QuantumWorkloadRunner: React.FC = () => {
 							},
 						}}
 						startIcon={
-							isRunning ? <CircularProgress size={20} color="inherit" /> : null
+							runningMode === 'hardware' ? (
+								<CircularProgress size={20} color="inherit" />
+							) : null
 						}
 					>
-						{isRunning ? 'Running...' : 'Run on IBM Q'}
+						{runningMode === 'hardware' ? 'Running...' : 'Run on IBM Q'}
 					</Button>
 				</div>
 
@@ -793,7 +1005,12 @@ export const QuantumWorkloadRunner: React.FC = () => {
 										{workloadResult.data?.job_id ? (
 											<>
 												<span className="truncate max-w-32">
-													{workloadResult.data.job_id}
+													{workloadResult.data.job_id.length > 15
+														? `${workloadResult.data.job_id.substring(
+																0,
+																15
+														  )}...`
+														: workloadResult.data.job_id}
 												</span>
 												<IconButton
 													size="small"
@@ -903,14 +1120,15 @@ export const QuantumWorkloadRunner: React.FC = () => {
 								<Typography variant="body2">No plot available</Typography>
 							</div>
 						)}
-						{algorithm === 'grovers' && workloadResult.plotDataUrl && (
-							<div
-								className="mt-2 text-xs text-center"
-								style={{ color: isDarkMode ? '#999999' : '#666666' }}
-							>
-								Highlighted bars represent marked states being searched for
-							</div>
-						)}
+						{workloadResult.data?.input_marked_states &&
+							workloadResult.plotDataUrl && (
+								<div
+									className="mt-2 text-xs text-center"
+									style={{ color: isDarkMode ? '#999999' : '#666666' }}
+								>
+									Highlighted bars represent marked states being searched for
+								</div>
+							)}
 					</Card>
 				</div>
 			)}

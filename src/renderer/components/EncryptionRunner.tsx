@@ -15,10 +15,10 @@ import {
 	Tooltip,
 	IconButton,
 	InputAdornment,
-	Grid, // Use Grid for layout
+	Grid,
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
-import { Card } from './ui/card'; // Assuming relative path is correct
+import { Card } from './ui/card';
 import VpnKeyIcon from '@mui/icons-material/VpnKey';
 import LockIcon from '@mui/icons-material/Lock';
 import LockOpenIcon from '@mui/icons-material/LockOpen';
@@ -28,10 +28,10 @@ import VerifiedIcon from '@mui/icons-material/Verified';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
-import EnhancedEncryptionIcon from '@mui/icons-material/EnhancedEncryption'; // Icon for hybrid
+import EnhancedEncryptionIcon from '@mui/icons-material/EnhancedEncryption';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorIcon from '@mui/icons-material/Error';
-import { SECURITY_PARAMS } from '../../types/benchmark'; // Assuming relative path is correct
+import { SECURITY_PARAMS } from '../../types/benchmark';
 
 // Define valid security levels explicitly
 type KyberSecLevel = '512' | '768' | '1024';
@@ -458,11 +458,8 @@ export const EncryptionRunner: React.FC = () => {
 		}
 	}, [encryptedPackage, keys, verificationStatus, base64ToBuffer]); // Added verificationStatus and base64ToBuffer to dependencies
 
-	// Common card style
-	const cardStyle = isDarkMode ? 'bg-[#212121]' : 'bg-[#E9E9E9]';
-
 	return (
-		<div className="space-y-6">
+		<div className="space-y-5">
 			{/* Status/Error Display */}
 			{errorMessage && (
 				<Alert severity="error" onClose={() => setErrorMessage('')}>
@@ -485,7 +482,11 @@ export const EncryptionRunner: React.FC = () => {
 			/>
 
 			{/* Configuration Card */}
-			<Card className={`p-6 rounded-xl shadow-md ${cardStyle}`}>
+			<Card
+				className={`p-6 rounded-xl shadow-md ${
+					isDarkMode ? 'bg-[#212121]' : 'bg-[#E9E9E9]'
+				}`}
+			>
 				<div className="flex items-center mb-4">
 					<EnhancedEncryptionIcon
 						style={{ color: '#9747FF' }}
@@ -495,7 +496,7 @@ export const EncryptionRunner: React.FC = () => {
 						className="text-[20px] font-semibold"
 						style={{ color: isDarkMode ? '#FFFFFF' : '#000000' }}
 					>
-						Hybrid Encryption Demo (ML-KEM + AES-GCM + ML-DSA)
+						Run Encryption Demo
 					</h2>
 				</div>
 				<p
@@ -506,7 +507,7 @@ export const EncryptionRunner: React.FC = () => {
 					and AES-256-GCM for bulk encryption, sign the result using ML-DSA
 					(Dilithium), then verify and decrypt.
 				</p>
-				<Grid container spacing={2} alignItems="center">
+				<Grid container spacing={3} alignItems="center">
 					<Grid item xs={12} sm={4}>
 						<FormControl fullWidth>
 							<InputLabel id="kem-level-label">ML-KEM Level</InputLabel>
@@ -518,6 +519,19 @@ export const EncryptionRunner: React.FC = () => {
 								sx={{
 									backgroundColor: isDarkMode ? '#2a2a2a' : '#f8f8f8',
 									color: isDarkMode ? '#ffffff' : '#111111',
+									'& .MuiOutlinedInput-notchedOutline': {
+										borderColor: 'transparent',
+									},
+									'&:hover .MuiOutlinedInput-notchedOutline': {
+										borderColor: isDarkMode
+											? 'rgba(255, 255, 255, 0.6)'
+											: 'rgba(0, 0, 0, 0.5)',
+										borderWidth: '1px',
+									},
+									'&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+										borderColor: '#9747FF',
+										borderWidth: '1px',
+									},
 								}}
 							>
 								<MenuItem value="512">512 (Level 1)</MenuItem>
@@ -539,6 +553,19 @@ export const EncryptionRunner: React.FC = () => {
 								sx={{
 									backgroundColor: isDarkMode ? '#2a2a2a' : '#f8f8f8',
 									color: isDarkMode ? '#ffffff' : '#111111',
+									'& .MuiOutlinedInput-notchedOutline': {
+										borderColor: 'transparent',
+									},
+									'&:hover .MuiOutlinedInput-notchedOutline': {
+										borderColor: isDarkMode
+											? 'rgba(255, 255, 255, 0.6)'
+											: 'rgba(0, 0, 0, 0.5)',
+										borderWidth: '1px',
+									},
+									'&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+										borderColor: '#9747FF',
+										borderWidth: '1px',
+									},
 								}}
 							>
 								<MenuItem value="2">2 (Level 2)</MenuItem>
@@ -562,7 +589,6 @@ export const EncryptionRunner: React.FC = () => {
 								padding: '10px 24px',
 								fontSize: '0.9rem',
 								borderRadius: '8px',
-								mt: 'auto', // Push button to bottom
 							}}
 						>
 							{isLoadingKeys ? (
@@ -576,244 +602,322 @@ export const EncryptionRunner: React.FC = () => {
 			</Card>
 
 			{/* Key Display Area */}
-			<Grid container spacing={2}>
+			<div className="grid grid-cols-1 md:grid-cols-2 gap-5">
 				{/* Sender Keys */}
-				<Grid item xs={12} md={6}>
-					<Card className={`p-4 rounded-xl shadow-sm ${cardStyle}`}>
-						<Typography variant="h6" gutterBottom>
-							Sender Keys (ML-DSA-{sigLevel})
-						</Typography>
-						{renderKeyField(
-							'Public Key (Sign)',
-							keys.senderDilithiumPk,
-							false, // Not secret
-							() => {},
-							false // Not toggleable
-						)}
-						{renderKeyField(
-							'Secret Key (Sign)',
-							keys.senderDilithiumSk,
-							showSenderSk,
-							() => setShowSenderSk(!showSenderSk),
-							true // Toggleable
-						)}
-					</Card>
-				</Grid>
+				<Card
+					className={`p-6 rounded-xl shadow-md ${
+						isDarkMode ? 'bg-[#212121]' : 'bg-[#E9E9E9]'
+					}`}
+				>
+					<Typography
+						variant="h6"
+						gutterBottom
+						className="mb-4"
+						style={{ color: isDarkMode ? '#FFFFFF' : '#000000' }}
+					>
+						Sender Keys
+					</Typography>
+					{renderKeyField(
+						'Public Key (ML-KEM Encrypt)',
+						keys.receiverKyberPk,
+						false, // Not secret
+						() => {},
+						false // Not toggleable
+					)}
+					{renderKeyField(
+						'Public Key (ML-DSA Sign)',
+						keys.senderDilithiumPk,
+						false, // Not secret
+						() => {},
+						false // Not toggleable
+					)}
+				</Card>
+
 				{/* Receiver Keys */}
-				<Grid item xs={12} md={6}>
-					<Card className={`p-4 rounded-xl shadow-sm ${cardStyle}`}>
-						<Typography variant="h6" gutterBottom>
-							Receiver Keys (ML-KEM-{kemLevel})
-						</Typography>
-						{renderKeyField(
-							'Public Key (Encrypt)',
-							keys.receiverKyberPk,
-							false, // Not secret
-							() => {},
-							false // Not toggleable
-						)}
-						{renderKeyField(
-							'Secret Key (Decrypt)',
-							keys.receiverKyberSk,
-							showReceiverSk,
-							() => setShowReceiverSk(!showReceiverSk),
-							true // Toggleable
-						)}
-					</Card>
-				</Grid>
-			</Grid>
+				<Card
+					className={`p-6 rounded-xl shadow-md ${
+						isDarkMode ? 'bg-[#212121]' : 'bg-[#E9E9E9]'
+					}`}
+				>
+					<Typography
+						variant="h6"
+						gutterBottom
+						className="mb-4"
+						style={{ color: isDarkMode ? '#FFFFFF' : '#000000' }}
+					>
+						Receiver Keys
+					</Typography>
+					{renderKeyField(
+						'Secret Key (ML-KEM Decrypt)',
+						keys.receiverKyberSk,
+						showReceiverSk,
+						() => setShowReceiverSk(!showReceiverSk),
+						true // Toggleable
+					)}
+					{renderKeyField(
+						'Secret Key (ML-DSA Verify)',
+						keys.senderDilithiumSk,
+						showSenderSk,
+						() => setShowSenderSk(!showSenderSk),
+						true // Toggleable
+					)}
+				</Card>
+			</div>
 
 			{/* Main Action Area */}
-			<Grid container spacing={2}>
+			<div className="grid grid-cols-1 md:grid-cols-2 gap-5">
 				{/* Encrypt & Sign */}
-				<Grid item xs={12} md={6}>
-					<Card
-						className={`p-6 rounded-xl shadow-md ${cardStyle} h-full flex flex-col`}
+				<Card
+					className={`p-6 rounded-xl shadow-md ${
+						isDarkMode ? 'bg-[#212121]' : 'bg-[#E9E9E9]'
+					} h-full flex flex-col`}
+				>
+					<Typography
+						variant="h6"
+						gutterBottom
+						className="mb-4"
+						style={{ color: isDarkMode ? '#FFFFFF' : '#000000' }}
 					>
-						<Typography variant="h6" gutterBottom className="mb-4">
-							1. Encrypt & Sign Message
-						</Typography>
-						<TextField
-							label="Plaintext Message"
-							multiline
-							rows={4}
-							fullWidth
-							value={plaintext}
-							onChange={(e) => setPlaintext(e.target.value)}
-							disabled={isLoadingEncrypt || isLoadingDecrypt}
-							sx={{
-								mb: 2,
+						1. Encrypt & Sign Message
+					</Typography>
+					<TextField
+						label="Plaintext Message"
+						multiline
+						rows={4}
+						fullWidth
+						value={plaintext}
+						onChange={(e) => setPlaintext(e.target.value)}
+						disabled={isLoadingEncrypt || isLoadingDecrypt}
+						sx={{
+							mb: 3,
+							backgroundColor: 'transparent',
+							'& .MuiOutlinedInput-root': {
+								borderRadius: '12px',
 								backgroundColor: isDarkMode ? '#2a2a2a' : '#f8f8f8',
-							}}
-						/>
-						<Button
-							variant="contained"
-							fullWidth
-							onClick={encryptAndSign}
-							disabled={
-								isLoadingEncrypt ||
-								isLoadingKeys ||
-								!keys.receiverKyberPk ||
-								!keys.senderDilithiumSk ||
-								!plaintext
-							}
-							startIcon={<LockIcon />}
-							sx={{
-								bgcolor: '#5a67d8', // Indigo-like color
-								'&:hover': { bgcolor: '#4c51bf' },
-								textTransform: 'uppercase',
-								fontWeight: 'bold',
-								padding: '10px 24px',
-								fontSize: '0.9rem',
-								borderRadius: '8px',
-								mt: 'auto', // Push button to bottom
-							}}
-						>
-							{isLoadingEncrypt ? (
-								<CircularProgress size={24} color="inherit" />
-							) : (
-								'Encrypt & Sign'
-							)}
-						</Button>
-						{encryptedPackage && !isLoadingEncrypt && (
-							<Box mt={2}>
-								<Typography variant="body2" gutterBottom>
-									Encrypted Package Details:
-								</Typography>
-								{renderResultField(
-									'KEM Ciphertext',
-									encryptedPackage.kemCiphertext
-								)}
-								{renderResultField('AES IV', encryptedPackage.iv)}
-								{renderResultField(
-									'AES Ciphertext + Tag',
-									encryptedPackage.aesCiphertextWithTag
-								)}
-								{renderResultField(
-									'ML-DSA Signature',
-									encryptedPackage.signature
-								)}
-							</Box>
+								overflow: 'hidden',
+							},
+							'& .MuiInputBase-input': {
+								color: isDarkMode ? '#ffffff' : '#111111',
+							},
+							'& .MuiOutlinedInput-notchedOutline': {
+								borderColor: 'transparent',
+							},
+							'&:hover .MuiOutlinedInput-notchedOutline': {
+								borderColor: isDarkMode
+									? 'rgba(255, 255, 255, 0.6)'
+									: 'rgba(0, 0, 0, 0.5)',
+								borderWidth: '1px',
+							},
+							'&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+								borderColor: '#9747FF',
+								borderWidth: '1px',
+							},
+							'& .MuiInputLabel-root': {
+								color: isDarkMode
+									? 'rgba(255, 255, 255, 0.7)'
+									: 'rgba(0, 0, 0, 0.6)',
+							},
+						}}
+					/>
+					<Button
+						variant="contained"
+						fullWidth
+						onClick={encryptAndSign}
+						disabled={
+							isLoadingEncrypt ||
+							isLoadingKeys ||
+							!keys.receiverKyberPk ||
+							!keys.senderDilithiumSk ||
+							!plaintext
+						}
+						startIcon={<LockIcon />}
+						sx={{
+							bgcolor: '#5a67d8', // Indigo-like color
+							'&:hover': { bgcolor: '#4c51bf' },
+							textTransform: 'uppercase',
+							fontWeight: 'bold',
+							padding: '10px 24px',
+							fontSize: '0.9rem',
+							borderRadius: '8px',
+							mt: 'auto', // Push button to bottom
+						}}
+					>
+						{isLoadingEncrypt ? (
+							<CircularProgress size={24} color="inherit" />
+						) : (
+							'Encrypt & Sign'
 						)}
-					</Card>
-				</Grid>
+					</Button>
+					{encryptedPackage && !isLoadingEncrypt && (
+						<Box mt={3}>
+							<Typography
+								variant="body2"
+								gutterBottom
+								style={{ color: isDarkMode ? '#FFFFFF' : '#000000' }}
+							>
+								Encrypted Package Details:
+							</Typography>
+							{renderResultField(
+								'KEM Ciphertext',
+								encryptedPackage.kemCiphertext
+							)}
+							{renderResultField('AES IV', encryptedPackage.iv)}
+							{renderResultField(
+								'AES Ciphertext + Tag',
+								encryptedPackage.aesCiphertextWithTag
+							)}
+							{renderResultField(
+								'ML-DSA Signature',
+								encryptedPackage.signature
+							)}
+						</Box>
+					)}
+				</Card>
 
 				{/* Decrypt & Verify */}
-				<Grid item xs={12} md={6}>
-					<Card
-						className={`p-6 rounded-xl shadow-md ${cardStyle} h-full flex flex-col`}
+				<Card
+					className={`p-6 rounded-xl shadow-md ${
+						isDarkMode ? 'bg-[#212121]' : 'bg-[#E9E9E9]'
+					} h-full flex flex-col`}
+				>
+					<Typography
+						variant="h6"
+						gutterBottom
+						className="mb-4"
+						style={{ color: isDarkMode ? '#FFFFFF' : '#000000' }}
 					>
-						<Typography variant="h6" gutterBottom className="mb-4">
-							2. Decrypt & Verify Package
-						</Typography>
-						<Button
-							variant="contained"
-							fullWidth
-							onClick={decryptAndVerify}
-							disabled={
-								isLoadingDecrypt ||
-								isLoadingKeys ||
-								!keys.senderDilithiumPk ||
-								!keys.receiverKyberSk ||
-								!encryptedPackage
-							}
-							startIcon={<LockOpenIcon />}
-							sx={{
-								bgcolor: '#38a169', // Green-like color
-								'&:hover': { bgcolor: '#2f855a' },
-								textTransform: 'uppercase',
-								fontWeight: 'bold',
-								padding: '10px 24px',
-								fontSize: '0.9rem',
-								borderRadius: '8px',
-								mb: 2, // Margin bottom before results
-							}}
-						>
-							{isLoadingDecrypt ? (
-								<CircularProgress size={24} color="inherit" />
-							) : (
-								'Decrypt & Verify'
-							)}
-						</Button>
-
-						{/* Verification Status */}
-						{verificationStatus !== 'idle' && (
-							<Alert
-								severity={verificationStatus === 'valid' ? 'success' : 'error'}
-								icon={
-									verificationStatus === 'valid' ? (
-										<CheckCircleIcon fontSize="inherit" />
-									) : (
-										<ErrorIcon fontSize="inherit" />
-									)
-								}
-								sx={{ mb: 2 }}
-							>
-								Signature Verification:{' '}
-								{verificationStatus === 'valid' ? 'Valid' : 'INVALID'}
-							</Alert>
+						2. Decrypt & Verify Package
+					</Typography>
+					<Button
+						variant="contained"
+						fullWidth
+						onClick={decryptAndVerify}
+						disabled={
+							isLoadingDecrypt ||
+							isLoadingKeys ||
+							!keys.senderDilithiumPk ||
+							!keys.receiverKyberSk ||
+							!encryptedPackage
+						}
+						startIcon={<LockOpenIcon />}
+						sx={{
+							bgcolor: '#38a169', // Green-like color
+							'&:hover': { bgcolor: '#2f855a' },
+							textTransform: 'uppercase',
+							fontWeight: 'bold',
+							padding: '10px 24px',
+							fontSize: '0.9rem',
+							borderRadius: '8px',
+							mb: 3, // Margin bottom before results
+						}}
+					>
+						{isLoadingDecrypt ? (
+							<CircularProgress size={24} color="inherit" />
+						) : (
+							'Decrypt & Verify'
 						)}
+					</Button>
 
-						{/* Decrypted Result */}
-						<TextField
-							label="Decrypted Plaintext"
-							multiline
-							rows={4}
-							fullWidth
-							value={decryptedPlaintext}
-							InputProps={{
-								readOnly: true,
-							}}
-							sx={{
+					{/* Verification Status */}
+					{verificationStatus !== 'idle' && (
+						<Alert
+							severity={verificationStatus === 'valid' ? 'success' : 'error'}
+							icon={
+								verificationStatus === 'valid' ? (
+									<CheckCircleIcon fontSize="inherit" />
+								) : (
+									<ErrorIcon fontSize="inherit" />
+								)
+							}
+							sx={{ mb: 3 }}
+						>
+							Signature Verification:{' '}
+							{verificationStatus === 'valid' ? 'Valid' : 'INVALID'}
+						</Alert>
+					)}
+
+					{/* Decrypted Result */}
+					<TextField
+						label="Decrypted Plaintext"
+						multiline
+						rows={4}
+						fullWidth
+						value={decryptedPlaintext}
+						InputProps={{
+							readOnly: true,
+						}}
+						sx={{
+							backgroundColor: 'transparent',
+							'& .MuiOutlinedInput-root': {
+								borderRadius: '12px',
 								backgroundColor: isDarkMode ? '#2a2a2a' : '#f8f8f8',
-								'& .MuiInputBase-input': {
-									color:
-										verificationStatus === 'invalid' && !isLoadingDecrypt
-											? theme.palette.error.main // Show error color if invalid
-											: isDarkMode
-											? '#ffffff'
-											: '#000000',
+								overflow: 'hidden',
+							},
+							'& .MuiInputBase-input': {
+								color:
+									verificationStatus === 'invalid' && !isLoadingDecrypt
+										? theme.palette.error.main // Show error color if invalid
+										: isDarkMode
+										? '#ffffff'
+										: '#000000',
+							},
+							'& .MuiOutlinedInput-notchedOutline': {
+								borderColor: 'transparent',
+							},
+							'&:hover .MuiOutlinedInput-notchedOutline': {
+								borderColor: isDarkMode
+									? 'rgba(255, 255, 255, 0.6)'
+									: 'rgba(0, 0, 0, 0.5)',
+								borderWidth: '1px',
+							},
+							'&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+								borderColor: '#9747FF',
+								borderWidth: '1px',
+							},
+							'& .MuiInputLabel-root': {
+								color: isDarkMode
+									? 'rgba(255, 255, 255, 0.7)'
+									: 'rgba(0, 0, 0, 0.6)',
+							},
+						}}
+					/>
+					{decryptedPlaintext && verificationStatus === 'valid' && (
+						<Button
+							size="small"
+							variant="outlined"
+							startIcon={<ContentCopyIcon />}
+							onClick={() =>
+								copyToClipboard(decryptedPlaintext, 'Decrypted plaintext')
+							}
+							sx={{
+								alignSelf: 'flex-end',
+								mt: 3,
+								textTransform: 'uppercase',
+								backgroundColor: isDarkMode
+									? 'rgba(255, 255, 255, 0.08)'
+									: 'rgba(0, 0, 0, 0.04)',
+								color: isDarkMode
+									? 'rgba(255, 255, 255, 0.85)'
+									: 'rgba(0, 0, 0, 0.75)',
+								borderColor: isDarkMode
+									? 'rgba(255, 255, 255, 0.23)'
+									: 'rgba(0, 0, 0, 0.23)',
+								fontSize: '0.8rem',
+								'&:hover': {
+									backgroundColor: isDarkMode
+										? 'rgba(255, 255, 255, 0.12)'
+										: 'rgba(0, 0, 0, 0.08)',
+									borderColor: isDarkMode
+										? 'rgba(255, 255, 255, 0.3)'
+										: 'rgba(0, 0, 0, 0.3)',
 								},
 							}}
-						/>
-						{decryptedPlaintext && verificationStatus === 'valid' && (
-							<Button
-								size="small"
-								variant="outlined"
-								startIcon={<ContentCopyIcon />}
-								onClick={() =>
-									copyToClipboard(decryptedPlaintext, 'Decrypted plaintext')
-								}
-								sx={{
-									alignSelf: 'flex-end',
-									mt: 1,
-									textTransform: 'uppercase',
-									backgroundColor: isDarkMode
-										? 'rgba(255, 255, 255, 0.08)'
-										: 'rgba(0, 0, 0, 0.04)',
-									color: isDarkMode
-										? 'rgba(255, 255, 255, 0.85)'
-										: 'rgba(0, 0, 0, 0.75)',
-									borderColor: isDarkMode
-										? 'rgba(255, 255, 255, 0.23)'
-										: 'rgba(0, 0, 0, 0.23)',
-									fontSize: '0.8rem',
-									'&:hover': {
-										backgroundColor: isDarkMode
-											? 'rgba(255, 255, 255, 0.12)'
-											: 'rgba(0, 0, 0, 0.08)',
-										borderColor: isDarkMode
-											? 'rgba(255, 255, 255, 0.3)'
-											: 'rgba(0, 0, 0, 0.3)',
-									},
-								}}
-							>
-								Copy Decrypted Text
-							</Button>
-						)}
-					</Card>
-				</Grid>
-			</Grid>
+						>
+							Copy Decrypted Text
+						</Button>
+					)}
+				</Card>
+			</div>
 		</div>
 	);
 
@@ -834,7 +938,16 @@ export const EncryptionRunner: React.FC = () => {
 
 		return (
 			<div className="mb-2">
-				<Typography variant="body2" color="textSecondary" gutterBottom>
+				<Typography
+					variant="body2"
+					color="textSecondary"
+					gutterBottom
+					style={{
+						color: isDarkMode
+							? 'rgba(255, 255, 255, 0.7)'
+							: 'rgba(0, 0, 0, 0.7)',
+					}}
+				>
 					{label}{' '}
 					{keyBuffer && (
 						<Tooltip title={`Size: ${formatBytes(keyBuffer.length)}`}>
@@ -852,7 +965,6 @@ export const EncryptionRunner: React.FC = () => {
 						style: {
 							fontFamily: 'monospace',
 							fontSize: '0.75rem',
-							backgroundColor: isDarkMode ? '#2a2a2a' : '#f8f8f8',
 							color: isDarkMode ? '#ccc' : '#333',
 						},
 						endAdornment: keyBuffer && (
@@ -880,6 +992,26 @@ export const EncryptionRunner: React.FC = () => {
 							</InputAdornment>
 						),
 					}}
+					sx={{
+						'& .MuiOutlinedInput-root': {
+							borderRadius: '8px',
+							backgroundColor: isDarkMode ? '#2a2a2a' : '#f8f8f8',
+							overflow: 'hidden',
+						},
+						'& .MuiOutlinedInput-notchedOutline': {
+							borderColor: 'transparent',
+						},
+						'&:hover .MuiOutlinedInput-notchedOutline': {
+							borderColor: isDarkMode
+								? 'rgba(255, 255, 255, 0.6)'
+								: 'rgba(0, 0, 0, 0.5)',
+							borderWidth: '1px',
+						},
+						'&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+							borderColor: '#9747FF',
+							borderWidth: '1px',
+						},
+					}}
 				/>
 			</div>
 		);
@@ -890,7 +1022,16 @@ export const EncryptionRunner: React.FC = () => {
 		const dataBase64 = bufferToBase64(dataBuffer);
 		return (
 			<div className="mb-2">
-				<Typography variant="caption" color="textSecondary" gutterBottom>
+				<Typography
+					variant="caption"
+					color="textSecondary"
+					gutterBottom
+					style={{
+						color: isDarkMode
+							? 'rgba(255, 255, 255, 0.7)'
+							: 'rgba(0, 0, 0, 0.7)',
+					}}
+				>
 					{label} ({formatBytes(dataBuffer?.length)})
 				</Typography>
 				<TextField
@@ -905,7 +1046,6 @@ export const EncryptionRunner: React.FC = () => {
 						style: {
 							fontFamily: 'monospace',
 							fontSize: '0.70rem', // Smaller font for dense data
-							backgroundColor: isDarkMode ? '#2a2a2a' : '#f8f8f8',
 							color: isDarkMode ? '#ccc' : '#333',
 						},
 						endAdornment: dataBuffer && (
@@ -921,10 +1061,30 @@ export const EncryptionRunner: React.FC = () => {
 							</InputAdornment>
 						),
 					}}
+					sx={{
+						'& .MuiOutlinedInput-root': {
+							borderRadius: '8px',
+							backgroundColor: isDarkMode ? '#2a2a2a' : '#f8f8f8',
+							overflow: 'hidden',
+						},
+						'& .MuiOutlinedInput-notchedOutline': {
+							borderColor: 'transparent',
+						},
+						'&:hover .MuiOutlinedInput-notchedOutline': {
+							borderColor: isDarkMode
+								? 'rgba(255, 255, 255, 0.6)'
+								: 'rgba(0, 0, 0, 0.5)',
+							borderWidth: '1px',
+						},
+						'&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+							borderColor: '#9747FF',
+							borderWidth: '1px',
+						},
+					}}
 				/>
 			</div>
 		);
 	}
 };
 
-export default EncryptionRunner; // Ensure default export if used as such
+export default EncryptionRunner;

@@ -1,5 +1,5 @@
 // src/main/ipc.ts
-import { ipcMain, app } from 'electron';
+import { ipcMain, app, safeStorage } from 'electron';
 import type { IpcMainInvokeEvent } from 'electron'; // Explicit type import
 import { benchmarkManager } from './benchmarkManager';
 import { BenchmarkParams, BenchmarkResult } from '../types/benchmark';
@@ -1295,10 +1295,109 @@ async function runGroverSearch(
 	});
 }
 
+// --- Quantum API Token Storage ---
+/**
+ * Saves the IBM Quantum API token securely using Electron's safeStorage
+ * @param apiToken The API token to encrypt and save
+ * @returns Success status
+ */
+async function saveQuantumApiToken(apiToken: string): Promise<boolean> {
+	try {
+		// First, encrypt the token using Electron's safeStorage
+		const encryptedToken = safeStorage.encryptString(apiToken);
+
+		// Save to a file in the app's user data directory
+		const tokenFilePath = path.join(
+			app.getPath('userData'),
+			'quantum_api_token.enc'
+		);
+		fs.writeFileSync(tokenFilePath, encryptedToken);
+
+		console.log('[Quantum API] Token saved successfully');
+		return true;
+	} catch (error: any) {
+		console.error('[Quantum API] Error saving token:', error);
+		return false;
+	}
+}
+
+/**
+ * Loads the encrypted IBM Quantum API token from storage and decrypts it
+ * @returns The decrypted API token, or null if not found or error
+ */
+async function loadQuantumApiToken(): Promise<string | null> {
+	try {
+		const tokenFilePath = path.join(
+			app.getPath('userData'),
+			'quantum_api_token.enc'
+		);
+
+		// Check if token file exists
+		if (!fs.existsSync(tokenFilePath)) {
+			console.log('[Quantum API] No saved token found');
+			return null;
+		}
+
+		// Read and decrypt the token
+		const encryptedToken = fs.readFileSync(tokenFilePath);
+		const decryptedToken = safeStorage.decryptString(encryptedToken);
+
+		console.log('[Quantum API] Token loaded successfully');
+		return decryptedToken;
+	} catch (error: any) {
+		console.error('[Quantum API] Error loading token:', error);
+		return null;
+	}
+}
+
+/**
+ * Deletes the stored API token
+ * @returns Success status
+ */
+async function deleteQuantumApiToken(): Promise<boolean> {
+	try {
+		const tokenFilePath = path.join(
+			app.getPath('userData'),
+			'quantum_api_token.enc'
+		);
+
+		// Check if token file exists
+		if (!fs.existsSync(tokenFilePath)) {
+			console.log('[Quantum API] No token to delete');
+			return true;
+		}
+
+		// Delete the token file
+		fs.unlinkSync(tokenFilePath);
+		console.log('[Quantum API] Token deleted successfully');
+		return true;
+	} catch (error: any) {
+		console.error('[Quantum API] Error deleting token:', error);
+		return false;
+	}
+}
+
 // Setup Quantum Workload IPC Handlers
 export function setupQuantumWorkloadIPC() {
 	console.log('[IPC] Setting up Quantum Workload IPC handlers...');
 
+	// Add handlers for API token storage
+	ipcMain.handle(
+		'save-quantum-api-token',
+		async (_event: IpcMainInvokeEvent, apiToken: string) => {
+			return saveQuantumApiToken(apiToken);
+		}
+	);
+
+	ipcMain.handle('load-quantum-api-token', async () => {
+		return loadQuantumApiToken();
+	});
+
+	ipcMain.handle('delete-quantum-api-token', async () => {
+		return deleteQuantumApiToken();
+	});
+
+	// Existing handlers
 	ipcMain.handle(
 		'run-quantum-workload',
 		async (

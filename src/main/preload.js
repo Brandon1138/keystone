@@ -197,6 +197,19 @@ contextBridge.exposeInMainWorld('quantumAPI', {
 		console.log('[preload] invoking get-quantum-plot');
 		return ipcRenderer.invoke('get-quantum-plot', plotFilePath);
 	},
+	// Token management
+	saveApiToken: (apiToken) => {
+		console.log('[preload] invoking save-quantum-api-token');
+		return ipcRenderer.invoke('save-quantum-api-token', apiToken);
+	},
+	loadApiToken: () => {
+		console.log('[preload] invoking load-quantum-api-token');
+		return ipcRenderer.invoke('load-quantum-api-token');
+	},
+	deleteApiToken: () => {
+		console.log('[preload] invoking delete-quantum-api-token');
+		return ipcRenderer.invoke('delete-quantum-api-token');
+	},
 	// Allow subscribing to log events (like progress updates)
 	onLogUpdate: (callback) => {
 		const subscription = (_event, ...args) => callback(...args);

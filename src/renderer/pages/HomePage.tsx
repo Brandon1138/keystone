@@ -9,9 +9,12 @@ import DataUsageIcon from '@mui/icons-material/DataUsage';
 import CompareArrowsIcon from '@mui/icons-material/CompareArrows';
 import NetworkPingIcon from '@mui/icons-material/NetworkPing';
 import ExportNotesIcon from '@mui/icons-material/Download';
-import VpnKeyIcon from '@mui/icons-material/VpnKey';
+import EnhancedEncryptionIcon from '@mui/icons-material/EnhancedEncryption';
 import CodeIcon from '@mui/icons-material/Code';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
+import ScheduleIcon from '@mui/icons-material/Schedule';
+import SettingsIcon from '@mui/icons-material/Settings';
+import ImportIcon from '@mui/icons-material/Upload';
 
 // Import your custom Card component
 import { Card } from '../components/ui/card';
@@ -27,6 +30,13 @@ export const HomePage: React.FC = () => {
 	// Feature cards data
 	const featureCards = [
 		{
+			title: 'Run Quantum Workloads',
+			description: "Run Shor's and Grover's algorithms via IBM Quantum Cloud.",
+			icon: <NetworkPingIcon style={{ color: '#9747FF' }} />,
+			link: '/quantum-workloads',
+			secondaryIcon: <AccountCircleIcon style={{ color: '#ABABA3' }} />,
+		},
+		{
 			title: 'Run Benchmarks',
 			description: 'Execute and monitor cryptographic algorithm benchmarks.',
 			icon: <SpeedIcon style={{ color: '#9747FF' }} />,
@@ -37,16 +47,17 @@ export const HomePage: React.FC = () => {
 			title: 'Run Encryption',
 			description:
 				'Generate keys and encrypt or decrypt messages using various cryptographic algorithms.',
-			icon: <VpnKeyIcon style={{ color: '#9747FF' }} />,
-			link: '/settings',
+			icon: <EnhancedEncryptionIcon style={{ color: '#9747FF' }} />,
+			link: '/run-encryption',
 			secondaryIcon: <CodeIcon style={{ color: '#ABABA3' }} />,
 		},
 		{
-			title: 'Run Quantum Workloads',
-			description: "Run Shor's and Grover's algorithms via IBM Quantum Cloud.",
-			icon: <NetworkPingIcon style={{ color: '#9747FF' }} />,
-			link: '/quantum-workloads',
-			secondaryIcon: <AccountCircleIcon style={{ color: '#ABABA3' }} />,
+			title: 'Schedule Jobs',
+			description:
+				'Schedule benchmarks and quantum workloads to run asynchronously.',
+			icon: <ScheduleIcon style={{ color: '#9747FF' }} />,
+			link: '/schedule-jobs',
+			secondaryIcon: <CodeIcon style={{ color: '#ABABA3' }} />,
 		},
 		{
 			title: 'Visualize',
@@ -61,10 +72,24 @@ export const HomePage: React.FC = () => {
 			link: '/compare',
 		},
 		{
+			title: 'Import',
+			description:
+				'Import benchmark results and datasets for analysis and comparison.',
+			icon: <ImportIcon style={{ color: '#9747FF' }} />,
+			link: '/import',
+		},
+		{
 			title: 'Export',
 			description: 'Export benchmark results and reports in multiple formats.',
 			icon: <ExportNotesIcon style={{ color: '#9747FF' }} />,
 			link: '/export',
+		},
+		{
+			title: 'Settings',
+			description:
+				'Configure application preferences, connections, and user settings.',
+			icon: <SettingsIcon style={{ color: '#9747FF' }} />,
+			link: '/settings',
 		},
 	];
 

@@ -57,6 +57,11 @@ declare global {
 			}>;
 
 			onLogUpdate(callback: (logMessage: string) => void): () => void;
+
+			// API Token management
+			saveApiToken(apiToken: string): Promise<boolean>;
+			loadApiToken(): Promise<string | null>;
+			deleteApiToken(): Promise<boolean>;
 		};
 	}
 }
