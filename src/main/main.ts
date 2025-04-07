@@ -7,8 +7,10 @@ import {
 	setupEncryptionIPC,
 	setupQuantumWorkloadIPC,
 	setupDatabaseIPC,
+	setupJobSchedulerIPC,
 } from './ipc';
 import { lowdbService } from './db/lowdbService';
+import { jobSchedulerService } from './JobSchedulerService';
 
 let mainWindow: any = null;
 
@@ -56,6 +58,9 @@ function createWindow() {
 		mainWindow.webContents.openDevTools();
 	}
 
+	// Set the mainWindow reference in the JobSchedulerService
+	jobSchedulerService.setMainWindow(mainWindow);
+
 	// Handle window close event
 	mainWindow.on('closed', () => {
 		mainWindow = null;
@@ -84,6 +89,7 @@ app.whenReady().then(async () => {
 	setupEncryptionIPC(); // Set up both Kyber encryption and Dilithium signature IPC handlers
 	setupQuantumWorkloadIPC(); // Set up Quantum Workload IPC handlers
 	setupDatabaseIPC(); // Set up Database IPC handlers
+	setupJobSchedulerIPC(); // Set up Job Scheduler IPC handlers
 
 	app.on('activate', () => {
 		// On macOS, re-create a window when the dock icon is clicked and no other windows are open
@@ -98,4 +104,10 @@ app.on('window-all-closed', () => {
 	if (process.platform !== 'darwin') {
 		app.quit();
 	}
+});
+
+// Stop the scheduler when app is about to quit
+app.on('before-quit', () => {
+	console.log('Application is about to quit, stopping job scheduler');
+	jobSchedulerService.stopScheduleChecker();
 });

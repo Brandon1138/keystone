@@ -20,6 +20,7 @@ import {
 	ComparePage,
 	ExportPage,
 	RunQuantumWorkloadsPage,
+	ScheduleJobsPage,
 } from './pages';
 
 // Create theme based on mode
@@ -142,10 +143,7 @@ const App: React.FC = () => {
 									path="/quantum-workloads"
 									element={<RunQuantumWorkloadsPage />}
 								/>
-								<Route
-									path="/schedule-jobs"
-									element={<div>Schedule Jobs Page</div>}
-								/>
+								<Route path="/schedule-jobs" element={<ScheduleJobsPage />} />
 								<Route path="/import" element={<div>Import Page</div>} />
 								<Route path="/settings" element={<div>Settings Page</div>} />
 							</Routes>

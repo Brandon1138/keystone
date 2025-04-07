@@ -293,3 +293,30 @@ contextBridge.exposeInMainWorld('databaseAPI', {
 		return ipcRenderer.invoke('db:clear-all-data');
 	},
 });
+
+// --- Add Job Scheduler API ---
+contextBridge.exposeInMainWorld('jobSchedulerAPI', {
+	// Job scheduling functions
+	scheduleJob: (jobDefinition) => {
+		console.log('[preload] invoking schedule-job');
+		return ipcRenderer.invoke('schedule-job', jobDefinition);
+	},
+	getJobQueue: () => {
+		console.log('[preload] invoking get-job-queue');
+		return ipcRenderer.invoke('get-job-queue');
+	},
+	cancelJob: (jobId) => {
+		console.log('[preload] invoking cancel-job');
+		return ipcRenderer.invoke('cancel-job', jobId);
+	},
+	removeJob: (jobId) => {
+		console.log('[preload] invoking remove-job');
+		return ipcRenderer.invoke('remove-job', jobId);
+	},
+	// Allow subscribing to job queue updates
+	onJobQueueUpdate: (callback) => {
+		const subscription = (_event, ...args) => callback(...args);
+		ipcRenderer.on('job-queue-update', subscription);
+		return () => ipcRenderer.removeListener('job-queue-update', subscription);
+	},
+});

@@ -1,0 +1,128 @@
+import React, { useState } from 'react';
+import { FormControl, InputLabel, Select, MenuItem } from '@mui/material';
+import { SelectChangeEvent } from '@mui/material/Select';
+
+const JobSchedulerForm: React.FC = () => {
+	const [algorithm, setAlgorithm] = useState('');
+	const [securityParameter, setSecurityParameter] = useState('');
+	const [quantumAlgorithm, setQuantumAlgorithm] = useState<'shor' | 'grover'>('shor');
+	const [target, setTarget] = useState<'simulation' | 'real_hardware'>('simulation');
+	const [isDarkMode, setIsDarkMode] = useState(false);
+
+	return (
+		<div>
+			<FormControl fullWidth>
+				<InputLabel
+					id="algorithm-label"
+					sx={{
+						color: isDarkMode
+							? 'rgba(255, 255, 255, 0.7)'
+							: 'rgba(0, 0, 0, 0.7)',
+						'&.Mui-focused': {
+							color: '#9747FF',
+						},
+					}}
+				>
+					Algorithm
+				</InputLabel>
+				<Select
+					labelId="algorithm-label"
+					value={algorithm}
+					label="Algorithm"
+					onChange={(e: SelectChangeEvent) =>
+						setAlgorithm(e.target.value)
+					}
+				>
+					<MenuItem value="shor">Shor</MenuItem>
+					<MenuItem value="grover">Grover</MenuItem>
+				</Select>
+			</FormControl>
+
+			<FormControl fullWidth>
+				<InputLabel
+					id="security-param-label"
+					sx={{
+						color: isDarkMode
+							? 'rgba(255, 255, 255, 0.7)'
+							: 'rgba(0, 0, 0, 0.7)',
+						'&.Mui-focused': {
+							color: '#9747FF',
+						},
+					}}
+				>
+					Security Parameter
+				</InputLabel>
+				<Select
+					labelId="security-param-label"
+					value={securityParameter}
+					label="Security Parameter"
+					onChange={(e: SelectChangeEvent) =>
+						setSecurityParameter(e.target.value)
+					}
+				>
+					<MenuItem value="1">1</MenuItem>
+					<MenuItem value="2">2</MenuItem>
+					<MenuItem value="3">3</MenuItem>
+				</Select>
+			</FormControl>
+
+			<FormControl fullWidth>
+				<InputLabel
+					id="quantum-algorithm-label"
+					sx={{
+						color: isDarkMode
+							? 'rgba(255, 255, 255, 0.7)'
+							: 'rgba(0, 0, 0, 0.7)',
+						'&.Mui-focused': {
+							color: '#9747FF',
+						},
+					}}
+				>
+					Quantum Algorithm
+				</InputLabel>
+				<Select
+					labelId="quantum-algorithm-label"
+					value={quantumAlgorithm}
+					label="Quantum Algorithm"
+					onChange={(e: SelectChangeEvent) =>
+						setQuantumAlgorithm(e.target.value as 'shor' | 'grover')
+					}
+				>
+					<MenuItem value="shor">Shor</MenuItem>
+					<MenuItem value="grover">Grover</MenuItem>
+				</Select>
+			</FormControl>
+
+			<FormControl fullWidth>
+				<InputLabel
+					id="target-label"
+					sx={{
+						color: isDarkMode
+							? 'rgba(255, 255, 255, 0.7)'
+							: 'rgba(0, 0, 0, 0.7)',
+						'&.Mui-focused': {
+							color: '#9747FF',
+						},
+					}}
+				>
+					Target
+				</InputLabel>
+				<Select
+					labelId="target-label"
+					value={target}
+					label="Target"
+					onChange={(e: SelectChangeEvent) =>
+						setTarget(
+							e.target.value as 'simulation' | 'real_hardware'
+						)
+					}
+				>
+					<MenuItem value="simulation">Simulation</MenuItem>
+					<MenuItem value="real_hardware">Real Hardware</MenuItem>
+				</Select>
+			</FormControl>
+		</div>
+	);
+};
+
+export default JobSchedulerForm; 

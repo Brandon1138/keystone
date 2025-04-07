@@ -15,7 +15,8 @@
 		"isolatedModules": true,
 		"noEmit": false,
 		"jsx": "react",
-		"outDir": "./dist"
+		"outDir": "./dist",
+		"types": ["node"]
 	},
 	"include": ["src/**/*"],
 	"exclude": ["src/main/preload.js", "node_modules"]

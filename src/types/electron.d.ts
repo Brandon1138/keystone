@@ -64,6 +64,18 @@ declare global {
 			deleteApiToken(): Promise<boolean>;
 		};
 
+		// Job Scheduler API
+		jobSchedulerAPI: {
+			scheduleJob(job: any): Promise<boolean>;
+			getJobQueue(): Promise<any[]>;
+			cancelJob(jobId: string): Promise<boolean>;
+			clearQueue(): Promise<boolean>;
+			removeJob(jobId: string): Promise<boolean>;
+			onJobQueueUpdate(callback: (jobs: any[]) => void): () => void;
+			onJobComplete(callback: (job: any) => void): () => void;
+			onJobError(callback: (job: any, error: string) => void): () => void;
+		};
+
 		// Database API for benchmark storage
 		databaseAPI: {
 			// Run-related functions

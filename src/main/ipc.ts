@@ -14,6 +14,7 @@ import * as crypto from 'crypto'; // Import Node crypto
 import { promisify } from 'util'; // Import promisify
 import * as childProcess from 'child_process'; // Import for spawning the Python script
 import { lowdbService } from './db/lowdbService';
+import { jobSchedulerService } from './JobSchedulerService';
 
 // IMPORTANT: Set up native library paths BEFORE loading any modules
 // This must happen at the top level, not inside a function
@@ -1748,4 +1749,71 @@ export function setupDatabaseIPC() {
 	});
 
 	console.log('[IPC] Database IPC handlers registration complete.');
+}
+
+/**
+ * Sets up Job Scheduler IPC handlers
+ */
+export function setupJobSchedulerIPC() {
+	console.log('[IPC] Setting up Job Scheduler IPC handlers...');
+
+	// Add handlers for job scheduling
+	ipcMain.handle(
+		'schedule-job',
+		async (_event: IpcMainInvokeEvent, jobDefinition: any) => {
+			try {
+				return jobSchedulerService.addJob(jobDefinition);
+			} catch (error: any) {
+				console.error('[IPC Error] schedule-job:', error);
+				return {
+					status: 'error',
+					error: error.message || 'Unknown error during job scheduling',
+				};
+			}
+		}
+	);
+
+	ipcMain.handle('get-job-queue', async () => {
+		try {
+			return jobSchedulerService.getQueueState();
+		} catch (error: any) {
+			console.error('[IPC Error] get-job-queue:', error);
+			return {
+				status: 'error',
+				error: error.message || 'Unknown error getting job queue state',
+			};
+		}
+	});
+
+	ipcMain.handle(
+		'cancel-job',
+		async (_event: IpcMainInvokeEvent, jobId: string) => {
+			try {
+				return jobSchedulerService.cancelJob(jobId);
+			} catch (error: any) {
+				console.error('[IPC Error] cancel-job:', error);
+				return {
+					status: 'error',
+					error: error.message || 'Unknown error cancelling job',
+				};
+			}
+		}
+	);
+
+	ipcMain.handle(
+		'remove-job',
+		async (_event: IpcMainInvokeEvent, jobId: string) => {
+			try {
+				return jobSchedulerService.removeJob(jobId);
+			} catch (error: any) {
+				console.error('[IPC Error] remove-job:', error);
+				return {
+					status: 'error',
+					error: error.message || 'Unknown error removing job',
+				};
+			}
+		}
+	);
+
+	console.log('[IPC] Job Scheduler IPC handlers registration complete.');
 }

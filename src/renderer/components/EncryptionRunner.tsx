@@ -4,7 +4,6 @@ import {
 	Select,
 	MenuItem,
 	FormControl,
-	InputLabel,
 	TextField,
 	SelectChangeEvent,
 	CircularProgress,
@@ -510,9 +509,9 @@ export const EncryptionRunner: React.FC = () => {
 				<Grid container spacing={3} alignItems="center">
 					<Grid item xs={12} sm={4}>
 						<FormControl fullWidth>
-							<InputLabel id="kem-level-label">ML-KEM Level</InputLabel>
 							<Select
 								labelId="kem-level-label"
+								id="kem-level-select"
 								value={kemLevel}
 								label="ML-KEM Level"
 								onChange={(e) => setKemLevel(e.target.value as KyberSecLevel)}
@@ -542,9 +541,9 @@ export const EncryptionRunner: React.FC = () => {
 					</Grid>
 					<Grid item xs={12} sm={4}>
 						<FormControl fullWidth>
-							<InputLabel id="sig-level-label">ML-DSA Level</InputLabel>
 							<Select
 								labelId="sig-level-label"
+								id="sig-level-select"
 								value={sigLevel}
 								label="ML-DSA Level"
 								onChange={(e) =>
@@ -686,7 +685,9 @@ export const EncryptionRunner: React.FC = () => {
 						rows={4}
 						fullWidth
 						value={plaintext}
-						onChange={(e) => setPlaintext(e.target.value)}
+						onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+							setPlaintext(e.target.value)
+						}
 						disabled={isLoadingEncrypt || isLoadingDecrypt}
 						sx={{
 							mb: 3,
@@ -950,9 +951,9 @@ export const EncryptionRunner: React.FC = () => {
 				>
 					{label}{' '}
 					{keyBuffer && (
-						<Tooltip title={`Size: ${formatBytes(keyBuffer.length)}`}>
+						<span title={`Size: ${formatBytes(keyBuffer.length)}`}>
 							<InfoIcon style={{ fontSize: '14px', verticalAlign: 'middle' }} />
-						</Tooltip>
+						</span>
 					)}
 				</Typography>
 				<TextField

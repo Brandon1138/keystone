@@ -229,22 +229,13 @@ export const BenchmarkRunner: React.FC = () => {
 					{/* Algorithm Selection */}
 					<div>
 						<FormControl fullWidth>
-							<InputLabel
-								id="algorithm-label"
-								sx={{
-									backgroundColor: isDarkMode ? '#2a2a2a' : '#f8f8f8',
-									paddingLeft: '5px',
-									paddingRight: '5px',
-								}}
-							>
-								Algorithm
-							</InputLabel>
 							<Select
 								labelId="algorithm-label"
 								id="algorithm"
 								value={selectedAlgorithm}
 								onChange={handleAlgorithmChange}
 								disabled={isRunning}
+								label="Algorithm"
 								sx={{
 									backgroundColor: isDarkMode ? '#2a2a2a' : '#f8f8f8',
 									color: isDarkMode ? '#ffffff' : '#111111',
@@ -278,22 +269,13 @@ export const BenchmarkRunner: React.FC = () => {
 					{/* Security Parameter Selection */}
 					<div>
 						<FormControl fullWidth>
-							<InputLabel
-								id="security-param-label"
-								sx={{
-									backgroundColor: isDarkMode ? '#2a2a2a' : '#f8f8f8',
-									paddingLeft: '5px',
-									paddingRight: '5px',
-								}}
-							>
-								Security Parameter
-							</InputLabel>
 							<Select
 								labelId="security-param-label"
 								id="security-param"
 								value={selectedParam}
 								onChange={handleParamChange}
 								disabled={isRunning}
+								label="Security Parameter"
 								sx={{
 									backgroundColor: isDarkMode ? '#2a2a2a' : '#f8f8f8',
 									color: isDarkMode ? '#ffffff' : '#111111',

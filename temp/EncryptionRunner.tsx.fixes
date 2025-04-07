@@ -1,0 +1,50 @@
+import React, { useState } from 'react';
+import { FormControl, InputLabel, Select, Tooltip } from '@mui/material';
+import { InfoIcon } from '@mui/icons-material';
+import { KyberSecLevel, DilithiumSecLevel } from '../types';
+import { formatBytes } from '../utils';
+
+const EncryptionRunner: React.FC = () => {
+	const [kemLevel, setKemLevel] = useState<KyberSecLevel | ''>('');
+	const [sigLevel, setSigLevel] = useState<DilithiumSecLevel | ''>('');
+	const [keyBuffer, setKeyBuffer] = useState<Buffer | null>(null);
+
+	return (
+		<div>
+			<FormControl fullWidth>
+				<InputLabel id="kem-level-label">ML-KEM Level</InputLabel>
+				<Select
+					labelId="kem-level-label"
+					value={kemLevel}
+					label="ML-KEM Level"
+					onChange={(e) => setKemLevel(e.target.value as KyberSecLevel)}
+				>
+					{/* Add your options here */}
+				</Select>
+			</FormControl>
+
+			<FormControl fullWidth>
+				<InputLabel id="sig-level-label">ML-DSA Level</InputLabel>
+				<Select
+					labelId="sig-level-label"
+					value={sigLevel}
+					label="ML-DSA Level"
+					onChange={(e) =>
+						setSigLevel(e.target.value as DilithiumSecLevel)
+					}
+				>
+					{/* Add your options here */}
+				</Select>
+			</FormControl>
+
+			{/* Tooltip fix */}
+			{kemLevel && (
+				<Tooltip title={`Size: ${formatBytes(keyBuffer?.length || 0)}`}>
+					<InfoIcon style={{ fontSize: '14px', verticalAlign: 'middle' }} />
+				</Tooltip>
+			)}
+		</div>
+	);
+};
+
+export default EncryptionRunner; 

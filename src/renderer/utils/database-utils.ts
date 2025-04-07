@@ -32,9 +32,9 @@ export const databaseUtils = {
 	): Promise<string> => {
 		return await window.databaseAPI.createRun(
 			runType,
-			algorithm,
-			securityParam,
-			iterations,
+			algorithm || '',
+			securityParam || '',
+			iterations || 0,
 			notes
 		);
 	},
@@ -144,7 +144,8 @@ export const databaseUtils = {
 	 * Clear all data
 	 */
 	clearAllData: async (): Promise<boolean> => {
-		return await window.databaseAPI.clearAllData();
+		await window.databaseAPI.clearAllData();
+		return true;
 	},
 };
 

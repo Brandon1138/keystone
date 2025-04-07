@@ -5,3 +5,4 @@ export { default as VisualizationPage } from './VisualizationPage';
 export { default as ComparePage } from './ComparePage';
 export { default as ExportPage } from './ExportPage';
 export { default as RunQuantumWorkloadsPage } from './RunQuantumWorkloadsPage';
+export { default as ScheduleJobsPage } from './ScheduleJobsPage';
