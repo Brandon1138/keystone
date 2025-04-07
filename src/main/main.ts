@@ -1,4 +1,6 @@
-import { app, BrowserWindow } from 'electron';
+// Import Electron using require with type assertion
+const electron = require('electron') as any;
+const { app, BrowserWindow } = electron;
 import * as path from 'path';
 import {
 	setupBenchmarkIPC,
@@ -6,7 +8,7 @@ import {
 	setupQuantumWorkloadIPC,
 } from './ipc';
 
-let mainWindow: BrowserWindow | null = null;
+let mainWindow: any = null;
 
 // Enable live reload in development mode
 /* Commenting out electron-reload for now to fix errors

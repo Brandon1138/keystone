@@ -1,6 +1,9 @@
 // src/main/ipc.ts
-import { ipcMain, app, safeStorage } from 'electron';
-import type { IpcMainInvokeEvent } from 'electron'; // Explicit type import
+// Import Electron using require with type assertion
+const electron = require('electron') as any;
+const { ipcMain, app, safeStorage } = electron;
+type IpcMainInvokeEvent = any; // Define a simple type alias
+
 import { benchmarkManager } from './benchmarkManager';
 import { BenchmarkParams, BenchmarkResult } from '../types/benchmark';
 import { benchmarkStore } from './store';
@@ -53,8 +56,10 @@ function getProjectRoot(): string {
 		}
 	} else {
 		// In production, resourcesPath is the standard directory containing app assets
+		// Type assertion for process to access resourcesPath
+		const processAny = process as any;
 		const resourcesPath =
-			(process as any).resourcesPath || path.dirname(app.getAppPath()); // process.resourcesPath is preferred
+			processAny.resourcesPath || path.dirname(app.getAppPath()); // process.resourcesPath is preferred
 		console.log(
 			`[getProjectRoot] Production mode, using resources path: ${resourcesPath}`
 		);
@@ -969,7 +974,8 @@ async function runQuantumWorkload(
 		scriptPath = path.join(projectRoot, 'quantum', 'shor_n15.py');
 	} else {
 		// In production, resources folder contains our extra resources
-		scriptPath = path.join(process.resourcesPath, 'quantum', 'shor_n15.py');
+		const processAny = process as any;
+		scriptPath = path.join(processAny.resourcesPath, 'quantum', 'shor_n15.py');
 	}
 
 	// Verify the script exists
@@ -1155,8 +1161,9 @@ async function runGroverSearch(
 		scriptPath = path.join(projectRoot, 'quantum', 'grover_search.py');
 	} else {
 		// In production, resources folder contains our extra resources
+		const processAny = process as any;
 		scriptPath = path.join(
-			process.resourcesPath,
+			processAny.resourcesPath,
 			'quantum',
 			'grover_search.py'
 		);
