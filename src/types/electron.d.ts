@@ -63,6 +63,72 @@ declare global {
 			loadApiToken(): Promise<string | null>;
 			deleteApiToken(): Promise<boolean>;
 		};
+
+		// Database API for benchmark storage
+		databaseAPI: {
+			// Run-related functions
+			createRun(
+				runType: 'PQC_Classical' | 'Quantum_Shor' | 'Quantum_Grover',
+				algorithm?: string,
+				securityParam?: string,
+				iterations?: number,
+				notes?: string
+			): Promise<string>;
+
+			updateRunStatus(
+				runId: string,
+				status: 'pending' | 'running' | 'completed' | 'failed',
+				error?: string
+			): Promise<boolean>;
+
+			getAllRuns(): Promise<
+				Array<{
+					runId: string;
+					timestamp: string;
+					runType: 'PQC_Classical' | 'Quantum_Shor' | 'Quantum_Grover';
+					status: 'pending' | 'running' | 'completed' | 'failed';
+					algorithm?: string;
+					securityParam?: string;
+					iterations?: number;
+					error?: string;
+					notes?: string;
+				}>
+			>;
+
+			getRunsByType(
+				runType: 'PQC_Classical' | 'Quantum_Shor' | 'Quantum_Grover'
+			): Promise<Array<any>>;
+
+			getRunsByStatus(
+				status: 'pending' | 'running' | 'completed' | 'failed'
+			): Promise<Array<any>>;
+
+			getRunsByAlgorithm(algorithm: string): Promise<Array<any>>;
+
+			getRunDetails(runId: string): Promise<{
+				run: any;
+				details: Array<any>;
+			}>;
+
+			// Result-related functions
+			insertQuantumResult(runId: string, resultData: any): Promise<string>;
+
+			insertPqcClassicalResult(
+				runId: string,
+				benchmarkData: any
+			): Promise<string[]>;
+
+			getAllQuantumResults(): Promise<Array<any>>;
+
+			getAllPqcClassicalDetails(): Promise<Array<any>>;
+
+			getPqcClassicalByAlgorithm(algorithm: string): Promise<Array<any>>;
+
+			// Delete operations
+			deleteRun(runId: string): Promise<boolean>;
+
+			clearAllData(): Promise<boolean>;
+		};
 	}
 }
 

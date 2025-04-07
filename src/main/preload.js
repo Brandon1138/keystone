@@ -217,3 +217,79 @@ contextBridge.exposeInMainWorld('quantumAPI', {
 		return () => ipcRenderer.removeListener('quantum-log-update', subscription);
 	},
 });
+
+// --- Add Database API ---
+contextBridge.exposeInMainWorld('databaseAPI', {
+	// Run-related functions
+	createRun: (runType, algorithm, securityParam, iterations, notes) => {
+		console.log('[preload] invoking db:create-run');
+		return ipcRenderer.invoke(
+			'db:create-run',
+			runType,
+			algorithm,
+			securityParam,
+			iterations,
+			notes
+		);
+	},
+	updateRunStatus: (runId, status, error) => {
+		console.log('[preload] invoking db:update-run-status');
+		return ipcRenderer.invoke('db:update-run-status', runId, status, error);
+	},
+	getAllRuns: () => {
+		console.log('[preload] invoking db:get-all-runs');
+		return ipcRenderer.invoke('db:get-all-runs');
+	},
+	getRunsByType: (runType) => {
+		console.log('[preload] invoking db:get-runs-by-type');
+		return ipcRenderer.invoke('db:get-runs-by-type', runType);
+	},
+	getRunsByStatus: (status) => {
+		console.log('[preload] invoking db:get-runs-by-status');
+		return ipcRenderer.invoke('db:get-runs-by-status', status);
+	},
+	getRunsByAlgorithm: (algorithm) => {
+		console.log('[preload] invoking db:get-runs-by-algorithm');
+		return ipcRenderer.invoke('db:get-runs-by-algorithm', algorithm);
+	},
+	getRunDetails: (runId) => {
+		console.log('[preload] invoking db:get-run-details');
+		return ipcRenderer.invoke('db:get-run-details', runId);
+	},
+
+	// Result-related functions
+	insertQuantumResult: (runId, resultData) => {
+		console.log('[preload] invoking db:insert-quantum-result');
+		return ipcRenderer.invoke('db:insert-quantum-result', runId, resultData);
+	},
+	insertPqcClassicalResult: (runId, benchmarkData) => {
+		console.log('[preload] invoking db:insert-pqc-classical-result');
+		return ipcRenderer.invoke(
+			'db:insert-pqc-classical-result',
+			runId,
+			benchmarkData
+		);
+	},
+	getAllQuantumResults: () => {
+		console.log('[preload] invoking db:get-all-quantum-results');
+		return ipcRenderer.invoke('db:get-all-quantum-results');
+	},
+	getAllPqcClassicalDetails: () => {
+		console.log('[preload] invoking db:get-all-pqc-classical-details');
+		return ipcRenderer.invoke('db:get-all-pqc-classical-details');
+	},
+	getPqcClassicalByAlgorithm: (algorithm) => {
+		console.log('[preload] invoking db:get-pqc-classical-by-algorithm');
+		return ipcRenderer.invoke('db:get-pqc-classical-by-algorithm', algorithm);
+	},
+
+	// Delete operations
+	deleteRun: (runId) => {
+		console.log('[preload] invoking db:delete-run');
+		return ipcRenderer.invoke('db:delete-run', runId);
+	},
+	clearAllData: () => {
+		console.log('[preload] invoking db:clear-all-data');
+		return ipcRenderer.invoke('db:clear-all-data');
+	},
+});

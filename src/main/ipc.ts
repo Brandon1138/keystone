@@ -13,6 +13,7 @@ import { access } from 'fs/promises'; // Import for checking if venv Python exis
 import * as crypto from 'crypto'; // Import Node crypto
 import { promisify } from 'util'; // Import promisify
 import * as childProcess from 'child_process'; // Import for spawning the Python script
+import { lowdbService } from './db/lowdbService';
 
 // IMPORTANT: Set up native library paths BEFORE loading any modules
 // This must happen at the top level, not inside a function
@@ -1415,12 +1416,41 @@ export function setupQuantumWorkloadIPC() {
 			plotTheme: 'light' | 'dark'
 		) => {
 			try {
-				return await runQuantumWorkload(
+				// Create a run record in the database
+				const runId = await lowdbService.createRun(
+					'Quantum_Shor',
+					'Shor',
+					'N=15', // Fixed for now
+					shots
+				);
+
+				// Update run status to running
+				await lowdbService.updateRunStatus(runId, 'running');
+
+				// Run the quantum workload
+				const result = await runQuantumWorkload(
 					apiToken,
 					shots,
 					runOnHardware,
 					plotTheme
 				);
+
+				if (result.status === 'success') {
+					// Store the result in the database
+					await lowdbService.insertQuantumResult(runId, result);
+
+					// Update run status to completed
+					await lowdbService.updateRunStatus(runId, 'completed');
+				} else {
+					// Update run status to failed
+					await lowdbService.updateRunStatus(
+						runId,
+						'failed',
+						result.error || 'Unknown error during quantum workload execution'
+					);
+				}
+
+				return result;
 			} catch (error: any) {
 				console.error('[IPC Error] run-quantum-workload:', error);
 				return {
@@ -1445,13 +1475,42 @@ export function setupQuantumWorkloadIPC() {
 			plotTheme: 'light' | 'dark'
 		) => {
 			try {
-				return await runGroverSearch(
+				// Create a run record in the database
+				const runId = await lowdbService.createRun(
+					'Quantum_Grover',
+					'Grover',
+					markedStates, // Use markedStates as securityParam
+					shots
+				);
+
+				// Update run status to running
+				await lowdbService.updateRunStatus(runId, 'running');
+
+				// Run the Grover search
+				const result = await runGroverSearch(
 					apiToken,
 					markedStates,
 					shots,
 					runOnHardware,
 					plotTheme
 				);
+
+				if (result.status === 'success') {
+					// Store the result in the database
+					await lowdbService.insertQuantumResult(runId, result);
+
+					// Update run status to completed
+					await lowdbService.updateRunStatus(runId, 'completed');
+				} else {
+					// Update run status to failed
+					await lowdbService.updateRunStatus(
+						runId,
+						'failed',
+						result.error || 'Unknown error during Grover search execution'
+					);
+				}
+
+				return result;
 			} catch (error: any) {
 				console.error('[IPC Error] run-grover-search:', error);
 				return {
@@ -1492,4 +1551,201 @@ export function setupQuantumWorkloadIPC() {
 	);
 
 	console.log('[IPC] Quantum Workload IPC handlers registration complete.');
+}
+
+// Setup Database IPC handlers
+export function setupDatabaseIPC() {
+	console.log('[IPC] Setting up Database IPC handlers...');
+
+	// Import the lowdbService here to avoid circular dependencies
+	const { lowdbService } = require('./db/lowdbService');
+
+	// Run-related handlers
+	ipcMain.handle(
+		'db:create-run',
+		async (
+			_event: IpcMainInvokeEvent,
+			runType: string,
+			algorithm?: string,
+			securityParam?: string,
+			iterations?: number,
+			notes?: string
+		) => {
+			try {
+				return await lowdbService.createRun(
+					runType,
+					algorithm,
+					securityParam,
+					iterations,
+					notes
+				);
+			} catch (error: any) {
+				console.error('[IPC Error] db:create-run:', error);
+				throw new Error(`Failed to create run: ${error.message}`);
+			}
+		}
+	);
+
+	ipcMain.handle(
+		'db:update-run-status',
+		async (
+			_event: IpcMainInvokeEvent,
+			runId: string,
+			status: string,
+			error?: string
+		) => {
+			try {
+				return await lowdbService.updateRunStatus(runId, status, error);
+			} catch (error: any) {
+				console.error('[IPC Error] db:update-run-status:', error);
+				throw new Error(`Failed to update run status: ${error.message}`);
+			}
+		}
+	);
+
+	ipcMain.handle('db:get-all-runs', async () => {
+		try {
+			return await lowdbService.getAllRuns();
+		} catch (error: any) {
+			console.error('[IPC Error] db:get-all-runs:', error);
+			throw new Error(`Failed to get all runs: ${error.message}`);
+		}
+	});
+
+	ipcMain.handle(
+		'db:get-runs-by-type',
+		async (_event: IpcMainInvokeEvent, runType: string) => {
+			try {
+				return await lowdbService.getRunsByType(runType);
+			} catch (error: any) {
+				console.error('[IPC Error] db:get-runs-by-type:', error);
+				throw new Error(`Failed to get runs by type: ${error.message}`);
+			}
+		}
+	);
+
+	ipcMain.handle(
+		'db:get-runs-by-status',
+		async (_event: IpcMainInvokeEvent, status: string) => {
+			try {
+				return await lowdbService.getRunsByStatus(status);
+			} catch (error: any) {
+				console.error('[IPC Error] db:get-runs-by-status:', error);
+				throw new Error(`Failed to get runs by status: ${error.message}`);
+			}
+		}
+	);
+
+	ipcMain.handle(
+		'db:get-runs-by-algorithm',
+		async (_event: IpcMainInvokeEvent, algorithm: string) => {
+			try {
+				return await lowdbService.getRunsByAlgorithm(algorithm);
+			} catch (error: any) {
+				console.error('[IPC Error] db:get-runs-by-algorithm:', error);
+				throw new Error(`Failed to get runs by algorithm: ${error.message}`);
+			}
+		}
+	);
+
+	ipcMain.handle(
+		'db:get-run-details',
+		async (_event: IpcMainInvokeEvent, runId: string) => {
+			try {
+				return await lowdbService.getFullRunDetails(runId);
+			} catch (error: any) {
+				console.error('[IPC Error] db:get-run-details:', error);
+				throw new Error(`Failed to get run details: ${error.message}`);
+			}
+		}
+	);
+
+	// Result-related handlers
+	ipcMain.handle(
+		'db:insert-quantum-result',
+		async (_event: IpcMainInvokeEvent, runId: string, resultData: any) => {
+			try {
+				return await lowdbService.insertQuantumResult(runId, resultData);
+			} catch (error: any) {
+				console.error('[IPC Error] db:insert-quantum-result:', error);
+				throw new Error(`Failed to insert quantum result: ${error.message}`);
+			}
+		}
+	);
+
+	ipcMain.handle(
+		'db:insert-pqc-classical-result',
+		async (_event: IpcMainInvokeEvent, runId: string, benchmarkData: any) => {
+			try {
+				return await lowdbService.insertPqcClassicalResult(
+					runId,
+					benchmarkData
+				);
+			} catch (error: any) {
+				console.error('[IPC Error] db:insert-pqc-classical-result:', error);
+				throw new Error(
+					`Failed to insert PQC/Classical result: ${error.message}`
+				);
+			}
+		}
+	);
+
+	ipcMain.handle('db:get-all-quantum-results', async () => {
+		try {
+			return await lowdbService.getAllQuantumResults();
+		} catch (error: any) {
+			console.error('[IPC Error] db:get-all-quantum-results:', error);
+			throw new Error(`Failed to get all quantum results: ${error.message}`);
+		}
+	});
+
+	ipcMain.handle('db:get-all-pqc-classical-details', async () => {
+		try {
+			return await lowdbService.getAllPqcClassicalDetails();
+		} catch (error: any) {
+			console.error('[IPC Error] db:get-all-pqc-classical-details:', error);
+			throw new Error(
+				`Failed to get all PQC/Classical details: ${error.message}`
+			);
+		}
+	});
+
+	ipcMain.handle(
+		'db:get-pqc-classical-by-algorithm',
+		async (_event: IpcMainInvokeEvent, algorithm: string) => {
+			try {
+				return await lowdbService.getPqcClassicalDetailsByAlgorithm(algorithm);
+			} catch (error: any) {
+				console.error('[IPC Error] db:get-pqc-classical-by-algorithm:', error);
+				throw new Error(
+					`Failed to get PQC/Classical details by algorithm: ${error.message}`
+				);
+			}
+		}
+	);
+
+	// Delete operations
+	ipcMain.handle(
+		'db:delete-run',
+		async (_event: IpcMainInvokeEvent, runId: string) => {
+			try {
+				return await lowdbService.deleteRun(runId);
+			} catch (error: any) {
+				console.error('[IPC Error] db:delete-run:', error);
+				throw new Error(`Failed to delete run: ${error.message}`);
+			}
+		}
+	);
+
+	ipcMain.handle('db:clear-all-data', async () => {
+		try {
+			await lowdbService.clearAllData();
+			return true;
+		} catch (error: any) {
+			console.error('[IPC Error] db:clear-all-data:', error);
+			throw new Error(`Failed to clear all data: ${error.message}`);
+		}
+	});
+
+	console.log('[IPC] Database IPC handlers registration complete.');
 }

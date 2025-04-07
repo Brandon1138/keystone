@@ -40,6 +40,8 @@
 		"electron-builder": "^25.1.8",
 		"electron-reload": "^2.0.0-alpha.1",
 		"gsap": "^3.12.7",
+		"lowdb": "^7.0.1",
+		"nanoid": "^5.1.5",
 		"node-addon-api": "^8.0.0",
 		"plotly.js": "^3.0.1",
 		"react": "^19.0.0",

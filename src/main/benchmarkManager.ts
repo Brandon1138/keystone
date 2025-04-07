@@ -2,6 +2,7 @@ import { spawn, ChildProcess } from 'child_process';
 import path from 'path';
 import { BenchmarkParams, BenchmarkResult } from '../types/benchmark';
 import { v4 as uuidv4 } from 'uuid';
+import { lowdbService } from './db/lowdbService';
 
 // Define the progress data interface
 export interface BenchmarkProgressData {
@@ -42,7 +43,18 @@ class BenchmarkManager {
 		this.progressCallback = callback;
 	}
 
-	runBenchmark(params: BenchmarkParams): Promise<BenchmarkResult> {
+	async runBenchmark(params: BenchmarkParams): Promise<BenchmarkResult> {
+		// Create a run record in the database
+		const runId = await lowdbService.createRun(
+			'PQC_Classical',
+			params.algorithm,
+			params.securityParam,
+			params.iterations
+		);
+
+		// Update run status to running
+		await lowdbService.updateRunStatus(runId, 'running');
+
 		const benchmarkId = uuidv4();
 		const executablePath = path.join(
 			this.executablesPath,
@@ -158,8 +170,16 @@ class BenchmarkManager {
 				errorOutput += data.toString();
 			});
 
-			process.on('error', (error) => {
+			process.on('error', async (error) => {
 				this.activeProcesses.delete(benchmarkId);
+
+				// Update run status to failed
+				await lowdbService.updateRunStatus(
+					runId,
+					'failed',
+					error.message || 'Unknown error occurred'
+				);
+
 				reject({
 					id: benchmarkId,
 					algorithm: params.algorithm,
@@ -171,7 +191,7 @@ class BenchmarkManager {
 				});
 			});
 
-			process.on('close', (code) => {
+			process.on('close', async (code) => {
 				this.activeProcesses.delete(benchmarkId);
 
 				// Check if we actually got any metrics
@@ -610,7 +630,8 @@ class BenchmarkManager {
 				}
 
 				if (code === 0 && hasMetrics) {
-					resolve({
+					// Create the benchmark result object
+					const benchmarkData = {
 						id: benchmarkId,
 						algorithm: params.algorithm,
 						securityParam: params.securityParam,
@@ -618,20 +639,42 @@ class BenchmarkManager {
 						timestamp: new Date().toISOString(),
 						status: 'completed',
 						resultMetadata,
-					});
+						iterations: params.iterations,
+					};
+
+					// Format the data for LowDB
+					const formattedResult =
+						this.formatBenchmarkResultForLowDB(benchmarkData);
+
+					try {
+						// Save the results to LowDB
+						await lowdbService.insertPqcClassicalResult(runId, formattedResult);
+
+						// Update run status to completed
+						await lowdbService.updateRunStatus(runId, 'completed');
+
+						// Return the result
+						resolve(benchmarkData as BenchmarkResult);
+					} catch (dbError: any) {
+						console.error('Error saving benchmark to database:', dbError);
+						resolve(benchmarkData as BenchmarkResult); // Still return the result even if saving fails
+					}
 				} else {
-					// If process exited with code 0 but no metrics were found, it's still an error
+					// On failure, update run status and reject with error
 					const errorMessage =
 						errorOutput ||
 						(code !== 0
 							? `Process exited with code ${code}`
 							: 'No metrics found in benchmark output');
 
+					// Update run status to failed
+					await lowdbService.updateRunStatus(runId, 'failed', errorMessage);
+
 					reject({
 						id: benchmarkId,
 						algorithm: params.algorithm,
 						securityParam: params.securityParam,
-						metrics: hasMetrics ? metrics : {}, // Include any metrics we did find
+						metrics: hasMetrics ? metrics : {},
 						timestamp: new Date().toISOString(),
 						status: 'failed',
 						error: errorMessage,
@@ -642,7 +685,176 @@ class BenchmarkManager {
 		});
 	}
 
-	stopBenchmark(benchmarkId: string): boolean {
+	/**
+	 * Format the benchmark result data into a format suitable for LowDB storage
+	 * This will reorganize metrics into algorithm-specific structures
+	 */
+	private formatBenchmarkResultForLowDB(benchmarkData: any): any {
+		const { algorithm, securityParam, metrics, resultMetadata, iterations } =
+			benchmarkData;
+
+		// Common structure for all algorithms
+		const result = {
+			algorithm,
+			iterations,
+			results: [] as any[],
+		};
+
+		// Group metrics by operation type and format them
+		const formatMetricsForOperation = (operation: string) => {
+			const operationMetrics = {
+				min_ms: metrics[`${operation}_min_ms`] || 0,
+				max_ms: metrics[`${operation}_max_ms`] || 0,
+				avg_ms: metrics[`${operation}_avg_ms`] || 0,
+				ops_per_sec: metrics[`${operation}_ops_sec`] || 0,
+				mem_peak_kb: metrics[`${operation}_mem_peak_kb`] || 0,
+				mem_avg_kb: metrics[`${operation}_mem_avg_kb`] || 0,
+			};
+			return operationMetrics;
+		};
+
+		// Create sizes object with relevant size information
+		const createSizesObject = () => {
+			const sizes: any = {};
+
+			if (metrics['public_key_bytes'] !== undefined) {
+				sizes.public_key_bytes = metrics['public_key_bytes'];
+			}
+			if (metrics['secret_key_bytes'] !== undefined) {
+				sizes.secret_key_bytes = metrics['secret_key_bytes'];
+			}
+			if (metrics['signature_bytes'] !== undefined) {
+				sizes.signature_bytes = metrics['signature_bytes'];
+			}
+			if (metrics['ciphertext_bytes'] !== undefined) {
+				sizes.ciphertext_bytes = metrics['ciphertext_bytes'];
+			}
+			if (metrics['shared_secret_bytes'] !== undefined) {
+				sizes.shared_secret_bytes = metrics['shared_secret_bytes'];
+			}
+			if (metrics['key_bytes'] !== undefined) {
+				sizes.key_bytes = metrics['key_bytes'];
+			}
+			if (metrics['iv_bytes'] !== undefined) {
+				sizes.iv_bytes = metrics['iv_bytes'];
+			}
+
+			// If resultMetadata contains sizes, merge them
+			if (resultMetadata?.sizes) {
+				Object.assign(sizes, resultMetadata.sizes);
+			}
+
+			return Object.keys(sizes).length > 0 ? sizes : undefined;
+		};
+
+		// Format based on algorithm type
+		switch (algorithm.toLowerCase()) {
+			case 'kyber':
+			case 'mceliece':
+				// KEM algorithms: keygen, encaps, decaps
+				result.results.push({
+					algorithm: securityParam,
+					sizes: createSizesObject(),
+					keygen: formatMetricsForOperation('keygen'),
+					encaps: formatMetricsForOperation('encaps'),
+					decaps: formatMetricsForOperation('decaps'),
+				});
+				break;
+
+			case 'dilithium':
+			case 'falcon':
+			case 'sphincs':
+				// Signature algorithms: keygen, sign, verify
+				result.results.push({
+					algorithm: securityParam,
+					sizes: createSizesObject(),
+					keygen: formatMetricsForOperation('keygen'),
+					sign: formatMetricsForOperation('sign'),
+					verify: formatMetricsForOperation('verify'),
+				});
+				break;
+
+			case 'aes':
+				// Symmetric encryption: encrypt, decrypt
+				result.results.push({
+					key_size: metrics['key_size'] || parseInt(securityParam),
+					key_bytes: metrics['key_size']
+						? metrics['key_size'] / 8
+						: parseInt(securityParam) / 8,
+					iv_bytes: metrics['iv_bytes'] || 12, // Default for AES-GCM
+					ciphertext_bytes: metrics['ciphertext_bytes'] || 44, // Default approximation
+					encryption: formatMetricsForOperation('encrypt'),
+					decryption: formatMetricsForOperation('decrypt'),
+				});
+				break;
+
+			case 'rsa':
+				// RSA: keygen, encrypt, decrypt
+				result.results.push({
+					key_size: metrics['key_size'] || parseInt(securityParam),
+					sizes: createSizesObject(),
+					keygen: formatMetricsForOperation('keygen'),
+					encryption: formatMetricsForOperation('encrypt'),
+					decryption: formatMetricsForOperation('decrypt'),
+				});
+				break;
+
+			case 'ecdh':
+				// ECDH: keygen, shared_secret
+				result.results.push({
+					curve: resultMetadata?.curve || securityParam,
+					sizes: createSizesObject(),
+					keygen: formatMetricsForOperation('keygen'),
+					shared_secret: formatMetricsForOperation('shared_secret'),
+				});
+				break;
+
+			case 'ecdsa':
+				// ECDSA: keygen, sign, verify
+				result.results.push({
+					curve: resultMetadata?.curve || securityParam,
+					sizes: createSizesObject(),
+					keygen: formatMetricsForOperation('keygen'),
+					sign: formatMetricsForOperation('sign'),
+					verify: formatMetricsForOperation('verify'),
+				});
+				break;
+
+			default:
+				// Generic format for other algorithms
+				const algorithmResult: any = {
+					parameter: securityParam,
+				};
+
+				// Add metrics for common operations if they exist
+				if (metrics['keygen_avg_ms'])
+					algorithmResult.keygen = formatMetricsForOperation('keygen');
+				if (metrics['sign_avg_ms'])
+					algorithmResult.sign = formatMetricsForOperation('sign');
+				if (metrics['verify_avg_ms'])
+					algorithmResult.verify = formatMetricsForOperation('verify');
+				if (metrics['encaps_avg_ms'])
+					algorithmResult.encaps = formatMetricsForOperation('encaps');
+				if (metrics['decaps_avg_ms'])
+					algorithmResult.decaps = formatMetricsForOperation('decaps');
+				if (metrics['encrypt_avg_ms'])
+					algorithmResult.encryption = formatMetricsForOperation('encrypt');
+				if (metrics['decrypt_avg_ms'])
+					algorithmResult.decryption = formatMetricsForOperation('decrypt');
+
+				// Add sizes
+				const sizes = createSizesObject();
+				if (sizes) {
+					algorithmResult.sizes = sizes;
+				}
+
+				result.results.push(algorithmResult);
+		}
+
+		return result;
+	}
+
+	async stopBenchmark(benchmarkId: string): Promise<boolean> {
 		const process = this.activeProcesses.get(benchmarkId);
 		if (process) {
 			process.kill();

@@ -6,7 +6,9 @@ import {
 	setupBenchmarkIPC,
 	setupEncryptionIPC,
 	setupQuantumWorkloadIPC,
+	setupDatabaseIPC,
 } from './ipc';
+import { lowdbService } from './db/lowdbService';
 
 let mainWindow: any = null;
 
@@ -62,12 +64,26 @@ function createWindow() {
 	return mainWindow;
 }
 
+// Initialize the LowDB database
+async function initializeDatabase() {
+	try {
+		await lowdbService.initialize();
+		console.log('Database initialized successfully');
+	} catch (error) {
+		console.error('Error initializing database:', error);
+	}
+}
+
 // This method will be called when Electron has finished initialization
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+	// Initialize the database first
+	await initializeDatabase();
+
 	createWindow();
 	setupBenchmarkIPC();
 	setupEncryptionIPC(); // Set up both Kyber encryption and Dilithium signature IPC handlers
 	setupQuantumWorkloadIPC(); // Set up Quantum Workload IPC handlers
+	setupDatabaseIPC(); // Set up Database IPC handlers
 
 	app.on('activate', () => {
 		// On macOS, re-create a window when the dock icon is clicked and no other windows are open
