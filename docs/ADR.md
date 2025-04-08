@@ -694,3 +694,33 @@ To load and use the Dilithium implementation alongside Kyber:
 2. The native bindings expose similar interfaces for consistency
 3. The IPC layer follows a parallel pattern for both algorithms
 4. Users can choose which algorithm to use based on their specific needs
+
+### ADR-009: Fixed Visualization for Cryptographic Operations
+
+## Status
+
+Implemented
+
+## Context
+
+The visualization page for cryptographic operations was not displaying metrics properly. The decision was made to normalize operation names between the database and the UI to ensure consistent display.
+
+## Decision
+
+1. Normalized operation names between database and UI to ensure consistent display
+2. Added proper handling for 'encapsulate', 'decapsulate', 'encryption', and 'decryption' operations
+3. Ensured that operation metrics are properly filled with default values when missing
+4. Implemented consistent color scheme for operations in visualization charts
+
+## Consequences
+
+- Positive:
+  - All cryptographic operations now show their metrics properly in the visualization page
+  - Consistent color coding makes it easier to compare the same operation across different algorithms
+  - More robust handling of missing metrics with sensible defaults
+- Negative:
+  - None significant
+
+## Status
+
+Implemented
