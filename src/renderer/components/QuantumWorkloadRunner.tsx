@@ -519,10 +519,15 @@ export const QuantumWorkloadRunner: React.FC = () => {
 							<InputLabel
 								id="algorithm-label"
 								sx={{
-									backgroundColor: isDarkMode ? '#2a2a2a' : '#f8f8f8',
-									paddingLeft: '5px',
-									paddingRight: '5px',
+									color: isDarkMode ? '#FFFFFF' : '#000000',
+									padding: '0 5px',
+									zIndex: 1,
+									transform: 'translate(14px, -9px) scale(0.75)',
+									'&.MuiInputLabel-shrink': {
+										transform: 'translate(14px, -9px) scale(0.75)',
+									},
 								}}
+								shrink
 							>
 								Algorithm
 							</InputLabel>

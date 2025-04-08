@@ -15,6 +15,7 @@ import {
 	IconButton,
 	InputAdornment,
 	Grid,
+	InputLabel,
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import { Card } from './ui/card';
@@ -509,11 +510,26 @@ export const EncryptionRunner: React.FC = () => {
 				<Grid container spacing={3} alignItems="center">
 					<Grid item xs={12} sm={4}>
 						<FormControl fullWidth>
+							<InputLabel
+								id="kem-level-label"
+								sx={{
+									color: isDarkMode ? '#FFFFFF' : '#000000',
+									padding: '0 5px',
+									zIndex: 1,
+									transform: 'translate(14px, -9px) scale(0.75)',
+									'&.MuiInputLabel-shrink': {
+										transform: 'translate(14px, -9px) scale(0.75)',
+									},
+								}}
+								shrink
+							>
+								ML-KEM
+							</InputLabel>
 							<Select
 								labelId="kem-level-label"
 								id="kem-level-select"
 								value={kemLevel}
-								label="ML-KEM Level"
+								label="ML-KEM"
 								onChange={(e) => setKemLevel(e.target.value as KyberSecLevel)}
 								sx={{
 									backgroundColor: isDarkMode ? '#2a2a2a' : '#f8f8f8',
@@ -541,11 +557,26 @@ export const EncryptionRunner: React.FC = () => {
 					</Grid>
 					<Grid item xs={12} sm={4}>
 						<FormControl fullWidth>
+							<InputLabel
+								id="sig-level-label"
+								sx={{
+									color: isDarkMode ? '#FFFFFF' : '#000000',
+									padding: '0 5px',
+									zIndex: 1,
+									transform: 'translate(14px, -9px) scale(0.75)',
+									'&.MuiInputLabel-shrink': {
+										transform: 'translate(14px, -9px) scale(0.75)',
+									},
+								}}
+								shrink
+							>
+								ML-DSA
+							</InputLabel>
 							<Select
 								labelId="sig-level-label"
 								id="sig-level-select"
 								value={sigLevel}
-								label="ML-DSA Level"
+								label="ML-DSA"
 								onChange={(e) =>
 									setSigLevel(e.target.value as DilithiumSecLevel)
 								}

@@ -228,14 +228,28 @@ export const BenchmarkRunner: React.FC = () => {
 				<div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-6">
 					{/* Algorithm Selection */}
 					<div>
-						<FormControl fullWidth>
+						<FormControl fullWidth variant="outlined">
+							<InputLabel
+								id="algorithm-label"
+								sx={{
+									color: isDarkMode ? '#FFFFFF' : '#000000',
+									padding: '0 5px',
+									zIndex: 1,
+									transform: 'translate(14px, -9px) scale(0.75)',
+									'&.MuiInputLabel-shrink': {
+										transform: 'translate(14px, -9px) scale(0.75)',
+									},
+								}}
+								shrink
+							>
+								Algorithm
+							</InputLabel>
 							<Select
 								labelId="algorithm-label"
 								id="algorithm"
 								value={selectedAlgorithm}
 								onChange={handleAlgorithmChange}
 								disabled={isRunning}
-								label="Algorithm"
 								sx={{
 									backgroundColor: isDarkMode ? '#2a2a2a' : '#f8f8f8',
 									color: isDarkMode ? '#ffffff' : '#111111',
@@ -268,14 +282,28 @@ export const BenchmarkRunner: React.FC = () => {
 
 					{/* Security Parameter Selection */}
 					<div>
-						<FormControl fullWidth>
+						<FormControl fullWidth variant="outlined">
+							<InputLabel
+								id="security-param-label"
+								sx={{
+									color: isDarkMode ? '#FFFFFF' : '#000000',
+									padding: '0 5px',
+									zIndex: 1,
+									transform: 'translate(14px, -9px) scale(0.75)',
+									'&.MuiInputLabel-shrink': {
+										transform: 'translate(14px, -9px) scale(0.75)',
+									},
+								}}
+								shrink
+							>
+								Security Parameter
+							</InputLabel>
 							<Select
 								labelId="security-param-label"
 								id="security-param"
 								value={selectedParam}
 								onChange={handleParamChange}
 								disabled={isRunning}
-								label="Security Parameter"
 								sx={{
 									backgroundColor: isDarkMode ? '#2a2a2a' : '#f8f8f8',
 									color: isDarkMode ? '#ffffff' : '#111111',

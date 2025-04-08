@@ -1036,6 +1036,21 @@ const JobSchedulerForm: React.FC<JobSchedulerFormProps> = ({
 						<>
 							<Grid item xs={12} md={6}>
 								<FormControl fullWidth>
+									<InputLabel
+										id="algorithm-label"
+										sx={{
+											color: isDarkMode ? '#FFFFFF' : '#000000',
+											padding: '0 5px',
+											zIndex: 1,
+											transform: 'translate(14px, -9px) scale(0.75)',
+											'&.MuiInputLabel-shrink': {
+												transform: 'translate(14px, -9px) scale(0.75)',
+											},
+										}}
+										shrink
+									>
+										Algorithm
+									</InputLabel>
 									<Select
 										labelId="algorithm-label"
 										value={algorithm}
@@ -1076,6 +1091,21 @@ const JobSchedulerForm: React.FC<JobSchedulerFormProps> = ({
 
 							<Grid item xs={12} md={6}>
 								<FormControl fullWidth>
+									<InputLabel
+										id="security-param-label"
+										sx={{
+											color: isDarkMode ? '#FFFFFF' : '#000000',
+											padding: '0 5px',
+											zIndex: 1,
+											transform: 'translate(14px, -9px) scale(0.75)',
+											'&.MuiInputLabel-shrink': {
+												transform: 'translate(14px, -9px) scale(0.75)',
+											},
+										}}
+										shrink
+									>
+										Security Parameter
+									</InputLabel>
 									<Select
 										labelId="security-param-label"
 										value={securityParameter}
