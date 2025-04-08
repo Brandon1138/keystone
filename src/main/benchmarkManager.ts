@@ -160,6 +160,44 @@ class BenchmarkManager {
 								: metricType.toLowerCase();
 						const metricName = `mem_${normMetricType}_${unit.toLowerCase()}`;
 						metrics[metricName] = parseFloat(value);
+						continue;
+					}
+
+					// Pattern 6: Special case for encapsulation/decapsulation with various naming formats
+					match = line.match(
+						/(encapsulat(?:e|ion)|decapsulat(?:e|ion)):\s*([\d.]+)\s*(ms|KB|MB)/i
+					);
+					if (match) {
+						const [, metric, value, unit] = match;
+						// Normalize to 'encaps' or 'decaps' for consistency
+						const normalizedMetric = metric.toLowerCase().startsWith('encaps')
+							? 'encaps'
+							: 'decaps';
+						metrics[`${normalizedMetric}_${unit.toLowerCase()}`] =
+							parseFloat(value);
+						continue;
+					}
+
+					// Pattern 7: Extended case for "Operation time" format (e.g., "Encapsulate time: X ms")
+					match = line.match(
+						/(encapsulat(?:e|ion)|decapsulat(?:e|ion)|encrypt(?:ion)?|decrypt(?:ion)?)\s+time:\s*([\d.]+)\s*(ms|KB|MB)/i
+					);
+					if (match) {
+						const [, metric, value, unit] = match;
+						// Normalize to standard operation names
+						let normalizedMetric = metric.toLowerCase();
+						if (normalizedMetric.startsWith('encapsulat'))
+							normalizedMetric = 'encaps';
+						else if (normalizedMetric.startsWith('decapsulat'))
+							normalizedMetric = 'decaps';
+						else if (normalizedMetric.startsWith('encrypt'))
+							normalizedMetric = 'encrypt';
+						else if (normalizedMetric.startsWith('decrypt'))
+							normalizedMetric = 'decrypt';
+
+						metrics[`${normalizedMetric}_${unit.toLowerCase()}`] =
+							parseFloat(value);
+						continue;
 					}
 				}
 			});
@@ -196,6 +234,21 @@ class BenchmarkManager {
 
 				// Check if we actually got any metrics
 				let hasMetrics = Object.keys(metrics).length > 0;
+
+				// Log the metrics we found for debugging
+				console.log(
+					`Raw metrics collected for ${params.algorithm}:`,
+					JSON.stringify(metrics, null, 2)
+				);
+
+				// Normalize metrics keys to handle various naming conventions
+				this.normalizeMetricsKeys(metrics);
+
+				// Log the normalized metrics
+				console.log(
+					`Normalized metrics for ${params.algorithm}:`,
+					JSON.stringify(metrics, null, 2)
+				);
 
 				// If no metrics were found through regex, use the metrics from progress data
 				if (!hasMetrics && Object.keys(lastProgressData).length > 0) {
@@ -702,15 +755,56 @@ class BenchmarkManager {
 
 		// Group metrics by operation type and format them
 		const formatMetricsForOperation = (operation: string) => {
-			const operationMetrics = {
-				min_ms: metrics[`${operation}_min_ms`] || 0,
-				max_ms: metrics[`${operation}_max_ms`] || 0,
-				avg_ms: metrics[`${operation}_avg_ms`] || 0,
-				ops_per_sec: metrics[`${operation}_ops_sec`] || 0,
-				mem_peak_kb: metrics[`${operation}_mem_peak_kb`] || 0,
-				mem_avg_kb: metrics[`${operation}_mem_avg_kb`] || 0,
+			// Normalize operation names to match what could be in the metrics
+			let metricsKeyOptions = [operation]; // Start with original (e.g., 'encaps')
+
+			// Add alternative naming conventions for encaps/decaps operations
+			if (operation === 'encaps') {
+				metricsKeyOptions = [
+					...metricsKeyOptions,
+					'encapsulate',
+					'encapsulation',
+				];
+			} else if (operation === 'decaps') {
+				metricsKeyOptions = [
+					...metricsKeyOptions,
+					'decapsulate',
+					'decapsulation',
+				];
+			} else if (operation === 'encrypt') {
+				metricsKeyOptions = [...metricsKeyOptions, 'encryption'];
+			} else if (operation === 'decrypt') {
+				metricsKeyOptions = [...metricsKeyOptions, 'decryption'];
+			}
+
+			// Try all possible key variations for each metric
+			let min_ms = 0,
+				max_ms = 0,
+				avg_ms = 0,
+				ops_per_sec = 0,
+				mem_peak_kb = 0,
+				mem_avg_kb = 0;
+
+			for (const key of metricsKeyOptions) {
+				min_ms = metrics[`${key}_min_ms`] || min_ms;
+				max_ms = metrics[`${key}_max_ms`] || max_ms;
+				avg_ms = metrics[`${key}_avg_ms`] || avg_ms;
+				ops_per_sec =
+					metrics[`${key}_ops_sec`] ||
+					metrics[`${key}_ops_per_sec`] ||
+					ops_per_sec;
+				mem_peak_kb = metrics[`${key}_mem_peak_kb`] || mem_peak_kb;
+				mem_avg_kb = metrics[`${key}_mem_avg_kb`] || mem_avg_kb;
+			}
+
+			return {
+				min_ms,
+				max_ms,
+				avg_ms,
+				ops_per_sec,
+				mem_peak_kb,
+				mem_avg_kb,
 			};
-			return operationMetrics;
 		};
 
 		// Create sizes object with relevant size information
@@ -777,6 +871,7 @@ class BenchmarkManager {
 			case 'aes':
 				// Symmetric encryption: encrypt, decrypt
 				result.results.push({
+					algorithm: securityParam,
 					key_size: metrics['key_size'] || parseInt(securityParam),
 					key_bytes: metrics['key_size']
 						? metrics['key_size'] / 8
@@ -791,6 +886,7 @@ class BenchmarkManager {
 			case 'rsa':
 				// RSA: keygen, encrypt, decrypt
 				result.results.push({
+					algorithm: securityParam,
 					key_size: metrics['key_size'] || parseInt(securityParam),
 					sizes: createSizesObject(),
 					keygen: formatMetricsForOperation('keygen'),
@@ -862,6 +958,44 @@ class BenchmarkManager {
 			return true;
 		}
 		return false;
+	}
+
+	/**
+	 * Utility to normalize metrics keys for consistent naming
+	 * This helps handle variations in how operations are named in benchmark output
+	 */
+	private normalizeMetricsKeys(metrics: { [key: string]: number }): void {
+		const renamedMetrics: { [key: string]: number } = {};
+
+		// Create a map of operation name patterns
+		const operationMap: { [pattern: string]: string } = {
+			encapsulat: 'encaps',
+			decapsulat: 'decaps',
+			encryption: 'encrypt',
+			decryption: 'decrypt',
+		};
+
+		// Scan each metric key
+		for (const [key, value] of Object.entries(metrics)) {
+			let newKey = key;
+
+			// Check if key contains any of the patterns and replace with normalized version
+			for (const [pattern, replacement] of Object.entries(operationMap)) {
+				if (key.includes(pattern)) {
+					// Replace the matched pattern with its normalized version
+					newKey = key.replace(new RegExp(pattern, 'i'), replacement);
+					break;
+				}
+			}
+
+			// Store with new key (might be the same as original if no replacement was made)
+			renamedMetrics[newKey] = value;
+		}
+
+		// Add all renamed metrics back to the original metrics object
+		for (const [key, value] of Object.entries(renamedMetrics)) {
+			metrics[key] = value;
+		}
 	}
 }
 

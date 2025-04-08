@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Plot from 'react-plotly.js';
 import { ProcessedBenchmarkData } from '../../utils/dataProcessingUtils';
 import { useTheme } from '@mui/material/styles';
@@ -26,6 +26,19 @@ import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 import SortIcon from '@mui/icons-material/Sort';
 
+// Add TypeScript interface for window.Plotly
+declare global {
+	interface Window {
+		Plotly?: {
+			relayout: (element: HTMLElement, layout: any) => void;
+			react?: (element: HTMLElement, data: any, layout: any) => void;
+		};
+	}
+}
+
+// Conditional logging helper
+const log = process.env.NODE_ENV === 'development' ? console.log : () => {};
+
 interface PerformanceChartProps {
 	data: ProcessedBenchmarkData[];
 	title?: string;
@@ -38,13 +51,14 @@ interface PerformanceChartProps {
 	onOperationsChange?: (operations: { [key: string]: boolean }) => void;
 	onAlgorithmsChange?: (algorithms: { [key: string]: boolean }) => void;
 	onSortOrderChange?: (sortOrder: string) => void;
+	chartRef?: React.RefObject<any>;
 }
 
 const PerformanceChart = ({
 	data,
 	title = 'Performance Comparison',
 	metricType = 'avg_ms',
-	height = 400,
+	height = 700,
 	loading = false,
 	selectedOperations = {},
 	selectedAlgorithms = {},
@@ -52,6 +66,7 @@ const PerformanceChart = ({
 	onOperationsChange,
 	onAlgorithmsChange,
 	onSortOrderChange,
+	chartRef,
 }: PerformanceChartProps) => {
 	const theme = useTheme();
 	const isDarkMode = theme.palette.mode === 'dark';
@@ -61,6 +76,9 @@ const PerformanceChart = ({
 	const [algorithmGroups, setAlgorithmGroups] = useState<Map<string, string[]>>(
 		new Map()
 	);
+	const localPlotRef = useRef<any>(null);
+	const plotRef = chartRef || localPlotRef;
+	const [chartWidth, setChartWidth] = useState<number>(0);
 
 	const metricLabels = {
 		avg_ms: 'Average Time (ms)',
@@ -103,6 +121,120 @@ const PerformanceChart = ({
 		'#FF5722', // Deep Orange
 	];
 
+	// Handle window resize to update chart size
+	useEffect(() => {
+		const handleResize = () => {
+			if (plotRef.current && plotRef.current.el) {
+				// Get the current container width
+				const containerWidth = plotRef.current.el.clientWidth;
+				if (containerWidth !== chartWidth) {
+					setChartWidth(containerWidth);
+
+					// Use Plotly's relayout to resize the chart
+					// This is much more efficient than recreating the chart
+					if (plotRef.current.el._fullLayout) {
+						// Safely check if the handleResize method exists
+						if (typeof plotRef.current.handleResize === 'function') {
+							plotRef.current.handleResize();
+						} else if (plotRef.current.el && plotRef.current.el.layout) {
+							// Fallback if handleResize is not available
+							const layout = {
+								...plotRef.current.el.layout,
+								autosize: true,
+							};
+							// Check if Plotly object is available on window and has relayout
+							if (
+								window.Plotly &&
+								typeof window.Plotly.relayout === 'function'
+							) {
+								window.Plotly.relayout(plotRef.current.el, layout);
+							}
+						}
+					}
+				}
+			}
+		};
+
+		// Specifically handle fullscreen transitions
+		const handleFullscreenChange = () => {
+			// Add multiple resize attempts with increasing delays
+			// This helps ensure the chart resizes properly after fullscreen transitions
+			const delays = [50, 200, 500, 1000]; // Multiple timing attempts with longer final attempt
+
+			delays.forEach((delay) => {
+				setTimeout(() => {
+					if (plotRef.current && plotRef.current.el) {
+						// Force a complete redraw - safely check methods exist first
+						if (typeof plotRef.current.handleResize === 'function') {
+							plotRef.current.handleResize();
+						}
+
+						// For more stubborn cases, use the more thorough resize handler
+						if (typeof plotRef.current.resizeHandler === 'function') {
+							plotRef.current.resizeHandler();
+						}
+
+						// As a last resort, try to update the layout directly
+						if (plotRef.current.el.layout && plotRef.current.el._fullLayout) {
+							const containerWidth =
+								plotRef.current.el.parentElement.clientWidth;
+							const containerHeight =
+								plotRef.current.el.parentElement.clientHeight || height;
+
+							// Apply new layout with explicit dimensions
+							const currentLayout = {
+								...plotRef.current.el.layout,
+								width: containerWidth - 40, // Subtract padding
+								height: containerHeight - 100, // Subtract header and padding
+								autosize: false, // Disable autosize to use explicit dimensions
+							};
+
+							// Check if Plotly object is available and has relayout
+							if (typeof plotRef.current.relayout === 'function') {
+								plotRef.current.relayout(currentLayout);
+							} else if (
+								window.Plotly &&
+								typeof window.Plotly.relayout === 'function'
+							) {
+								window.Plotly.relayout(plotRef.current.el, currentLayout);
+							}
+						}
+					}
+				}, delay);
+			});
+		};
+
+		// Add event listeners
+		window.addEventListener('resize', handleResize);
+		document.addEventListener('fullscreenchange', handleFullscreenChange);
+		document.addEventListener('webkitfullscreenchange', handleFullscreenChange); // For Safari
+		document.addEventListener('mozfullscreenchange', handleFullscreenChange); // For Firefox
+		document.addEventListener('MSFullscreenChange', handleFullscreenChange); // For IE/Edge
+
+		// Call once to initialize
+		setTimeout(handleResize, 0);
+		// Call the fullscreen handler once to ensure proper initial sizing
+		setTimeout(handleFullscreenChange, 100);
+
+		// Clean up
+		return () => {
+			window.removeEventListener('resize', handleResize);
+			document.removeEventListener('fullscreenchange', handleFullscreenChange);
+			document.removeEventListener(
+				'webkitfullscreenchange',
+				handleFullscreenChange
+			);
+			document.removeEventListener(
+				'mozfullscreenchange',
+				handleFullscreenChange
+			);
+			document.removeEventListener(
+				'MSFullscreenChange',
+				handleFullscreenChange
+			);
+		};
+	}, [height, chartWidth]);
+
 	useEffect(() => {
 		if (data.length === 0) return;
 
@@ -142,7 +274,7 @@ const PerformanceChart = ({
 				let operationName = op.operation.toLowerCase();
 
 				// Log raw operation data for debugging
-				console.log(
+				log(
 					`Processing raw operation: ${op.operation}, metrics: avg_ms=${op.avg_ms}, ops_per_sec=${op.ops_per_sec}`
 				);
 
@@ -157,7 +289,7 @@ const PerformanceChart = ({
 				if (op[metricType] !== undefined) {
 					algorithmData[algorithm][operationName].push(op[metricType]);
 				} else {
-					console.warn(
+					log(
 						`Missing metric ${metricType} for operation ${operationName} in ${algorithm}`
 					);
 				}
@@ -167,19 +299,19 @@ const PerformanceChart = ({
 		// Set the operations and algorithms arrays
 		const operationsArray = Array.from(uniqueOperations);
 		setAllOperations(operationsArray);
-		console.log('Available operations for visualization:', operationsArray);
+		log('Available operations for visualization:', operationsArray);
 
 		const algorithmsArray = Array.from(uniqueAlgorithms);
 		setAllAlgorithms(algorithmsArray);
-		console.log('Available algorithms for visualization:', algorithmsArray);
+		log('Available algorithms for visualization:', algorithmsArray);
 
 		// Initialize selections if they're empty
 		if (onOperationsChange && Object.keys(selectedOperations).length === 0) {
 			const initialSelections = Object.fromEntries(
-				operationsArray.map((op) => [op, true])
+				operationsArray.map((op) => [op, op === 'keygen'])
 			);
 			onOperationsChange(initialSelections);
-			console.log('Initialized operation selections:', initialSelections);
+			log('Initialized operation selections:', initialSelections);
 		}
 
 		if (onAlgorithmsChange && Object.keys(selectedAlgorithms).length === 0) {
@@ -187,10 +319,7 @@ const PerformanceChart = ({
 				algorithmsArray.map((alg) => [alg, true])
 			);
 			onAlgorithmsChange(initialAlgorithmSelections);
-			console.log(
-				'Initialized algorithm selections:',
-				initialAlgorithmSelections
-			);
+			log('Initialized algorithm selections:', initialAlgorithmSelections);
 		}
 
 		// Store the algorithm groups for later use
@@ -264,11 +393,11 @@ const PerformanceChart = ({
 				const aVal = a.y[0]; // Get the metric value
 				const bVal = b.y[0]; // Get the metric value
 
-				if (sortOrder === 'asc') {
+				if (sortOrder === 'ascending') {
 					return aVal - bVal; // Sort low to high
-				} else if (sortOrder === 'desc') {
+				} else if (sortOrder === 'descending') {
 					return bVal - aVal; // Sort high to low
-				} else if (sortOrder === 'alpha') {
+				} else if (sortOrder === 'alphabetical') {
 					// Sort by algorithm name alphabetically
 					return a.x[0].localeCompare(b.x[0]);
 				}
@@ -295,21 +424,106 @@ const PerformanceChart = ({
 		operationColors[op] = colors[index % colors.length];
 	});
 
+	// Helper functions to determine the state of algorithm group checkboxes
+	const isAlgorithmGroupChecked = (baseAlgorithm: string): boolean => {
+		const algorithmsInGroup = algorithmGroups.get(baseAlgorithm) || [];
+		// Group is checked if all algorithms in the group are checked (or not explicitly unchecked)
+		return (
+			algorithmsInGroup.length > 0 &&
+			algorithmsInGroup.every((alg) => selectedAlgorithms[alg] !== false)
+		);
+	};
+
+	const isAlgorithmGroupIndeterminate = (baseAlgorithm: string): boolean => {
+		const algorithmsInGroup = algorithmGroups.get(baseAlgorithm) || [];
+		// Group is indeterminate if some algorithms are checked and some are not
+		const checkedCount = algorithmsInGroup.filter(
+			(alg) => selectedAlgorithms[alg] !== false
+		).length;
+		return checkedCount > 0 && checkedCount < algorithmsInGroup.length;
+	};
+
+	// Create plot layout with appropriate styling for the current theme
+	const plotLayout = {
+		barmode: 'group' as const,
+		title: '',
+		hovermode: 'closest' as const,
+		showlegend: true,
+		autosize: true,
+		font: {
+			family: 'Arial, sans-serif',
+			size: 12,
+			color: isDarkMode ? '#ffffff' : '#333333',
+		},
+		paper_bgcolor: 'transparent',
+		plot_bgcolor: 'transparent',
+		xaxis: {
+			title: '',
+			tickangle: -45,
+			gridcolor: isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
+			zerolinecolor: isDarkMode
+				? 'rgba(255, 255, 255, 0.2)'
+				: 'rgba(0, 0, 0, 0.2)',
+			tickfont: {
+				size: 10,
+				color: isDarkMode ? '#bbbbbb' : '#333333',
+			},
+		},
+		yaxis: {
+			title: metricLabels[metricType],
+			titlefont: {
+				size: 12,
+				color: isDarkMode ? '#ffffff' : '#333333',
+			},
+			tickfont: {
+				size: 10,
+				color: isDarkMode ? '#bbbbbb' : '#333333',
+			},
+			gridcolor: isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
+			zerolinecolor: isDarkMode
+				? 'rgba(255, 255, 255, 0.2)'
+				: 'rgba(0, 0, 0, 0.2)',
+		},
+		margin: {
+			l: 60,
+			r: 30,
+			t: 30,
+			b: 150,
+		},
+		legend: {
+			orientation: 'h' as const,
+			yanchor: 'bottom' as const,
+			y: -0.3,
+			xanchor: 'center' as const,
+			x: 0.5,
+			bgcolor: isDarkMode ? 'rgba(0, 0, 0, 0.3)' : 'rgba(255, 255, 255, 0.5)',
+			bordercolor: isDarkMode
+				? 'rgba(255, 255, 255, 0.1)'
+				: 'rgba(0, 0, 0, 0.1)',
+			borderwidth: 1,
+			font: {
+				size: 10,
+				color: isDarkMode ? '#ffffff' : '#333333',
+			},
+		},
+	};
+
 	// Define chart layout
 	const layout = {
 		title: title,
 		barmode: 'group' as const,
 		height: height,
-		margin: { l: 60, r: 30, t: 50, b: 120 }, // Increased bottom margin for x-axis labels
+		margin: { l: 60, r: 30, t: 50, b: 180 }, // Increased bottom margin for x-axis labels even more
 		bargap: 0.25, // Space between different algorithm groups
 		bargroupgap: 0.1, // Space between bars within the same algorithm group
 		xaxis: {
 			title: 'Algorithm',
 			tickangle: -45,
+			automargin: true, // Add automargin to ensure labels fit
 			gridcolor: isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
 		},
 		yaxis: {
-			title: metricLabels[metricType],
+			title: '', // Removed metric label from y-axis
 			gridcolor: isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
 			autorange: true,
 			rangemode: 'tozero' as const,
@@ -320,7 +534,7 @@ const PerformanceChart = ({
 		font: {
 			color: isDarkMode ? '#fff' : '#333',
 		},
-		showlegend: false, // Hide default legend since we're creating a custom one
+		showlegend: false, // Ensure legend is hidden
 		modebar: {
 			orientation: 'v' as 'v',
 			bgcolor: isDarkMode ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.7)',
@@ -404,234 +618,266 @@ const PerformanceChart = ({
 	}
 
 	return (
-		<>
-			{/* Conditionally render the chart or no data message */}
-			{data.length === 0 || plotData.length === 0 ? (
-				<Box
+		<div className="relative w-full" style={{ minHeight: `${height}px` }}>
+			{loading ? (
+				<Skeleton
+					variant="rectangular"
+					width="100%"
+					height={height}
 					sx={{
-						width: '100%',
-						height: height,
-						display: 'flex',
-						justifyContent: 'center',
-						alignItems: 'center',
-						backgroundColor: isDarkMode ? '#1a1a1a' : '#f0f0f0',
+						bgcolor: isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
 						borderRadius: '8px',
-						border: isDarkMode ? '1px solid #333' : '1px solid #ddd',
+					}}
+				/>
+			) : data.length === 0 ? (
+				<Box
+					display="flex"
+					alignItems="center"
+					justifyContent="center"
+					height={height}
+					sx={{
+						bgcolor: isDarkMode ? 'rgba(0,0,0,0.2)' : 'rgba(0,0,0,0.05)',
+						borderRadius: '8px',
+						border: '1px dashed',
+						borderColor: isDarkMode
+							? 'rgba(255,255,255,0.2)'
+							: 'rgba(0,0,0,0.2)',
 					}}
 				>
-					<Typography
-						variant="body1"
-						color={isDarkMode ? 'text.secondary' : 'text.primary'}
-					>
-						{data.length === 0
-							? 'No data available for visualization. Run benchmarks to generate data.'
-							: 'No data displayed with current filters. Select at least one algorithm and operation.'}
+					<Typography variant="body1" color="textSecondary">
+						No data available. Run benchmarks to see performance metrics.
 					</Typography>
 				</Box>
 			) : (
 				<>
-					<Paper
-						elevation={0}
-						sx={{
-							backgroundColor: isDarkMode
-								? 'rgba(0,0,0,0.3)'
-								: 'rgba(0,0,0,0.03)',
-							p: 1.5,
-							mb: 2,
-							borderRadius: '8px',
-							border: isDarkMode ? '1px solid #444' : '1px solid #ddd',
-						}}
-					>
-						<Typography variant="body2" color="text.secondary">
-							<strong>What this measures:</strong>{' '}
-							{metricDescriptions[metricType]}
-							&nbsp;
-							<Tooltip
-								title={`This chart compares ${metricLabels[metricType]} across different cryptographic algorithms and their variants. Use the checkboxes below to filter operations and algorithms.`}
-								arrow
-							>
+					<div className="mb-4 flex justify-between items-center">
+						<Typography variant="subtitle1" gutterBottom>
+							{title}
+							<Tooltip title={metricDescriptions[metricType]} arrow>
 								<InfoOutlined
-									sx={{ fontSize: '0.9rem', verticalAlign: 'middle' }}
+									fontSize="small"
+									sx={{
+										verticalAlign: 'middle',
+										ml: 0.5,
+										color: isDarkMode ? '#aaa' : '#666',
+									}}
 								/>
 							</Tooltip>
 						</Typography>
-					</Paper>
 
-					<Plot
-						data={plotData}
-						layout={layout}
-						config={config}
-						style={{ width: '100%', height: 'auto' }}
-					/>
-				</>
-			)}
+						{/* Sort Order Control - Keep in top right */}
+						<FormControl
+							size="small"
+							sx={{
+								width: '200px',
+								'.MuiOutlinedInput-root': {
+									borderRadius: '8px',
+									bgcolor: isDarkMode
+										? 'rgba(33,33,33,0.9)'
+										: 'rgba(255,255,255,0.9)',
+								},
+							}}
+						>
+							<InputLabel
+								id="sort-order-label"
+								sx={{ color: isDarkMode ? '#ddd' : '#333' }}
+							>
+								Sort Order
+							</InputLabel>
+							<Select
+								labelId="sort-order-label"
+								id="sort-order"
+								value={sortOrder}
+								label="Sort Order"
+								onChange={handleSortChange}
+								sx={{ color: isDarkMode ? 'white' : 'black' }}
+							>
+								<MenuItem value="default">Default</MenuItem>
+								<MenuItem value="ascending">
+									<Box sx={{ display: 'flex', alignItems: 'center' }}>
+										<ArrowUpwardIcon fontSize="small" sx={{ mr: 0.5 }} />
+										<span>Ascending</span>
+									</Box>
+								</MenuItem>
+								<MenuItem value="descending">
+									<Box sx={{ display: 'flex', alignItems: 'center' }}>
+										<ArrowDownwardIcon fontSize="small" sx={{ mr: 0.5 }} />
+										<span>Descending</span>
+									</Box>
+								</MenuItem>
+								<MenuItem value="alphabetical">
+									<Box sx={{ display: 'flex', alignItems: 'center' }}>
+										<SortIcon fontSize="small" sx={{ mr: 0.5 }} />
+										<span>Alphabetical</span>
+									</Box>
+								</MenuItem>
+							</Select>
+						</FormControl>
+					</div>
 
-			{/* Controls panel with sorting and filters in horizontal layout */}
-			<Grid container spacing={2} sx={{ mt: 2 }}>
-				{/* Sorting controls */}
-				<Grid item xs={12} sm={12} md={12} lg={12}>
-					<Card
-						variant="outlined"
-						sx={{
-							borderRadius: '8px',
-							backgroundColor: isDarkMode
-								? 'rgba(0,0,0,0.3)'
-								: 'rgba(255,255,255,0.7)',
-							border: isDarkMode ? '1px solid #444' : '1px solid #ddd',
-						}}
-					>
-						<CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-							<Grid container alignItems="center" spacing={2}>
-								<Grid item>
-									<Typography
-										variant="subtitle1"
-										sx={{ display: 'flex', alignItems: 'center' }}
-									>
-										<SortIcon sx={{ mr: 1 }} /> Sort Options
-									</Typography>
-								</Grid>
-								<Grid item>
-									<FormControl size="small" sx={{ minWidth: 200 }}>
-										<Select
-											value={sortOrder}
-											onChange={handleSortChange}
-											displayEmpty
-											variant="outlined"
-										>
-											<MenuItem value="default">Default Order</MenuItem>
-											<MenuItem value="asc">
-												<div
-													style={{
-														display: 'flex',
-														alignItems: 'center',
-														gap: '8px',
-													}}
-												>
-													<ArrowUpwardIcon fontSize="small" />
-													<span>Low to High</span>
-												</div>
-											</MenuItem>
-											<MenuItem value="desc">
-												<div
-													style={{
-														display: 'flex',
-														alignItems: 'center',
-														gap: '8px',
-													}}
-												>
-													<ArrowDownwardIcon fontSize="small" />
-													<span>High to Low</span>
-												</div>
-											</MenuItem>
-											<MenuItem value="alpha">Alphabetical</MenuItem>
-										</Select>
-									</FormControl>
-								</Grid>
-							</Grid>
-						</CardContent>
-					</Card>
-				</Grid>
-
-				{/* Filter sections - side by side */}
-				<Grid item xs={12} sm={6} md={6} lg={6}>
-					<Box
-						sx={{
-							p: 2,
-							borderRadius: '8px',
-							backgroundColor: isDarkMode
-								? 'rgba(0,0,0,0.5)'
-								: 'rgba(255,255,255,0.7)',
-							border: isDarkMode ? '1px solid #444' : '1px solid #ddd',
+					{/* Chart Container with explicit dimensions */}
+					<div
+						className="chart-container"
+						style={{
+							width: '100%',
+							minHeight: `${height - 150}px`, // Increased height by reducing less from total height
 							height: '100%',
+							position: 'relative',
 						}}
 					>
-						<Typography variant="subtitle1" gutterBottom>
-							Operations
-						</Typography>
-						<FormGroup>
-							<Grid container spacing={1}>
+						<Plot
+							data={plotData}
+							layout={{
+								...layout,
+								width: chartWidth || undefined,
+								height: height - 200, // Increased height by reducing less from total height
+								autosize: false,
+							}}
+							config={{
+								responsive: true,
+								displayModeBar: true,
+								modeBarButtonsToRemove: [
+									'select2d',
+									'lasso2d',
+									'autoScale2d',
+									'resetScale2d',
+								],
+								displaylogo: false,
+							}}
+							useResizeHandler={true}
+							style={{ width: '100%', height: '100%' }}
+							ref={plotRef}
+							onInitialized={(figure) => {
+								// Ensure we have the initial width
+								if (figure && figure.layout) {
+									setChartWidth(figure.layout.width || 0);
+								}
+							}}
+							onUpdate={(figure) => {
+								// Update width on any changes
+								if (figure && figure.layout) {
+									setChartWidth(figure.layout.width || 0);
+								}
+							}}
+						/>
+					</div>
+
+					{/* Horizontal Controls below the chart */}
+					<div className="flex flex-wrap gap-4 mt-6">
+						{/* Operations Filter */}
+						<Paper
+							elevation={3}
+							sx={{
+								p: 2,
+								bgcolor: isDarkMode
+									? 'rgba(33,33,33,0.9)'
+									: 'rgba(255,255,255,0.9)',
+								borderRadius: '8px',
+								flex: 1,
+								minWidth: '250px',
+							}}
+						>
+							<Typography
+								variant="subtitle2"
+								gutterBottom
+								sx={{ color: isDarkMode ? '#ddd' : '#333' }}
+							>
+								Operations
+							</Typography>
+							<FormGroup
+								sx={{ display: 'flex', flexDirection: 'row', flexWrap: 'wrap' }}
+							>
 								{allOperations.map((operation) => (
-									<Grid item xs={6} sm={6} md={4} lg={3} key={operation}>
-										<FormControlLabel
-											key={operation}
-											control={
-												<Checkbox
-													checked={selectedOperations[operation] || false}
-													onChange={() => handleOperationToggle(operation)}
-													sx={{
-														color: operationColors[operation],
-														'&.Mui-checked': {
-															color: operationColors[operation],
-														},
-													}}
-												/>
-											}
-											label={operationDisplayNames[operation] || operation}
-										/>
-									</Grid>
+									<FormControlLabel
+										key={operation}
+										control={
+											<Checkbox
+												checked={selectedOperations[operation] !== false}
+												size="small"
+												sx={{
+													color: operationColors[operation] || '#9747FF',
+													'&.Mui-checked': {
+														color: operationColors[operation] || '#9747FF',
+													},
+												}}
+												onChange={() => handleOperationToggle(operation)}
+											/>
+										}
+										label={
+											<Typography
+												variant="body2"
+												sx={{ color: isDarkMode ? '#ddd' : '#333' }}
+											>
+												{operationDisplayNames[operation] || operation}
+											</Typography>
+										}
+										sx={{ width: '150px', margin: '0px 0px 4px 0px' }}
+									/>
 								))}
-							</Grid>
-						</FormGroup>
-					</Box>
-				</Grid>
+							</FormGroup>
+						</Paper>
 
-				<Grid item xs={12} sm={6} md={6} lg={6}>
-					<Box
-						sx={{
-							p: 2,
-							borderRadius: '8px',
-							backgroundColor: isDarkMode
-								? 'rgba(0,0,0,0.5)'
-								: 'rgba(255,255,255,0.7)',
-							border: isDarkMode ? '1px solid #444' : '1px solid #ddd',
-							height: '100%',
-						}}
-					>
-						<Typography variant="subtitle1" gutterBottom>
-							Algorithms
-						</Typography>
-						<FormGroup>
-							<Grid container spacing={1}>
-								{Array.from(algorithmGroups.keys()).map((baseAlgorithm) => {
-									// Get all full algorithm names for this base algorithm
-									const algorithmsForGroup =
-										algorithmGroups.get(baseAlgorithm) || [];
-									// Check if any are currently selected
-									const groupAnySelected = algorithmsForGroup.some(
-										(alg) => selectedAlgorithms[alg]
-									);
-
-									return (
-										<Grid item xs={6} sm={6} md={4} lg={3} key={baseAlgorithm}>
-											<FormControlLabel
-												control={
-													<Checkbox
-														checked={groupAnySelected}
-														onChange={() =>
-															handleAlgorithmGroupToggle(baseAlgorithm)
-														}
-														sx={{
-															color: isDarkMode ? '#fff' : '#333',
-															'&.Mui-checked': {
-																color: '#9747FF',
-															},
-														}}
-													/>
-												}
-												label={
-													baseAlgorithm.charAt(0).toUpperCase() +
-													baseAlgorithm.slice(1)
+						{/* Algorithm Filter */}
+						<Paper
+							elevation={3}
+							sx={{
+								p: 2,
+								bgcolor: isDarkMode
+									? 'rgba(33,33,33,0.9)'
+									: 'rgba(255,255,255,0.9)',
+								borderRadius: '8px',
+								flex: 1,
+								minWidth: '250px',
+							}}
+						>
+							<Typography
+								variant="subtitle2"
+								gutterBottom
+								sx={{ color: isDarkMode ? '#ddd' : '#333' }}
+							>
+								Algorithm Groups
+							</Typography>
+							<FormGroup
+								sx={{ display: 'flex', flexDirection: 'row', flexWrap: 'wrap' }}
+							>
+								{Array.from(algorithmGroups.keys()).map((baseAlgorithm) => (
+									<FormControlLabel
+										key={baseAlgorithm}
+										control={
+											<Checkbox
+												checked={isAlgorithmGroupChecked(baseAlgorithm)}
+												indeterminate={isAlgorithmGroupIndeterminate(
+													baseAlgorithm
+												)}
+												size="small"
+												sx={{
+													color: '#9747FF',
+													'&.Mui-checked': {
+														color: '#9747FF',
+													},
+												}}
+												onChange={() =>
+													handleAlgorithmGroupToggle(baseAlgorithm)
 												}
 											/>
-										</Grid>
-									);
-								})}
-							</Grid>
-						</FormGroup>
-					</Box>
-				</Grid>
-			</Grid>
-		</>
+										}
+										label={
+											<Typography
+												variant="body2"
+												sx={{ color: isDarkMode ? '#ddd' : '#333' }}
+											>
+												{baseAlgorithm.toUpperCase()}
+											</Typography>
+										}
+										sx={{ width: '150px', margin: '0px 0px 4px 0px' }}
+									/>
+								))}
+							</FormGroup>
+						</Paper>
+					</div>
+				</>
+			)}
+		</div>
 	);
 };
 

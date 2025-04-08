@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Plot from 'react-plotly.js';
 import { ProcessedQuantumData } from '../../utils/dataProcessingUtils';
 import { useTheme } from '@mui/material/styles';
@@ -27,6 +27,9 @@ import ScatterPlotIcon from '@mui/icons-material/ScatterPlot';
 import ShowChartIcon from '@mui/icons-material/ShowChart';
 import { SelectChangeEvent } from '@mui/material';
 
+// Conditional logging helper
+const log = process.env.NODE_ENV === 'development' ? console.log : () => {};
+
 interface QuantumResultsChartProps {
 	data: ProcessedQuantumData[];
 	chartType?: 'histogram' | 'bars' | 'scatter';
@@ -49,6 +52,7 @@ interface QuantumResultsChartProps {
 			| 'total_gate_count'
 			| 'success_rate'
 	) => void;
+	chartRef?: React.RefObject<any>;
 }
 
 // Define valid metric types for TypeScript
@@ -70,6 +74,7 @@ const QuantumResultsChart = ({
 	sortOrder = 'default',
 	onSortOrderChange,
 	onMetricTypeChange,
+	chartRef,
 }: QuantumResultsChartProps) => {
 	const theme = useTheme();
 	const isDarkMode = theme.palette.mode === 'dark';
@@ -78,6 +83,9 @@ const QuantumResultsChart = ({
 	const [selectedChartType, setSelectedChartType] =
 		useState<ChartType>(chartType);
 	const [selectedMetric, setSelectedMetric] = useState<MetricType>(metricType);
+	const localPlotRef = useRef<any>(null);
+	const plotRef = chartRef || localPlotRef;
+	const [chartWidth, setChartWidth] = useState<number>(0);
 
 	const metricLabels = {
 		execution_time_sec: 'Execution Time (seconds)',
@@ -109,14 +117,73 @@ const QuantumResultsChart = ({
 			'Plots the relationship between circuit depth and the selected metric. Helps identify how complexity affects performance.',
 	};
 
+	// Handle window resize to update chart size
 	useEffect(() => {
-		console.log(
+		const handleResize = () => {
+			if (plotRef.current && plotRef.current.el) {
+				// Get the current container width
+				const containerWidth = plotRef.current.el.clientWidth;
+				if (containerWidth !== chartWidth) {
+					setChartWidth(containerWidth);
+
+					// Use Plotly's built-in resize handler
+					if (plotRef.current.el._fullLayout) {
+						plotRef.current.handleResize();
+					}
+				}
+			}
+		};
+
+		// Specifically handle fullscreen transitions
+		const handleFullscreenChange = () => {
+			// Add a delay to ensure DOM has fully updated after transition
+			setTimeout(() => {
+				if (plotRef.current && plotRef.current.el) {
+					// Force a complete redraw without recalculating data
+					plotRef.current.handleResize();
+					// If we still have issues, we can force a more complete redraw
+					plotRef.current.resizeHandler();
+				}
+			}, 100); // Small delay to let the DOM settle
+		};
+
+		// Add event listeners
+		window.addEventListener('resize', handleResize);
+		document.addEventListener('fullscreenchange', handleFullscreenChange);
+		document.addEventListener('webkitfullscreenchange', handleFullscreenChange); // For Safari
+		document.addEventListener('mozfullscreenchange', handleFullscreenChange); // For Firefox
+		document.addEventListener('MSFullscreenChange', handleFullscreenChange); // For IE/Edge
+
+		// Call once to initialize
+		setTimeout(handleResize, 0);
+
+		// Clean up
+		return () => {
+			window.removeEventListener('resize', handleResize);
+			document.removeEventListener('fullscreenchange', handleFullscreenChange);
+			document.removeEventListener(
+				'webkitfullscreenchange',
+				handleFullscreenChange
+			);
+			document.removeEventListener(
+				'mozfullscreenchange',
+				handleFullscreenChange
+			);
+			document.removeEventListener(
+				'MSFullscreenChange',
+				handleFullscreenChange
+			);
+		};
+	}, [height]);
+
+	useEffect(() => {
+		log(
 			`QuantumResultsChart rendering with ${data.length} data points, chart type: ${selectedChartType}`
 		);
 		setErrorMessage(null);
 
 		if (!data || data.length === 0) {
-			console.log('No quantum data available for visualization');
+			log('No quantum data available for visualization');
 			return;
 		}
 
@@ -130,9 +197,7 @@ const QuantumResultsChart = ({
 					(d) =>
 						d.raw_counts !== null && Object.keys(d.raw_counts || {}).length > 0
 				);
-				console.log(
-					`Found ${validData.length} results with raw counts for histogram`
-				);
+				log(`Found ${validData.length} results with raw counts for histogram`);
 
 				if (validData.length === 0) {
 					setErrorMessage(
@@ -148,9 +213,7 @@ const QuantumResultsChart = ({
 				);
 
 				const latestResult = sortedData[0];
-				console.log(
-					`Using result from ${latestResult.timestamp} for histogram`
-				);
+				log(`Using result from ${latestResult.timestamp} for histogram`);
 
 				if (
 					!latestResult.raw_counts ||
@@ -191,7 +254,7 @@ const QuantumResultsChart = ({
 				// Group data by algorithm
 				const algoData: { [key: string]: number[] } = {};
 
-				console.log(`Processing bar chart for metric: ${selectedMetric}`);
+				log(`Processing bar chart for metric: ${selectedMetric}`);
 
 				data.forEach((item) => {
 					if (!item) return;
@@ -217,9 +280,7 @@ const QuantumResultsChart = ({
 							metricValue = metricVal as number;
 						} else {
 							// Skip items with no value for this metric
-							console.log(
-								`No ${selectedMetric} value for algorithm: ${algorithm}`
-							);
+							log(`No ${selectedMetric} value for algorithm: ${algorithm}`);
 							return;
 						}
 					}
@@ -229,7 +290,7 @@ const QuantumResultsChart = ({
 					}
 				});
 
-				console.log(`Grouped data by algorithm:`, Object.keys(algoData));
+				log(`Grouped data by algorithm:`, Object.keys(algoData));
 
 				// Colors for the bars
 				const colors = [
@@ -244,13 +305,13 @@ const QuantumResultsChart = ({
 				const plotItems: any[] = [];
 				Object.entries(algoData).forEach(([algorithm, values], idx) => {
 					if (values.length === 0) {
-						console.log(`No values for algorithm: ${algorithm}`);
+						log(`No values for algorithm: ${algorithm}`);
 						return;
 					}
 
 					// Calculate average value
 					const avgValue = values.reduce((a, b) => a + b, 0) / values.length;
-					console.log(
+					log(
 						`Algorithm ${algorithm}: average ${selectedMetric} = ${avgValue}`
 					);
 
@@ -361,10 +422,10 @@ const QuantumResultsChart = ({
 				});
 			}
 
-			console.log(`Generated ${plotlyData.length} plot data points`);
+			log(`Generated ${plotlyData.length} plot data points`);
 			setPlotData(plotlyData);
 		} catch (error) {
-			console.error('Error generating quantum chart:', error);
+			log('Error generating quantum chart:', error);
 			setErrorMessage(
 				'Error generating chart: ' +
 					(error instanceof Error ? error.message : 'Unknown error')
@@ -756,10 +817,12 @@ const QuantumResultsChart = ({
 			</Grid>
 
 			<Plot
+				ref={plotRef}
 				data={plotData}
 				layout={layout}
 				config={config}
 				style={{ width: '100%', height: 'auto' }}
+				useResizeHandler={true}
 			/>
 		</>
 	);

@@ -288,11 +288,18 @@ class LowDBService {
 		if (benchmarkData.results && Array.isArray(benchmarkData.results)) {
 			for (const resultItem of benchmarkData.results) {
 				const detailId = nanoid();
-				const variant =
-					resultItem.algorithm ||
-					resultItem.parameter ||
-					resultItem.key_size?.toString() ||
-					'unknown';
+				let variant;
+
+				// Special handling for AES to ensure security parameter is preserved
+				if (mainAlgorithm.toLowerCase() === 'aes' && resultItem.algorithm) {
+					variant = resultItem.algorithm;
+				} else {
+					variant =
+						resultItem.algorithm ||
+						resultItem.parameter ||
+						resultItem.key_size?.toString() ||
+						'unknown';
+				}
 
 				// Create the detail record
 				const newDetail: PqcClassicalDetail = {

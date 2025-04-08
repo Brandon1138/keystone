@@ -724,3 +724,224 @@ The visualization page for cryptographic operations was not displaying metrics p
 ## Status
 
 Implemented
+
+### ADR-006: Performance Optimization for VisualizationPage Using Memoization
+
+## Status
+
+Accepted
+
+## Context
+
+The VisualizationPage component was experiencing performance degradation when loading and rendering large datasets. Users reported slow response times, especially when switching between different visualization types or applying filters. Upon investigation, we identified several performance bottlenecks:
+
+1. **Excessive Re-rendering** - Component state changes were triggering unnecessary re-renders of the entire page
+2. **Inefficient Data Processing** - Data filtering and transformation were being recalculated on every render
+3. **Console Logging Overhead** - Excessive logging in production builds added performance overhead
+4. **Window Size Effect Dependencies** - A useEffect hook was forcing reapplication of filters on every window resize
+
+These issues were particularly noticeable when:
+
+- Switching between data sources (benchmarks vs. quantum)
+- Changing chart types (performance, operations per second, etc.)
+- Applying filters to large datasets
+- Resizing the window or entering/exiting fullscreen mode
+
+## Decision
+
+We implemented performance optimizations using React's memoization techniques and other best practices:
+
+1. **Added `useMemo` for Derived Data**
+
+   - Applied to `activeData` and `hasData` calculations
+   - Prevents recalculation when dependencies haven't changed
+
+2. **Applied `useCallback` to Event Handlers**
+
+   - Memoized all handler functions: `handleChartChange`, `handleAlgorithmChange`, etc.
+   - Prevents recreation of function references on every render
+   - Stabilizes dependencies in useEffect hooks
+
+3. **Conditional Logging**
+
+   - Implemented a development-only logging utility
+   - Prevents console logging in production builds
+
+   ```typescript
+   const log = process.env.NODE_ENV === 'development' ? console.log : () => {};
+   ```
+
+4. **Optimized Filter Application**
+
+   - Made `applyFilters` a memoized callback with proper dependencies
+   - Added setTimeout to prevent UI blocking during filtering operations
+   - Removed unnecessary filter application on window resize
+
+5. **Added Dependency Arrays to Effects**
+   - Properly specified dependencies for useEffect and useCallback
+   - Prevents unnecessary effect runs
+
+## Consequences
+
+### Positive
+
+- **Improved Performance** - Significant reduction in rendering time and UI responsiveness
+- **Reduced Resource Usage** - Less CPU and memory consumption when dealing with large datasets
+- **Better Developer Experience** - Clear patterns for optimizing React components
+- **Simplified Component Logic** - Removed unnecessary window resize handling code
+- **More Predictable Behavior** - State updates and effects execute in a more controlled manner
+
+### Negative
+
+- **Increased Complexity** - More hooks and careful dependency tracking needed
+- **Debugging Difficulty** - Memoized functions and values can be harder to debug
+- **Maintenance Requirements** - Developers must understand and maintain the memoization pattern
+
+## Implementation Notes
+
+The implementation focused on the React performance optimization principle of "do less work" by:
+
+1. Computing values only when dependencies change
+2. Creating functions only when needed
+3. Preventing cascading re-renders through careful state management
+4. Using non-blocking operations for expensive calculations
+
+## Future Considerations
+
+If performance issues persist with extremely large datasets, we may consider:
+
+1. Implementing virtualization for rendering only visible data
+2. Adding pagination to limit the amount of data processed at once
+3. Using web workers for data processing outside the main thread
+4. Further optimizing the chart rendering components
+
+We will continue to monitor performance metrics and user feedback to guide additional optimizations.
+
+### ADR-007: Chart Resizing Fix for Fullscreen-Windowed Transitions
+
+## Status
+
+Accepted
+
+## Context
+
+After implementing performance optimizations for the VisualizationPage component (as described in ADR-006), we identified an issue with graph rendering when transitioning between fullscreen and windowed modes. Charts would appear broken or incorrectly sized during these transitions, and would only render correctly after a manual data refresh.
+
+The previous solution, which involved reapplying all filters and recalculating data on window resize, was performance-intensive and caused unnecessary processing. We needed a more efficient solution that would maintain the performance benefits of our previous optimization while correctly handling resize events.
+
+## Decision
+
+We implemented a targeted chart resize handler with the following approach:
+
+1. **Chart-Specific Resize Handling**
+
+   - Added React refs to the Plotly chart components
+   - Created chart width state variables to track dimension changes
+   - Implemented resize event listeners specific to the chart components
+
+2. **Efficient Resize Response**
+
+   - Used Plotly's built-in `handleResize` method to update chart dimensions
+   - Applied the resize handler without recalculating or refiltering data
+   - Added a useEffect hook with proper cleanup of event listeners
+
+3. **Consistent Cross-Component Implementation**
+
+   - Applied the same pattern to both PerformanceChart and QuantumResultsChart components
+   - Used consistent implementation patterns for maintainability
+   - Enabled the useResizeHandler prop in Plotly components
+
+4. **Controlled Resize Timing**
+   - Added small delays to handle resize calculations after DOM updates
+   - Prevented excessive resize handler calls with state-based condition checks
+
+## Consequences
+
+### Positive
+
+- **Fixed Visual Glitches** - Charts now resize properly when transitioning between fullscreen and windowed modes
+- **Maintained Performance** - No unnecessary data recalculation or filtering on resize
+- **Enhanced User Experience** - Seamless visualization experience even during window size changes
+- **Reduced Resource Usage** - No redundant processing during resize events
+- **Better Maintainability** - Clean, reusable pattern for handling chart resizing
+
+### Negative
+
+- **Slight Complexity Increase** - Additional ref and state management for resize handling
+- **Minor Implementation Overhead** - Need for resize-specific useEffect hooks
+- **Dependency on Plotly API** - Implementation relies on Plotly's internal resize handlers
+
+## Implementation Notes
+
+The implementation follows a principled approach to handling UI responsiveness:
+
+1. **Only update what needs updating** - We target only the chart rendering, not the underlying data
+2. **Use built-in capabilities** - We leverage Plotly's existing resize handlers rather than recreating functionality
+3. **Clean up after yourself** - We properly remove event listeners when components unmount
+4. **Maintain consistency** - We implement the same pattern across both chart components
+
+## Future Considerations
+
+This pattern could be extended to other visualizations in the application. If we add new chart types or visualization components, we should apply this same resize handling approach for consistency.
+
+### ADR-010: Improved Ref Handling in Visualization Components
+
+## Status
+
+Accepted
+
+## Context
+
+Our visualization components (PerformanceChart and QuantumResultsChart) are used throughout the application to display benchmark and quantum workload results. These components use Plotly.js for rendering charts and need to properly handle resize events, especially during fullscreen transitions and data refreshes.
+
+Previously, we were passing refs directly as a prop named `ref` to these components, which led to TypeScript errors because:
+
+1. React reserves the `ref` prop for its internal ref forwarding mechanism
+2. Direct ref props on custom components don't work without proper forwarding
+
+This was causing multiple TypeScript errors and potentially unstable behavior during chart resizing operations.
+
+## Decision
+
+We implemented the following changes to improve ref handling in our visualization components:
+
+1. Modified the props interfaces for both visualization components to include a `chartRef` prop:
+
+```typescript
+interface PerformanceChartProps {
+	// existing props
+	chartRef?: React.RefObject<any>;
+}
+
+interface QuantumResultsChartProps {
+	// existing props
+	chartRef?: React.RefObject<any>;
+}
+```
+
+2. Implemented a ref fallback pattern in both components:
+
+```typescript
+const localPlotRef = useRef<any>(null);
+const plotRef = chartRef || localPlotRef;
+```
+
+3. Updated all component references in the VisualizationPage to use the `chartRef` prop instead of `ref`.
+
+## Consequences
+
+### Pros
+
+- **Type Safety**: All component props are now properly typed, eliminating TypeScript errors
+- **Flexibility**: Components can work with either externally provided refs or local refs
+- **Maintainability**: The code follows React best practices for ref handling
+- **Resilience**: Chart resize functionality during fullscreen transitions and refreshes is preserved
+
+### Cons
+
+- **Slightly More Complex Implementation**: Components now need to handle both cases (external ref or internal ref)
+- **Additional Props**: Interface definitions are slightly larger with the additional prop
+
+## Conclusion
+
+This architectural change improves the type safety and maintainability of our visualization components while preserving the existing functionality for chart resizing during fullscreen transitions and data refreshes. The pattern implemented follows React best practices and ensures proper TypeScript typing throughout the application.
