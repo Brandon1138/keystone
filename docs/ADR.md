@@ -945,3 +945,57 @@ const plotRef = chartRef || localPlotRef;
 ## Conclusion
 
 This architectural change improves the type safety and maintainability of our visualization components while preserving the existing functionality for chart resizing during fullscreen transitions and data refreshes. The pattern implemented follows React best practices and ensures proper TypeScript typing throughout the application.
+
+### 2024-06-10: Enhanced Visualization Components with Detailed Statistics Cards
+
+### Decision
+
+1. Enhanced the statistics visualization components to display comprehensive benchmark data:
+   - Added per-algorithm, per-security parameter, and per-operation breakdown
+   - Added detailed metrics for cryptographic operations (Keygen, Sign, Verify, Encapsulation, etc.)
+   - Included key size metrics (Public Key, Secret Key, Signature, Ciphertext)
+2. Updated the data processing pipeline to include key size information from benchmark results
+3. Implemented an interactive operation selector to allow users to view metrics for specific operations
+4. Added proper formatting for byte values with automatic unit conversion
+
+### Consequences
+
+- Positive:
+  - More comprehensive display of benchmark results
+  - Better comparability between different algorithms and operations
+  - Improved user experience with interactive operation selection
+  - Visual representation of key size metrics for better algorithm comparison
+- Negative:
+  - Increased complexity in data processing
+  - Additional CPU/memory usage for processing more detailed metrics
+
+### Status
+
+Accepted
+
+### 2024-10-29: Visualization Statistics Card Improvement
+
+### Decision
+
+1. Enhanced StatisticsCard component to support specific operation filtering
+2. Fixed display issues for Kyber, McEliece, RSA, and ECDH to show proper operation-specific data
+3. Special handling for AES algorithm:
+   - Removed Key Generation card which is not applicable for AES
+   - Created a specialized 2-column grid layout for AES cards
+   - Implemented proper horizontal arrangement to display Encryption and Decryption cards side-by-side in a single row
+4. Implemented conditional rendering based on algorithm type to provide the optimal layout
+
+### Consequences
+
+- Positive:
+  - More accurate representation of algorithm-specific operations
+  - Better use of screen space for algorithms with fewer operations
+  - Improved user understanding of algorithm performance characteristics
+  - Encryption and Decryption cards for AES now appear side-by-side in a single row for better comparison
+- Negative:
+  - Additional complexity in UI rendering logic
+  - More conditional logic depending on algorithm type
+
+### Status
+
+Implemented

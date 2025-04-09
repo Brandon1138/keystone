@@ -15,6 +15,7 @@ import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import ScheduleIcon from '@mui/icons-material/Schedule';
 import SettingsIcon from '@mui/icons-material/Settings';
 import ImportIcon from '@mui/icons-material/Upload';
+import MenuBookIcon from '@mui/icons-material/MenuBook';
 
 // Import your custom Card component
 import { Card } from '../components/ui/card';
@@ -66,10 +67,11 @@ export const HomePage: React.FC = () => {
 			link: '/visualization',
 		},
 		{
-			title: 'Compare',
-			description: 'Analyze algorithm performance through direct comparisons.',
-			icon: <CompareArrowsIcon style={{ color: '#9747FF' }} />,
-			link: '/compare',
+			title: 'Codex',
+			description:
+				'Access knowledge about PQC schemes, quantum threats, and specialized RSS feeds.',
+			icon: <MenuBookIcon style={{ color: '#9747FF' }} />,
+			link: '/codex',
 		},
 		{
 			title: 'Import',

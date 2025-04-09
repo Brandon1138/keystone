@@ -32,6 +32,9 @@ import PerformanceChart from '../components/visualizations/PerformanceChart';
 import QuantumResultsChart from '../components/visualizations/QuantumResultsChart';
 import StatisticsCard from '../components/visualizations/StatisticsCard';
 import QuantumStatsCard from '../components/visualizations/QuantumStatsCard';
+import AlgorithmComparisonCard from '../components/visualizations/AlgorithmComparisonCard';
+import AlgorithmComparisonView from '../components/visualizations/AlgorithmComparisonView';
+import BenchmarkDataTable from '../components/visualizations/BenchmarkDataTable';
 
 // Import data utils and event bus
 import {
@@ -61,7 +64,7 @@ export const VisualizationPage: React.FC = () => {
 	const resizeObserverRef = useRef<ResizeObserver | null>(null);
 
 	// State for visualization controls
-	const [activeChart, setActiveChart] = useState<string>('performance');
+	const [activeChart, setActiveChart] = useState<string>('trend');
 	const [selectedAlgorithm, setSelectedAlgorithm] = useState<string>('all');
 	const [timeRange, setTimeRange] = useState<string>('all');
 	const [dataSource, setDataSource] = useState<string>('benchmarks');
@@ -825,10 +828,10 @@ export const VisualizationPage: React.FC = () => {
 				</Card>
 
 				{/* Visualization Area */}
-				<div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+				<div className="grid grid-cols-1 md:grid-cols-3 gap-5">
 					{/* Main Chart with refs */}
 					<Card
-						className={`p-6 rounded-xl shadow-md col-span-2 ${
+						className={`p-6 rounded-xl shadow-md col-span-3 ${
 							isDarkMode ? 'bg-[#212121]' : 'bg-[#E9E9E9]'
 						}`}
 						ref={chartContainerRef}
@@ -900,18 +903,10 @@ export const VisualizationPage: React.FC = () => {
 									/>
 								)}
 								{activeChart === 'compare' && (
-									<PerformanceChart
+									<AlgorithmComparisonView
 										data={filteredBenchmarkData}
 										title="Algorithm Comparison"
 										loading={loading}
-										// Pass saved selections
-										selectedOperations={selectedOperations}
-										selectedAlgorithms={selectedAlgorithmFilters}
-										sortOrder={currentSortOrder}
-										// Pass callbacks to update parent state
-										onOperationsChange={handleOperationsChange}
-										onAlgorithmsChange={handleAlgorithmFiltersChange}
-										onSortOrderChange={handleSortOrderChange}
 										chartRef={perfChartRef}
 									/>
 								)}
@@ -1011,118 +1006,505 @@ export const VisualizationPage: React.FC = () => {
 						)}
 					</Card>
 
-					{/* Smaller Analysis Cards */}
-					<Card
-						className={`p-6 rounded-xl shadow-md ${
-							isDarkMode ? 'bg-[#212121]' : 'bg-[#E9E9E9]'
-						}`}
-					>
-						{dataSource === 'benchmarks' ? (
-							<StatisticsCard
-								data={filteredBenchmarkData}
-								title="Key Performance Indicators"
-								algorithm={
-									selectedAlgorithm !== 'all' ? selectedAlgorithm : undefined
-								}
-								loading={loading}
-								metricType="performance"
-							/>
-						) : dataSource === 'quantum' ? (
-							<QuantumStatsCard
-								data={filteredQuantumData}
-								title="Quantum Circuit Metrics"
-								algorithm={
-									selectedAlgorithm !== 'all' ? selectedAlgorithm : undefined
-								}
-								loading={loading}
-								metricType="circuit"
-							/>
-						) : (
-							// Placeholder for encryption data
-							<div>
-								<Typography
-									variant="h6"
-									gutterBottom
-									className="mb-4"
-									style={{ color: isDarkMode ? '#FFFFFF' : '#000000' }}
-								>
-									Key Performance Indicators
-								</Typography>
-								<div
-									className="border border-gray-300 dark:border-gray-700 rounded-lg p-4 h-64 flex items-center justify-center"
-									style={{
-										backgroundColor: isDarkMode ? '#1a1a1a' : '#f0f0f0',
-									}}
-								>
-									<Typography
-										style={{
-											color: isDarkMode
-												? 'rgba(255, 255, 255, 0.7)'
-												: 'rgba(0, 0, 0, 0.7)',
-										}}
+					{/* Statistics Cards */}
+					{dataSource === 'benchmarks' ? (
+						<>
+							{/* Show comparison cards only when "All Algorithms" is selected AND view is "Comparison View" */}
+							{selectedAlgorithm === 'all' && activeChart === 'compare' ? (
+								<>
+									<Card
+										className={`p-6 rounded-xl shadow-md ${
+											isDarkMode ? 'bg-[#212121]' : 'bg-[#E9E9E9]'
+										}`}
 									>
-										KPI data will appear here
-									</Typography>
-								</div>
-							</div>
-						)}
-					</Card>
+										<AlgorithmComparisonCard
+											data={filteredBenchmarkData}
+											title="Performance Comparison"
+											titleIcon="Speed"
+											loading={loading}
+											comparisonType="performance"
+										/>
+									</Card>
 
-					<Card
-						className={`p-6 rounded-xl shadow-md ${
-							isDarkMode ? 'bg-[#212121]' : 'bg-[#E9E9E9]'
-						}`}
-					>
-						{dataSource === 'benchmarks' ? (
-							<StatisticsCard
-								data={filteredBenchmarkData}
-								title="Memory Usage Statistics"
-								algorithm={
-									selectedAlgorithm !== 'all' ? selectedAlgorithm : undefined
-								}
-								loading={loading}
-								metricType="memory"
-							/>
-						) : dataSource === 'quantum' ? (
-							<QuantumStatsCard
-								data={filteredQuantumData}
-								title="Success Rate Analysis"
-								algorithm={
-									selectedAlgorithm !== 'all' ? selectedAlgorithm : undefined
-								}
-								loading={loading}
-								metricType="success"
-							/>
-						) : (
-							// Placeholder for encryption data
-							<div>
-								<Typography
-									variant="h6"
-									gutterBottom
-									className="mb-4"
-									style={{ color: isDarkMode ? '#FFFFFF' : '#000000' }}
-								>
-									Quick Statistics
-								</Typography>
-								<div
-									className="border border-gray-300 dark:border-gray-700 rounded-lg p-4 h-64 flex items-center justify-center"
-									style={{
-										backgroundColor: isDarkMode ? '#1a1a1a' : '#f0f0f0',
-									}}
-								>
+									<Card
+										className={`p-6 rounded-xl shadow-md ${
+											isDarkMode ? 'bg-[#212121]' : 'bg-[#E9E9E9]'
+										}`}
+									>
+										<AlgorithmComparisonCard
+											data={filteredBenchmarkData}
+											title="Memory Comparison"
+											titleIcon="Memory"
+											loading={loading}
+											comparisonType="memory"
+										/>
+									</Card>
+
+									<Card
+										className={`p-6 rounded-xl shadow-md ${
+											isDarkMode ? 'bg-[#212121]' : 'bg-[#E9E9E9]'
+										}`}
+									>
+										<AlgorithmComparisonCard
+											data={filteredBenchmarkData}
+											title="Size Comparison"
+											titleIcon="Storage"
+											loading={loading}
+											comparisonType="size"
+										/>
+									</Card>
+								</>
+							) : (
+								<>
+									{/* Show BenchmarkDataTable for Average Time, Operations/Sec, and Memory Usage views */}
+									{activeChart === 'performance' ||
+									activeChart === 'bar' ||
+									activeChart === 'trend' ? (
+										<Card
+											className={`p-6 rounded-xl shadow-md col-span-3 ${
+												isDarkMode ? 'bg-[#212121]' : 'bg-[#E9E9E9]'
+											}`}
+										>
+											<BenchmarkDataTable
+												data={filteredBenchmarkData}
+												metric={
+													activeChart === 'performance'
+														? 'avg_ms'
+														: activeChart === 'bar'
+														? 'ops_per_sec'
+														: 'mem_peak_kb'
+												}
+												loading={loading}
+												height={450}
+											/>
+										</Card>
+									) : (
+										<>
+											{/* AES has only two cards that should appear side by side */}
+											{selectedAlgorithm?.toLowerCase().includes('aes') ? (
+												// Special 2-column grid layout just for AES cards
+												<div className="grid grid-cols-1 md:grid-cols-2 gap-5 col-span-3">
+													{/* AES Encryption Card */}
+													<Card
+														className={`p-6 rounded-xl shadow-md ${
+															isDarkMode ? 'bg-[#212121]' : 'bg-[#E9E9E9]'
+														}`}
+													>
+														<StatisticsCard
+															data={filteredBenchmarkData}
+															title="Encryption Performance"
+															titleIcon="LockOpen"
+															algorithm={selectedAlgorithm}
+															loading={loading}
+															metricType="performance"
+															operation="encryption"
+														/>
+													</Card>
+
+													{/* AES Decryption Card */}
+													<Card
+														className={`p-6 rounded-xl shadow-md ${
+															isDarkMode ? 'bg-[#212121]' : 'bg-[#E9E9E9]'
+														}`}
+													>
+														<StatisticsCard
+															data={filteredBenchmarkData}
+															title="Decryption Performance"
+															titleIcon="Lock"
+															algorithm={selectedAlgorithm}
+															loading={loading}
+															metricType="performance"
+															operation="decryption"
+														/>
+													</Card>
+												</div>
+											) : (
+												<>
+													{/* Standard 3-card layout for all other algorithms */}
+													<Card
+														className={`p-6 rounded-xl shadow-md ${
+															isDarkMode ? 'bg-[#212121]' : 'bg-[#E9E9E9]'
+														}`}
+													>
+														<StatisticsCard
+															data={filteredBenchmarkData}
+															title="Key Generation Performance"
+															titleIcon="VpnKey"
+															algorithm={
+																selectedAlgorithm !== 'all'
+																	? selectedAlgorithm
+																	: undefined
+															}
+															loading={loading}
+															metricType="performance"
+															operation="keygen"
+														/>
+													</Card>
+
+													<Card
+														className={`p-6 rounded-xl shadow-md ${
+															isDarkMode ? 'bg-[#212121]' : 'bg-[#E9E9E9]'
+														}`}
+													>
+														<StatisticsCard
+															data={filteredBenchmarkData}
+															title={
+																selectedAlgorithm
+																	?.toLowerCase()
+																	.includes('dilithium') ||
+																selectedAlgorithm
+																	?.toLowerCase()
+																	.includes('falcon') ||
+																selectedAlgorithm
+																	?.toLowerCase()
+																	.includes('sphincs') ||
+																selectedAlgorithm
+																	?.toLowerCase()
+																	.includes('ecdsa')
+																	? 'Signature Performance'
+																	: selectedAlgorithm
+																			?.toLowerCase()
+																			.includes('kyber') ||
+																	  selectedAlgorithm
+																			?.toLowerCase()
+																			.includes('mceliece')
+																	? 'Encapsulation Performance'
+																	: selectedAlgorithm
+																			?.toLowerCase()
+																			.includes('ecdh') ||
+																	  selectedAlgorithm
+																			?.toLowerCase()
+																			.includes('rsa')
+																	? 'Public Key Operation'
+																	: 'Operation Performance'
+															}
+															titleIcon={
+																selectedAlgorithm
+																	?.toLowerCase()
+																	.includes('dilithium') ||
+																selectedAlgorithm
+																	?.toLowerCase()
+																	.includes('falcon') ||
+																selectedAlgorithm
+																	?.toLowerCase()
+																	.includes('sphincs') ||
+																selectedAlgorithm
+																	?.toLowerCase()
+																	.includes('ecdsa')
+																	? 'Create'
+																	: selectedAlgorithm
+																			?.toLowerCase()
+																			.includes('kyber') ||
+																	  selectedAlgorithm
+																			?.toLowerCase()
+																			.includes('mceliece')
+																	? 'LockOpen'
+																	: 'VpnKey'
+															}
+															algorithm={
+																selectedAlgorithm !== 'all'
+																	? selectedAlgorithm
+																	: undefined
+															}
+															loading={loading}
+															metricType="performance"
+															operation={
+																selectedAlgorithm
+																	?.toLowerCase()
+																	.includes('dilithium') ||
+																selectedAlgorithm
+																	?.toLowerCase()
+																	.includes('falcon') ||
+																selectedAlgorithm
+																	?.toLowerCase()
+																	.includes('sphincs') ||
+																selectedAlgorithm
+																	?.toLowerCase()
+																	.includes('ecdsa')
+																	? 'sign'
+																	: selectedAlgorithm
+																			?.toLowerCase()
+																			.includes('kyber') ||
+																	  selectedAlgorithm
+																			?.toLowerCase()
+																			.includes('mceliece')
+																	? 'encapsulate'
+																	: selectedAlgorithm
+																			?.toLowerCase()
+																			.includes('ecdh')
+																	? 'shared_secret'
+																	: selectedAlgorithm
+																			?.toLowerCase()
+																			.includes('rsa')
+																	? 'encryption'
+																	: ''
+															}
+														/>
+													</Card>
+
+													<Card
+														className={`p-6 rounded-xl shadow-md ${
+															isDarkMode ? 'bg-[#212121]' : 'bg-[#E9E9E9]'
+														}`}
+													>
+														<StatisticsCard
+															data={filteredBenchmarkData}
+															title={
+																selectedAlgorithm
+																	?.toLowerCase()
+																	.includes('dilithium') ||
+																selectedAlgorithm
+																	?.toLowerCase()
+																	.includes('falcon') ||
+																selectedAlgorithm
+																	?.toLowerCase()
+																	.includes('sphincs') ||
+																selectedAlgorithm
+																	?.toLowerCase()
+																	.includes('ecdsa')
+																	? 'Verification Performance'
+																	: selectedAlgorithm
+																			?.toLowerCase()
+																			.includes('kyber') ||
+																	  selectedAlgorithm
+																			?.toLowerCase()
+																			.includes('mceliece')
+																	? 'Decapsulation Performance'
+																	: selectedAlgorithm
+																			?.toLowerCase()
+																			.includes('ecdh') ||
+																	  selectedAlgorithm
+																			?.toLowerCase()
+																			.includes('rsa')
+																	? 'Private Key Operation'
+																	: 'Operation Performance'
+															}
+															titleIcon={
+																selectedAlgorithm
+																	?.toLowerCase()
+																	.includes('dilithium') ||
+																selectedAlgorithm
+																	?.toLowerCase()
+																	.includes('falcon') ||
+																selectedAlgorithm
+																	?.toLowerCase()
+																	.includes('sphincs') ||
+																selectedAlgorithm
+																	?.toLowerCase()
+																	.includes('ecdsa')
+																	? 'VerifiedUser'
+																	: selectedAlgorithm
+																			?.toLowerCase()
+																			.includes('kyber') ||
+																	  selectedAlgorithm
+																			?.toLowerCase()
+																			.includes('mceliece')
+																	? 'Lock'
+																	: 'VpnKey'
+															}
+															algorithm={
+																selectedAlgorithm !== 'all'
+																	? selectedAlgorithm
+																	: undefined
+															}
+															loading={loading}
+															metricType="performance"
+															operation={
+																selectedAlgorithm
+																	?.toLowerCase()
+																	.includes('dilithium') ||
+																selectedAlgorithm
+																	?.toLowerCase()
+																	.includes('falcon') ||
+																selectedAlgorithm
+																	?.toLowerCase()
+																	.includes('sphincs') ||
+																selectedAlgorithm
+																	?.toLowerCase()
+																	.includes('ecdsa')
+																	? 'verify'
+																	: selectedAlgorithm
+																			?.toLowerCase()
+																			.includes('kyber') ||
+																	  selectedAlgorithm
+																			?.toLowerCase()
+																			.includes('mceliece')
+																	? 'decapsulate'
+																	: selectedAlgorithm
+																			?.toLowerCase()
+																			.includes('ecdh')
+																	? 'shared_secret'
+																	: selectedAlgorithm
+																			?.toLowerCase()
+																			.includes('rsa')
+																	? 'decryption'
+																	: ''
+															}
+														/>
+													</Card>
+												</>
+											)}
+										</>
+									)}
+								</>
+							)}
+						</>
+					) : dataSource === 'quantum' ? (
+						<>
+							<Card
+								className={`p-6 rounded-xl shadow-md ${
+									isDarkMode ? 'bg-[#212121]' : 'bg-[#E9E9E9]'
+								}`}
+							>
+								<QuantumStatsCard
+									data={filteredQuantumData}
+									title="Success Rate Analysis"
+									titleIcon="CheckCircle"
+									algorithm={
+										selectedAlgorithm !== 'all' ? selectedAlgorithm : undefined
+									}
+									loading={loading}
+									metricType="success"
+								/>
+							</Card>
+
+							<Card
+								className={`p-6 rounded-xl shadow-md ${
+									isDarkMode ? 'bg-[#212121]' : 'bg-[#E9E9E9]'
+								}`}
+							>
+								<QuantumStatsCard
+									data={filteredQuantumData}
+									title="Circuit Metrics"
+									titleIcon="Memory"
+									algorithm={
+										selectedAlgorithm !== 'all' ? selectedAlgorithm : undefined
+									}
+									loading={loading}
+									metricType="circuit"
+								/>
+							</Card>
+
+							<Card
+								className={`p-6 rounded-xl shadow-md ${
+									isDarkMode ? 'bg-[#212121]' : 'bg-[#E9E9E9]'
+								}`}
+							>
+								<QuantumStatsCard
+									data={filteredQuantumData}
+									title="Runtime Analysis"
+									titleIcon="Timer"
+									algorithm={
+										selectedAlgorithm !== 'all' ? selectedAlgorithm : undefined
+									}
+									loading={loading}
+									metricType="runtime"
+								/>
+							</Card>
+						</>
+					) : (
+						<>
+							{/* Placeholders for encryption data */}
+							<Card
+								className={`p-6 rounded-xl shadow-md ${
+									isDarkMode ? 'bg-[#212121]' : 'bg-[#E9E9E9]'
+								}`}
+							>
+								<div>
 									<Typography
+										variant="h6"
+										gutterBottom
+										className="mb-4"
+										style={{ color: isDarkMode ? '#FFFFFF' : '#000000' }}
+									>
+										Encryption Performance
+									</Typography>
+									<div
+										className="border border-gray-300 dark:border-gray-700 rounded-lg p-4 h-64 flex items-center justify-center"
 										style={{
-											color: isDarkMode
-												? 'rgba(255, 255, 255, 0.7)'
-												: 'rgba(0, 0, 0, 0.7)',
+											backgroundColor: isDarkMode ? '#1a1a1a' : '#f0f0f0',
 										}}
 									>
-										Statistics will appear here
-									</Typography>
+										<Typography
+											style={{
+												color: isDarkMode
+													? 'rgba(255, 255, 255, 0.7)'
+													: 'rgba(0, 0, 0, 0.7)',
+											}}
+										>
+											Encryption statistics will appear here
+										</Typography>
+									</div>
 								</div>
-							</div>
-						)}
-					</Card>
+							</Card>
+
+							<Card
+								className={`p-6 rounded-xl shadow-md ${
+									isDarkMode ? 'bg-[#212121]' : 'bg-[#E9E9E9]'
+								}`}
+							>
+								<div>
+									<Typography
+										variant="h6"
+										gutterBottom
+										className="mb-4"
+										style={{ color: isDarkMode ? '#FFFFFF' : '#000000' }}
+									>
+										Key Metrics
+									</Typography>
+									<div
+										className="border border-gray-300 dark:border-gray-700 rounded-lg p-4 h-64 flex items-center justify-center"
+										style={{
+											backgroundColor: isDarkMode ? '#1a1a1a' : '#f0f0f0',
+										}}
+									>
+										<Typography
+											style={{
+												color: isDarkMode
+													? 'rgba(255, 255, 255, 0.7)'
+													: 'rgba(0, 0, 0, 0.7)',
+											}}
+										>
+											Key metrics will appear here
+										</Typography>
+									</div>
+								</div>
+							</Card>
+
+							<Card
+								className={`p-6 rounded-xl shadow-md ${
+									isDarkMode ? 'bg-[#212121]' : 'bg-[#E9E9E9]'
+								}`}
+							>
+								<div>
+									<Typography
+										variant="h6"
+										gutterBottom
+										className="mb-4"
+										style={{ color: isDarkMode ? '#FFFFFF' : '#000000' }}
+									>
+										Security Analysis
+									</Typography>
+									<div
+										className="border border-gray-300 dark:border-gray-700 rounded-lg p-4 h-64 flex items-center justify-center"
+										style={{
+											backgroundColor: isDarkMode ? '#1a1a1a' : '#f0f0f0',
+										}}
+									>
+										<Typography
+											style={{
+												color: isDarkMode
+													? 'rgba(255, 255, 255, 0.7)'
+													: 'rgba(0, 0, 0, 0.7)',
+											}}
+										>
+											Security analysis will appear here
+										</Typography>
+									</div>
+								</div>
+							</Card>
+						</>
+					)}
 				</div>
 			</div>
 		</div>

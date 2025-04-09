@@ -17,10 +17,10 @@ import {
 	RunBenchmarkPage,
 	RunEncryptionPage,
 	VisualizationPage,
-	ComparePage,
 	ExportPage,
 	RunQuantumWorkloadsPage,
 	ScheduleJobsPage,
+	CodexPage,
 } from './pages';
 
 // Create theme based on mode
@@ -137,7 +137,7 @@ const App: React.FC = () => {
 								<Route path="/run-benchmark" element={<RunBenchmarkPage />} />
 								<Route path="/run-encryption" element={<RunEncryptionPage />} />
 								<Route path="/visualization" element={<VisualizationPage />} />
-								<Route path="/compare" element={<ComparePage />} />
+								<Route path="/codex" element={<CodexPage />} />
 								<Route path="/export" element={<ExportPage />} />
 								<Route
 									path="/quantum-workloads"
@@ -180,7 +180,7 @@ const Navigation: React.FC<{
 		{ text: 'Run Encryption', href: '/run-encryption' },
 		{ text: 'Schedule Jobs', href: '/schedule-jobs' },
 		{ text: 'Visualize', href: '/visualization' },
-		{ text: 'Compare', href: '/compare' },
+		{ text: 'Codex', href: '/codex' },
 		{ text: 'Import', href: '/import' },
 		{ text: 'Export', href: '/export' },
 		{ text: 'Settings', href: '/settings' },

@@ -15,13 +15,17 @@ import {
 	ProcessedQuantumData,
 	calculateStatistics,
 } from '../../utils/dataProcessingUtils';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import MemoryIcon from '@mui/icons-material/Memory';
+import TimerIcon from '@mui/icons-material/Timer';
 
 interface QuantumStatsCardProps {
 	data: ProcessedQuantumData[];
 	title: string;
+	titleIcon?: string;
 	algorithm?: string;
 	loading?: boolean;
-	metricType?: 'circuit' | 'success';
+	metricType: 'success' | 'circuit' | 'runtime';
 }
 
 // Define tooltips for quantum metrics
@@ -47,6 +51,7 @@ const QuantumTooltips = {
 const QuantumStatsCard: React.FC<QuantumStatsCardProps> = ({
 	data,
 	title,
+	titleIcon,
 	algorithm,
 	loading = false,
 	metricType,
@@ -156,224 +161,271 @@ const QuantumStatsCard: React.FC<QuantumStatsCardProps> = ({
 
 	if (loading) {
 		return (
-			<Card
-				sx={{
-					height: '100%',
-					backgroundColor: isDarkMode ? '#212121' : '#E9E9E9',
-					borderRadius: '12px',
-					boxShadow: isDarkMode
-						? '0 4px 8px rgba(0, 0, 0, 0.4)'
-						: '0 4px 8px rgba(0, 0, 0, 0.1)',
-				}}
-			>
-				<CardContent>
-					<Skeleton variant="text" width="60%" height={30} />
-					<Skeleton variant="text" width="40%" height={24} sx={{ mb: 1 }} />
-					<Skeleton
-						variant="rectangular"
-						height={180}
-						sx={{ borderRadius: '8px', mb: 2 }}
-					/>
-					<Skeleton variant="text" width="80%" height={24} />
-					<Skeleton variant="text" width="70%" height={24} />
-					<Skeleton variant="text" width="75%" height={24} />
-				</CardContent>
-			</Card>
+			<>
+				<Skeleton variant="text" width="60%" height={30} />
+				<Skeleton variant="text" width="40%" height={24} sx={{ mb: 1 }} />
+				<Skeleton
+					variant="rectangular"
+					height={180}
+					sx={{ borderRadius: '8px', mb: 2 }}
+				/>
+				<Skeleton variant="text" width="80%" height={24} />
+				<Skeleton variant="text" width="70%" height={24} />
+				<Skeleton variant="text" width="75%" height={24} />
+			</>
 		);
 	}
 
 	return (
-		<Card
-			sx={{
-				height: '100%',
-				backgroundColor: isDarkMode ? '#212121' : '#E9E9E9',
-				borderRadius: '12px',
-				boxShadow: isDarkMode
-					? '0 4px 8px rgba(0, 0, 0, 0.4)'
-					: '0 4px 8px rgba(0, 0, 0, 0.1)',
-			}}
-		>
-			<CardContent>
-				<Typography
-					variant="h6"
-					sx={{ color: isDarkMode ? '#fff' : '#000', mb: 0.5 }}
-				>
-					{title}
-				</Typography>
-
-				{filteredData.length === 0 ? (
+		<>
+			<Typography
+				variant="h6"
+				sx={{
+					color: isDarkMode ? '#fff' : '#000',
+					mb: 0.5,
+					display: 'flex',
+					alignItems: 'center',
+				}}
+			>
+				{titleIcon && (
 					<Box
-						sx={{
-							py: 8,
-							display: 'flex',
-							justifyContent: 'center',
-							alignItems: 'center',
-							backgroundColor: isDarkMode ? '#1a1a1a' : '#f0f0f0',
-							borderRadius: '8px',
-							mt: 2,
-						}}
+						component="span"
+						sx={{ mr: 1, display: 'flex', alignItems: 'center' }}
 					>
-						<Typography
-							variant="body1"
-							color={isDarkMode ? 'text.secondary' : 'text.primary'}
-						>
-							No quantum data available. Run quantum workloads to generate
-							statistics.
+						{titleIcon === 'CheckCircle' && (
+							<CheckCircleIcon sx={{ color: '#9747FF' }} />
+						)}
+						{titleIcon === 'Memory' && <MemoryIcon sx={{ color: '#9747FF' }} />}
+						{titleIcon === 'Timer' && <TimerIcon sx={{ color: '#9747FF' }} />}
+					</Box>
+				)}
+				{title}
+			</Typography>
+
+			{filteredData.length === 0 ? (
+				<Box
+					sx={{
+						py: 8,
+						display: 'flex',
+						justifyContent: 'center',
+						alignItems: 'center',
+						backgroundColor: isDarkMode ? '#1a1a1a' : '#f0f0f0',
+						borderRadius: '8px',
+						mt: 2,
+					}}
+				>
+					<Typography
+						variant="body1"
+						color={isDarkMode ? 'text.secondary' : 'text.primary'}
+					>
+						No quantum data available. Run quantum workloads to generate
+						statistics.
+					</Typography>
+				</Box>
+			) : (
+				<>
+					<Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+						Based on {filteredData.length} quantum{' '}
+						{algorithm ? algorithm : 'algorithm'} runs
+					</Typography>
+
+					<Box sx={{ mb: 2 }}>
+						<Typography variant="body2" color="text.secondary">
+							Quantum metrics reflect both algorithm design and hardware
+							limitations.
+							{algorithm === 'shor'
+								? " Shor's algorithm performance is measured by successful factorization and circuit efficiency."
+								: algorithm === 'grover'
+								? " Grover's algorithm performance is measured by marked state finding success rate."
+								: ' For quantum algorithms, lower circuit complexity often leads to better results on real hardware.'}
 						</Typography>
 					</Box>
-				) : (
-					<>
-						<Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-							Based on {filteredData.length} quantum algorithm runs
-							{algorithm && algorithm !== 'all' ? ` for ${algorithm}` : ''}
-						</Typography>
 
-						<Box sx={{ mb: 2 }}>
-							<Typography variant="body2" color="text.secondary">
-								Quantum metrics reflect both algorithm design and hardware
-								limitations.
-								{algorithm === 'shor'
-									? " Shor's algorithm performance is measured by successful factorization and circuit efficiency."
-									: algorithm === 'grover'
-									? " Grover's algorithm performance is measured by marked state finding success rate."
-									: ' For quantum algorithms, lower circuit complexity often leads to better results on real hardware.'}
-							</Typography>
-						</Box>
+					<Typography
+						variant="subtitle2"
+						sx={{
+							color: '#9747FF',
+							mb: 1,
+							textTransform: 'uppercase',
+							fontWeight: 'bold',
+							display: 'flex',
+							alignItems: 'center',
+						}}
+					>
+						{metricType === 'success'
+							? 'Success Analysis'
+							: metricType === 'circuit'
+							? 'Circuit Metrics'
+							: 'Runtime Analysis'}
+					</Typography>
 
-						<Typography
-							variant="subtitle2"
-							sx={{
-								color: '#9747FF',
-								mb: 1,
-								textTransform: 'uppercase',
-								fontWeight: 'bold',
-								display: 'flex',
-								alignItems: 'center',
-							}}
-						>
-							{metricType === 'success'
-								? 'Success Analysis'
-								: 'Circuit Metrics'}
-						</Typography>
+					<Grid container spacing={1.5}>
+						{metricType === 'success' ? (
+							<>
+								{metrics.success_rate.length > 0 &&
+									renderMetric(
+										'Success Rate',
+										successStats.mean,
+										'%',
+										QuantumTooltips.successRate
+									)}
+								{renderMetric(
+									'Execution Time',
+									timeStats.mean,
+									's',
+									QuantumTooltips.executionTime
+								)}
+								{renderMetric(
+									'Shots (avg)',
+									filteredData.reduce((acc, item) => acc + item.shots, 0) /
+										filteredData.length,
+									'',
+									QuantumTooltips.shots
+								)}
+							</>
+						) : metricType === 'circuit' ? (
+							<>
+								{renderMetric(
+									'Average Depth',
+									depthStats.mean,
+									'',
+									QuantumTooltips.depth
+								)}
+								{renderMetric(
+									'CX Gates',
+									cxStats.mean,
+									'',
+									QuantumTooltips.cxGates
+								)}
+								{renderMetric(
+									'Total Gates',
+									gateStats.mean,
+									'',
+									QuantumTooltips.totalGates
+								)}
+							</>
+						) : (
+							<>
+								{renderMetric(
+									'Execution Time',
+									timeStats.mean,
+									's',
+									QuantumTooltips.executionTime
+								)}
+								{metrics.success_rate.length > 0 &&
+									renderMetric(
+										'Success Rate',
+										successStats.mean,
+										'%',
+										QuantumTooltips.successRate
+									)}
+								{renderMetric(
+									'Shots (avg)',
+									filteredData.reduce((acc, item) => acc + item.shots, 0) /
+										filteredData.length,
+									'',
+									QuantumTooltips.shots
+								)}
+							</>
+						)}
+					</Grid>
 
-						<Grid container spacing={1.5}>
-							{metricType === 'success' ? (
-								<>
-									{metrics.success_rate.length > 0 &&
-										renderMetric(
-											'Success Rate',
-											successStats.mean,
+					<Divider
+						sx={{
+							my: 2,
+							borderColor: isDarkMode
+								? 'rgba(255,255,255,0.1)'
+								: 'rgba(0,0,0,0.1)',
+						}}
+					/>
+
+					<Typography
+						variant="subtitle2"
+						sx={{
+							color: '#9747FF',
+							mb: 1,
+							textTransform: 'uppercase',
+							fontWeight: 'bold',
+						}}
+					>
+						{metricType === 'success'
+							? 'Run Statistics'
+							: metricType === 'circuit'
+							? 'Performance'
+							: 'Runtime'}
+					</Typography>
+
+					<Grid container spacing={1.5}>
+						{metricType === 'success' ? (
+							<>
+								{metrics.success_rate.length > 0 && (
+									<>
+										{renderMetric(
+											'Min Success',
+											successStats.min,
 											'%',
-											QuantumTooltips.successRate
+											QuantumTooltips.minSuccess
 										)}
-									{renderMetric(
-										'Execution Time',
-										timeStats.mean,
-										's',
-										QuantumTooltips.executionTime
-									)}
-									{renderMetric(
-										'Shots (avg)',
-										filteredData.reduce((acc, item) => acc + item.shots, 0) /
-											filteredData.length,
-										'',
-										QuantumTooltips.shots
-									)}
-								</>
-							) : (
-								<>
-									{renderMetric(
-										'Average Depth',
-										depthStats.mean,
-										'',
-										QuantumTooltips.depth
-									)}
-									{renderMetric(
-										'CX Gates',
-										cxStats.mean,
-										'',
-										QuantumTooltips.cxGates
-									)}
-									{renderMetric(
-										'Total Gates',
-										gateStats.mean,
-										'',
-										QuantumTooltips.totalGates
-									)}
-								</>
-							)}
-						</Grid>
-
-						<Divider
-							sx={{
-								my: 2,
-								borderColor: isDarkMode
-									? 'rgba(255,255,255,0.1)'
-									: 'rgba(0,0,0,0.1)',
-							}}
-						/>
-
-						<Typography
-							variant="subtitle2"
-							sx={{
-								color: '#9747FF',
-								mb: 1,
-								textTransform: 'uppercase',
-								fontWeight: 'bold',
-							}}
-						>
-							{metricType === 'success' ? 'Run Statistics' : 'Performance'}
-						</Typography>
-
-						<Grid container spacing={1.5}>
-							{metricType === 'success' ? (
-								<>
-									{metrics.success_rate.length > 0 && (
-										<>
-											{renderMetric(
-												'Min Success',
-												successStats.min,
-												'%',
-												QuantumTooltips.minSuccess
-											)}
-											{renderMetric(
-												'Max Success',
-												successStats.max,
-												'%',
-												QuantumTooltips.maxSuccess
-											)}
-										</>
-									)}
-								</>
-							) : (
-								<>
-									{renderMetric(
-										'Execution Time',
-										timeStats.mean,
-										's',
-										QuantumTooltips.executionTime
-									)}
-									{metrics.success_rate.length > 0 &&
-										renderMetric(
-											'Success Rate',
-											successStats.mean,
+										{renderMetric(
+											'Max Success',
+											successStats.max,
 											'%',
-											QuantumTooltips.successRate
+											QuantumTooltips.maxSuccess
 										)}
-									{renderMetric(
-										'Shots (avg)',
-										filteredData.reduce((acc, item) => acc + item.shots, 0) /
-											filteredData.length,
-										'',
-										QuantumTooltips.shots
+									</>
+								)}
+							</>
+						) : metricType === 'circuit' ? (
+							<>
+								{renderMetric(
+									'Execution Time',
+									timeStats.mean,
+									's',
+									QuantumTooltips.executionTime
+								)}
+								{metrics.success_rate.length > 0 &&
+									renderMetric(
+										'Success Rate',
+										successStats.mean,
+										'%',
+										QuantumTooltips.successRate
 									)}
-								</>
-							)}
-						</Grid>
-					</>
-				)}
-			</CardContent>
-		</Card>
+								{renderMetric(
+									'Shots (avg)',
+									filteredData.reduce((acc, item) => acc + item.shots, 0) /
+										filteredData.length,
+									'',
+									QuantumTooltips.shots
+								)}
+							</>
+						) : (
+							<>
+								{renderMetric(
+									'Execution Time',
+									timeStats.mean,
+									's',
+									QuantumTooltips.executionTime
+								)}
+								{metrics.success_rate.length > 0 &&
+									renderMetric(
+										'Success Rate',
+										successStats.mean,
+										'%',
+										QuantumTooltips.successRate
+									)}
+								{renderMetric(
+									'Shots (avg)',
+									filteredData.reduce((acc, item) => acc + item.shots, 0) /
+										filteredData.length,
+									'',
+									QuantumTooltips.shots
+								)}
+							</>
+						)}
+					</Grid>
+				</>
+			)}
+		</>
 	);
 };
 

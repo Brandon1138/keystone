@@ -158,6 +158,16 @@ export interface ProcessedBenchmarkData {
 	variant: string;
 	securityParam?: string;
 	operations: OperationMetrics[];
+	// Size metrics for keys and data (in bytes) - may be present for cryptographic algorithms
+	sizes?: {
+		public_key_bytes?: number;
+		secret_key_bytes?: number;
+		signature_bytes?: number;
+		shared_secret_bytes?: number;
+		ciphertext_bytes?: number;
+		key_bytes?: number;
+		iv_bytes?: number;
+	};
 }
 
 export interface OperationMetrics {
@@ -396,6 +406,7 @@ function processPqcClassicalData(
 			securityParam:
 				run.securityParam || getDefaultSecurityParam(detail.mainAlgorithm),
 			operations,
+			sizes: detail.sizes,
 		});
 	}
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import Plot from 'react-plotly.js';
 import { ProcessedBenchmarkData } from '../../utils/dataProcessingUtils';
 import { useTheme } from '@mui/material/styles';
@@ -32,12 +32,22 @@ declare global {
 		Plotly?: {
 			relayout: (element: HTMLElement, layout: any) => void;
 			react?: (element: HTMLElement, data: any, layout: any) => void;
+			purge?: (element: HTMLElement) => void;
 		};
 	}
 }
 
 // Conditional logging helper
 const log = process.env.NODE_ENV === 'development' ? console.log : () => {};
+
+// Simple debounce function
+const debounce = (fn: Function, ms = 300) => {
+	let timeoutId: ReturnType<typeof setTimeout>;
+	return function (...args: any[]) {
+		clearTimeout(timeoutId);
+		timeoutId = setTimeout(() => fn(...args), ms);
+	};
+};
 
 interface PerformanceChartProps {
 	data: ProcessedBenchmarkData[];
@@ -79,6 +89,12 @@ const PerformanceChart = ({
 	const localPlotRef = useRef<any>(null);
 	const plotRef = chartRef || localPlotRef;
 	const [chartWidth, setChartWidth] = useState<number>(0);
+	const [chartHeight, setChartHeight] = useState<number>(height - 170);
+	const containerRef = useRef<HTMLDivElement>(null);
+	const resizeTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(
+		undefined
+	);
+	const initialRenderRef = useRef<boolean>(true);
 
 	const metricLabels = {
 		avg_ms: 'Average Time (ms)',
@@ -121,104 +137,77 @@ const PerformanceChart = ({
 		'#FF5722', // Deep Orange
 	];
 
+	// Run before DOM paints to measure container and set initial dimensions
+	useLayoutEffect(() => {
+		if (containerRef.current) {
+			const containerWidth = containerRef.current.clientWidth;
+			setChartWidth(containerWidth);
+		}
+	}, []);
+
 	// Handle window resize to update chart size
 	useEffect(() => {
-		const handleResize = () => {
-			if (plotRef.current && plotRef.current.el) {
-				// Get the current container width
-				const containerWidth = plotRef.current.el.clientWidth;
-				if (containerWidth !== chartWidth) {
-					setChartWidth(containerWidth);
+		// Create debounced resize handler
+		const debouncedResize = debounce(() => {
+			if (containerRef.current && plotRef.current && plotRef.current.el) {
+				const containerWidth = containerRef.current.clientWidth;
+				setChartWidth(containerWidth);
 
-					// Use Plotly's relayout to resize the chart
-					// This is much more efficient than recreating the chart
-					if (plotRef.current.el._fullLayout) {
-						// Safely check if the handleResize method exists
-						if (typeof plotRef.current.handleResize === 'function') {
-							plotRef.current.handleResize();
-						} else if (plotRef.current.el && plotRef.current.el.layout) {
-							// Fallback if handleResize is not available
-							const layout = {
-								...plotRef.current.el.layout,
-								autosize: true,
-							};
-							// Check if Plotly object is available on window and has relayout
-							if (
-								window.Plotly &&
-								typeof window.Plotly.relayout === 'function'
-							) {
-								window.Plotly.relayout(plotRef.current.el, layout);
-							}
-						}
+				const adjustedHeight = height - 170;
+				setChartHeight(adjustedHeight);
+
+				// Use Plotly's relayout to resize the chart
+				if (plotRef.current.el._fullLayout) {
+					const currentLayout = {
+						...plotRef.current.el.layout,
+						width: containerWidth,
+						height: adjustedHeight,
+						autosize: false,
+					};
+
+					if (typeof plotRef.current.relayout === 'function') {
+						plotRef.current.relayout(currentLayout);
+					} else if (
+						window.Plotly &&
+						typeof window.Plotly.relayout === 'function'
+					) {
+						window.Plotly.relayout(plotRef.current.el, currentLayout);
 					}
 				}
 			}
-		};
+		}, 100);
 
 		// Specifically handle fullscreen transitions
 		const handleFullscreenChange = () => {
-			// Add multiple resize attempts with increasing delays
-			// This helps ensure the chart resizes properly after fullscreen transitions
-			const delays = [50, 200, 500, 1000]; // Multiple timing attempts with longer final attempt
+			// Clear any existing timeout
+			if (resizeTimeoutRef.current) {
+				clearTimeout(resizeTimeoutRef.current);
+			}
 
-			delays.forEach((delay) => {
-				setTimeout(() => {
-					if (plotRef.current && plotRef.current.el) {
-						// Force a complete redraw - safely check methods exist first
-						if (typeof plotRef.current.handleResize === 'function') {
-							plotRef.current.handleResize();
-						}
-
-						// For more stubborn cases, use the more thorough resize handler
-						if (typeof plotRef.current.resizeHandler === 'function') {
-							plotRef.current.resizeHandler();
-						}
-
-						// As a last resort, try to update the layout directly
-						if (plotRef.current.el.layout && plotRef.current.el._fullLayout) {
-							const containerWidth =
-								plotRef.current.el.parentElement.clientWidth;
-							const containerHeight =
-								plotRef.current.el.parentElement.clientHeight || height;
-
-							// Apply new layout with explicit dimensions
-							const currentLayout = {
-								...plotRef.current.el.layout,
-								width: containerWidth - 40, // Subtract padding
-								height: containerHeight - 100, // Subtract header and padding
-								autosize: false, // Disable autosize to use explicit dimensions
-							};
-
-							// Check if Plotly object is available and has relayout
-							if (typeof plotRef.current.relayout === 'function') {
-								plotRef.current.relayout(currentLayout);
-							} else if (
-								window.Plotly &&
-								typeof window.Plotly.relayout === 'function'
-							) {
-								window.Plotly.relayout(plotRef.current.el, currentLayout);
-							}
-						}
-					}
-				}, delay);
+			// Multiple resize attempts with shorter delays
+			[50, 150, 300].forEach((delay) => {
+				resizeTimeoutRef.current = setTimeout(debouncedResize, delay);
 			});
 		};
 
 		// Add event listeners
-		window.addEventListener('resize', handleResize);
+		window.addEventListener('resize', debouncedResize);
 		document.addEventListener('fullscreenchange', handleFullscreenChange);
-		document.addEventListener('webkitfullscreenchange', handleFullscreenChange); // For Safari
-		document.addEventListener('mozfullscreenchange', handleFullscreenChange); // For Firefox
-		document.addEventListener('MSFullscreenChange', handleFullscreenChange); // For IE/Edge
+		document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+		document.addEventListener('mozfullscreenchange', handleFullscreenChange);
+		document.addEventListener('MSFullscreenChange', handleFullscreenChange);
 
-		// Call once to initialize
-		setTimeout(handleResize, 0);
-		// Call the fullscreen handler once to ensure proper initial sizing
-		setTimeout(handleFullscreenChange, 100);
+		// Initial sizing after component mounts
+		if (initialRenderRef.current) {
+			debouncedResize();
+			// Force another resize after a slight delay to ensure proper rendering
+			setTimeout(debouncedResize, 100);
+			initialRenderRef.current = false;
+		}
 
 		// Clean up
 		return () => {
-			window.removeEventListener('resize', handleResize);
+			window.removeEventListener('resize', debouncedResize);
 			document.removeEventListener('fullscreenchange', handleFullscreenChange);
 			document.removeEventListener(
 				'webkitfullscreenchange',
@@ -232,8 +221,22 @@ const PerformanceChart = ({
 				'MSFullscreenChange',
 				handleFullscreenChange
 			);
+
+			if (resizeTimeoutRef.current) {
+				clearTimeout(resizeTimeoutRef.current);
+			}
+
+			// Clean up Plotly to prevent memory leaks
+			if (
+				plotRef.current &&
+				plotRef.current.el &&
+				window.Plotly &&
+				window.Plotly.purge
+			) {
+				window.Plotly.purge(plotRef.current.el);
+			}
 		};
-	}, [height, chartWidth]);
+	}, [height]);
 
 	useEffect(() => {
 		if (data.length === 0) return;
@@ -513,7 +516,7 @@ const PerformanceChart = ({
 		title: title,
 		barmode: 'group' as const,
 		height: height,
-		margin: { l: 60, r: 30, t: 50, b: 180 }, // Increased bottom margin for x-axis labels even more
+		margin: { l: 60, r: 30, t: 50, b: 120 }, // Reduced bottom margin for x-axis labels
 		bargap: 0.25, // Space between different algorithm groups
 		bargroupgap: 0.1, // Space between bars within the same algorithm group
 		xaxis: {
@@ -618,7 +621,11 @@ const PerformanceChart = ({
 	}
 
 	return (
-		<div className="relative w-full" style={{ minHeight: `${height}px` }}>
+		<div
+			className="relative w-full"
+			style={{ minHeight: `${height}px` }}
+			ref={containerRef}
+		>
 			{loading ? (
 				<Skeleton
 					variant="rectangular"
@@ -720,7 +727,7 @@ const PerformanceChart = ({
 						className="chart-container"
 						style={{
 							width: '100%',
-							minHeight: `${height - 150}px`, // Increased height by reducing less from total height
+							minHeight: `${chartHeight}px`,
 							height: '100%',
 							position: 'relative',
 						}}
@@ -730,7 +737,7 @@ const PerformanceChart = ({
 							layout={{
 								...layout,
 								width: chartWidth || undefined,
-								height: height - 200, // Increased height by reducing less from total height
+								height: chartHeight,
 								autosize: false,
 							}}
 							config={{
@@ -748,22 +755,20 @@ const PerformanceChart = ({
 							style={{ width: '100%', height: '100%' }}
 							ref={plotRef}
 							onInitialized={(figure) => {
-								// Ensure we have the initial width
+								// Force width update
 								if (figure && figure.layout) {
-									setChartWidth(figure.layout.width || 0);
-								}
-							}}
-							onUpdate={(figure) => {
-								// Update width on any changes
-								if (figure && figure.layout) {
-									setChartWidth(figure.layout.width || 0);
+									setChartWidth(
+										figure.layout.width ||
+											containerRef.current?.clientWidth ||
+											0
+									);
 								}
 							}}
 						/>
 					</div>
 
 					{/* Horizontal Controls below the chart */}
-					<div className="flex flex-wrap gap-4 mt-6">
+					<div className="flex flex-wrap gap-4 mt-3">
 						{/* Operations Filter */}
 						<Paper
 							elevation={3}
