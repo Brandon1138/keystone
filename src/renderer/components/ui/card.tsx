@@ -10,7 +10,14 @@ export const Card = forwardRef<HTMLDivElement, CardProps>(
 		return (
 			<div
 				ref={ref}
-				className={`bg-white dark:bg-[#212121] rounded-xl shadow ${className}`}
+				className={`
+					backdrop-filter backdrop-blur-md
+					bg-white/20 dark:bg-[#212121]/30
+					border border-white/20 dark:border-white/10
+					rounded-xl
+					shadow-lg
+					${className}
+				`}
 			>
 				{children}
 			</div>

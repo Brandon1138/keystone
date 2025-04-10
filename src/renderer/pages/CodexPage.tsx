@@ -346,7 +346,21 @@ export const CodexPage: React.FC = () => {
 
 	// Render a single resource link
 	const renderResourceLink = (link: ResourceLink) => (
-		<ListItem key={link.title} sx={{ py: 1 }}>
+		<ListItem
+			key={link.title}
+			sx={{
+				py: 1.5,
+				px: 2,
+				transition: 'all 0.2s',
+				borderRadius: '8px',
+				'&:hover': {
+					background: isDarkMode
+						? 'rgba(151, 71, 255, 0.08)'
+						: 'rgba(151, 71, 255, 0.05)',
+				},
+				mb: 1,
+			}}
+		>
 			<ListItemIcon>
 				<LinkIcon style={{ color: '#9747FF' }} />
 			</ListItemIcon>
@@ -382,7 +396,11 @@ export const CodexPage: React.FC = () => {
 				}}
 				secondaryTypographyProps={{
 					variant: 'body2',
-					color: isDarkMode ? 'rgba(255, 255, 255, 0.7)' : 'rgba(0, 0, 0, 0.6)',
+					color: isDarkMode ? 'rgba(255, 255, 255, 0.8)' : 'rgba(0, 0, 0, 0.7)',
+					sx: {
+						fontWeight: 'medium',
+						textShadow: isDarkMode ? '0 1px 2px rgba(0,0,0,0.2)' : 'none',
+					},
 				}}
 			/>
 		</ListItem>
@@ -397,17 +415,26 @@ export const CodexPage: React.FC = () => {
 			key={subsection.title}
 			defaultExpanded={true}
 			sx={{
-				backgroundColor: isDarkMode ? '#2a2a2a' : '#f5f5f5',
+				backgroundColor: isDarkMode
+					? 'rgba(42, 42, 42, 0.5)'
+					: 'rgba(245, 245, 245, 0.5)',
+				backdropFilter: 'blur(8px)',
 				mb: 2,
 				boxShadow: isDarkMode
-					? '0 2px 10px rgba(0, 0, 0, 0.3)'
-					: '0 2px 10px rgba(0, 0, 0, 0.1)',
+					? '0 4px 15px rgba(0, 0, 0, 0.2)'
+					: '0 4px 15px rgba(0, 0, 0, 0.1)',
 				'&:before': {
 					display: 'none',
 				},
 				'&.Mui-expanded': {
 					margin: '0 0 16px',
 				},
+				borderRadius: '12px',
+				border: '1px solid',
+				borderColor: isDarkMode
+					? 'rgba(255, 255, 255, 0.08)'
+					: 'rgba(255, 255, 255, 0.5)',
+				overflow: 'hidden',
 			}}
 		>
 			<AccordionSummary
@@ -415,8 +442,11 @@ export const CodexPage: React.FC = () => {
 				sx={{
 					borderBottom: '1px solid',
 					borderColor: isDarkMode
-						? 'rgba(255, 255, 255, 0.12)'
-						: 'rgba(0, 0, 0, 0.12)',
+						? 'rgba(255, 255, 255, 0.08)'
+						: 'rgba(0, 0, 0, 0.08)',
+					background: isDarkMode
+						? 'rgba(42, 42, 42, 0.7)'
+						: 'rgba(245, 245, 245, 0.7)',
 				}}
 			>
 				<Typography
@@ -430,7 +460,14 @@ export const CodexPage: React.FC = () => {
 					{subsection.title}
 				</Typography>
 			</AccordionSummary>
-			<AccordionDetails>
+			<AccordionDetails
+				sx={{
+					p: 0,
+					background: isDarkMode
+						? 'rgba(33, 33, 33, 0.3)'
+						: 'rgba(255, 255, 255, 0.3)',
+				}}
+			>
 				<List disablePadding>
 					{subsection.links.map((link) => renderResourceLink(link))}
 				</List>
@@ -469,7 +506,7 @@ export const CodexPage: React.FC = () => {
 				{/* Main Header Card */}
 				<Card
 					className={`p-6 mb-5 rounded-xl shadow-md transition-all ${
-						isDarkMode ? 'bg-[#212121]' : 'bg-[#E9E9E9]'
+						isDarkMode ? '' : ''
 					}`}
 				>
 					<div className="flex items-center mb-4">
@@ -640,11 +677,7 @@ export const CodexPage: React.FC = () => {
 				</Card>
 
 				{/* Content Section */}
-				<Card
-					className={`p-6 rounded-xl shadow-md transition-all ${
-						isDarkMode ? 'bg-[#212121]' : 'bg-[#E9E9E9]'
-					}`}
-				>
+				<Card className={`p-6 rounded-xl shadow-md transition-all`}>
 					{renderSectionContent(activeSection)}
 				</Card>
 			</div>
