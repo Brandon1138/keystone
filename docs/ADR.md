@@ -999,3 +999,40 @@ Accepted
 ### Status
 
 Implemented
+
+### ADR-006: Enhanced Batch Scheduling for Multiple Security Parameters
+
+## Status
+
+Implemented
+
+## Context
+
+Our benchmark scheduling system previously allowed users to select which algorithms to run in a batch, but limited them to choosing only one security parameter per algorithm. This limitation forced users to schedule multiple batches to test different security parameters of the same algorithm, which was inefficient and time-consuming. For comprehensive evaluation of post-quantum and classical cryptographic algorithms, users often need to run benchmarks across all available security parameters to compare performance characteristics.
+
+## Decision
+
+We have enhanced the batch scheduling interface to support multiple security parameters for each algorithm with the following implementation details:
+
+1. Modified the `BatchJobSettings` data structure to track security parameter selections using a map of boolean values instead of a single selected parameter
+2. Updated the UI to display checkboxes for each security parameter rather than a dropdown selection
+3. Added a hierarchical selection interface with an "All Parameters" checkbox to quickly select or deselect all security parameters for an algorithm
+4. Enhanced the job submission logic to create individual benchmark jobs for each selected algorithm-parameter combination
+5. Streamlined the parameter selection UI with proper indentation and visual grouping for better usability
+
+## Consequences
+
+### Pros
+
+- Users can now schedule comprehensive benchmark runs across multiple security levels in a single operation
+- More flexible benchmark configuration, allowing precise selection of which parameters to test
+- Improved UI with clear visual indication of which parameters are selected
+- More efficient data collection process for comparing performance across security levels
+- Better alignment with real-world cryptographic evaluation scenarios where multiple security levels need to be compared
+
+### Cons
+
+- Slightly increased UI complexity that may be overwhelming for new users
+- More complex state management to track multiple security parameter selections
+- Increased number of jobs in the queue when running full benchmark suites, which could lead to longer processing times
+- Additional memory usage to track the expanded selection state

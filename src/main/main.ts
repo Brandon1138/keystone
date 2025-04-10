@@ -8,9 +8,11 @@ import {
 	setupQuantumWorkloadIPC,
 	setupDatabaseIPC,
 	setupJobSchedulerIPC,
+	setupExportIPC,
 } from './ipc';
 import { lowdbService } from './db/lowdbService';
 import { jobSchedulerService } from './JobSchedulerService';
+import { initDatasetManager } from './dataset-manager';
 
 let mainWindow: any = null;
 
@@ -90,6 +92,8 @@ app.whenReady().then(async () => {
 	setupQuantumWorkloadIPC(); // Set up Quantum Workload IPC handlers
 	setupDatabaseIPC(); // Set up Database IPC handlers
 	setupJobSchedulerIPC(); // Set up Job Scheduler IPC handlers
+	setupExportIPC(); // Set up Export functionality IPC handlers
+	initDatasetManager(); // Initialize dataset manager
 
 	app.on('activate', () => {
 		// On macOS, re-create a window when the dock icon is clicked and no other windows are open

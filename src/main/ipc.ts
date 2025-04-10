@@ -15,6 +15,7 @@ import { promisify } from 'util'; // Import promisify
 import * as childProcess from 'child_process'; // Import for spawning the Python script
 import { lowdbService } from './db/lowdbService';
 import { jobSchedulerService } from './JobSchedulerService';
+import { exportService } from './services/export-service';
 
 // IMPORTANT: Set up native library paths BEFORE loading any modules
 // This must happen at the top level, not inside a function
@@ -1816,4 +1817,64 @@ export function setupJobSchedulerIPC() {
 	);
 
 	console.log('[IPC] Job Scheduler IPC handlers registration complete.');
+}
+
+// Setup Article and RSS IPC - FEATURE REMOVED
+// This function is kept as a stub for backward compatibility but with its implementation removed
+export function setupArticleIPC() {
+	console.log('[IPC] Article and RSS feature has been removed.');
+	// Implementation removed as this feature is no longer supported
+}
+
+// Add this function to setup export-related IPC handlers
+export function setupExportIPC() {
+	console.log('[IPC] Setting up Export IPC handlers...');
+
+	// Handler for exporting dataset
+	ipcMain.handle(
+		'export-dataset',
+		async (_event: IpcMainInvokeEvent, options: any) => {
+			try {
+				return await exportService.exportData(options);
+			} catch (error: any) {
+				console.error('[IPC Error] export-dataset:', error);
+				return {
+					success: false,
+					message: error.message || 'Unknown error during export',
+				};
+			}
+		}
+	);
+
+	// Handler to get all runs
+	ipcMain.handle('get-all-runs', async () => {
+		try {
+			return await lowdbService.getAllRuns();
+		} catch (error: any) {
+			console.error('[IPC Error] get-all-runs:', error);
+			return [];
+		}
+	});
+
+	// Handler to get all PQC/Classical details
+	ipcMain.handle('get-all-pqc-classical-details', async () => {
+		try {
+			return await lowdbService.getAllPqcClassicalDetails();
+		} catch (error: any) {
+			console.error('[IPC Error] get-all-pqc-classical-details:', error);
+			return [];
+		}
+	});
+
+	// Handler to get all quantum results
+	ipcMain.handle('get-all-quantum-results', async () => {
+		try {
+			return await lowdbService.getAllQuantumResults();
+		} catch (error: any) {
+			console.error('[IPC Error] get-all-quantum-results:', error);
+			return [];
+		}
+	});
+
+	console.log('[IPC] Export IPC handlers registration complete.');
 }

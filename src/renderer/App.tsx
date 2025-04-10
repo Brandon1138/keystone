@@ -10,6 +10,7 @@ import LightModeIcon from '@mui/icons-material/LightMode';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
 import { Switch, Divider, ThemeProvider, createTheme } from '@mui/material';
 import CssBaseline from '@mui/material/CssBaseline';
+import '@fontsource/inter';
 
 // Pages
 import {
@@ -21,11 +22,17 @@ import {
 	RunQuantumWorkloadsPage,
 	ScheduleJobsPage,
 	CodexPage,
+	ImportPage,
+	SettingsPage,
 } from './pages';
 
 // Create theme based on mode
 const createAppTheme = (mode: 'light' | 'dark') =>
 	createTheme({
+		typography: {
+			fontFamily:
+				'"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+		},
 		palette: {
 			mode: mode,
 			primary: {
@@ -66,6 +73,9 @@ const App: React.FC = () => {
 			document.documentElement.classList.remove('light');
 			document.body.style.backgroundColor = '#212121';
 		}
+		// Apply font family globally
+		document.body.style.fontFamily =
+			'"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
 	}, [lightMode]);
 
 	// Toggle light/dark mode
@@ -144,17 +154,17 @@ const App: React.FC = () => {
 									element={<RunQuantumWorkloadsPage />}
 								/>
 								<Route path="/schedule-jobs" element={<ScheduleJobsPage />} />
-								<Route path="/import" element={<div>Import Page</div>} />
-								<Route path="/settings" element={<div>Settings Page</div>} />
+								<Route path="/import" element={<ImportPage />} />
+								<Route path="/settings" element={<SettingsPage />} />
 							</Routes>
 						</main>
 
 						{/* Footer */}
-						<footer className="mt-8 text-center text-muted-foreground text-sm">
+						<footer className="mt-8 text-center text-sm text-gray-500">
 							<p>Keystone - Version 1.0.0</p>
 							<p>
-								Running on Electron <span id="electron-version"></span>, Node{' '}
-								<span id="node-version"></span>, and Chromium{' '}
+								Running on Electron<span id="electron-version"></span>, Node
+								<span id="node-version"></span>, and Chromium
 								<span id="chrome-version"></span>
 							</p>
 						</footer>
@@ -188,7 +198,7 @@ const Navigation: React.FC<{
 
 	return (
 		<nav
-			className="flex flex-wrap mb-4 items-center border-b pb-2"
+			className="flex flex-wrap mb-4 items-center justify-between border-b pb-2"
 			style={{
 				borderColor: lightMode ? '#E9E9E9' : 'var(--border-color, #2e2e3e)',
 			}}
@@ -198,10 +208,10 @@ const Navigation: React.FC<{
 					location.pathname === item.href ||
 					(item.href === '/home' && location.pathname === '/');
 				const linkClasses = isActive
-					? 'text-primary font-medium px-4 py-2'
+					? 'text-primary font-medium px-2 text-sm sm:text-base sm:px-3 py-2 whitespace-nowrap'
 					: lightMode
-					? 'text-black hover:text-primary transition-colors px-4 py-2'
-					: 'text-foreground hover:text-primary transition-colors px-4 py-2';
+					? 'text-black hover:text-primary transition-colors px-2 text-sm sm:text-base sm:px-3 py-2 whitespace-nowrap'
+					: 'text-foreground hover:text-primary transition-colors px-2 text-sm sm:text-base sm:px-3 py-2 whitespace-nowrap';
 
 				return (
 					<Link key={item.href} to={item.href} className={linkClasses}>

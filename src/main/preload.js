@@ -320,3 +320,73 @@ contextBridge.exposeInMainWorld('jobSchedulerAPI', {
 		return () => ipcRenderer.removeListener('job-queue-update', subscription);
 	},
 });
+
+// Add Article API
+contextBridge.exposeInMainWorld('articleAPI', {
+	getAllArticles: () => {
+		console.log('[preload] invoking article:get-all');
+		return ipcRenderer.invoke('article:get-all');
+	},
+	addManualArticle: (article) => {
+		console.log('[preload] invoking article:add-manual');
+		return ipcRenderer.invoke('article:add-manual', article);
+	},
+	updateArticle: (id, updates) => {
+		console.log('[preload] invoking article:update');
+		return ipcRenderer.invoke('article:update', id, updates);
+	},
+	deleteArticle: (id) => {
+		console.log('[preload] invoking article:delete');
+		return ipcRenderer.invoke('article:delete', id);
+	},
+	addRssFeed: (feed) => {
+		console.log('[preload] invoking rss:add-feed');
+		return ipcRenderer.invoke('rss:add-feed', feed);
+	},
+	getAllRssFeeds: () => {
+		console.log('[preload] invoking rss:get-all-feeds');
+		return ipcRenderer.invoke('rss:get-all-feeds');
+	},
+	refreshAllRssFeeds: () => {
+		console.log('[preload] invoking rss:refresh-all');
+		return ipcRenderer.invoke('rss:refresh-all');
+	},
+});
+
+// --- Add Dataset Manager API ---
+contextBridge.exposeInMainWorld('datasetAPI', {
+	getDatasetPath: () => {
+		console.log('[preload] invoking get-dataset-path');
+		return ipcRenderer.invoke('get-dataset-path');
+	},
+	getDatasetHistory: () => {
+		console.log('[preload] invoking get-dataset-history');
+		return ipcRenderer.invoke('get-dataset-history');
+	},
+	getDatasetStats: (datasetPath) => {
+		console.log('[preload] invoking get-dataset-stats');
+		return ipcRenderer.invoke('get-dataset-stats', datasetPath);
+	},
+	importDataset: () => {
+		console.log('[preload] invoking import-dataset');
+		return ipcRenderer.invoke('import-dataset');
+	},
+	importJsonFromPath: (filePath) => {
+		console.log('[preload] invoking import-json-from-path', filePath);
+		return ipcRenderer.invoke('import-json-from-path', filePath);
+	},
+	saveDataset: () => {
+		console.log('[preload] invoking save-dataset');
+		return ipcRenderer.invoke('save-dataset');
+	},
+	switchDataset: (datasetPath) => {
+		console.log('[preload] invoking switch-dataset');
+		return ipcRenderer.invoke('switch-dataset', datasetPath);
+	},
+	createNewDataset: () => {
+		console.log('[preload] invoking create-new-dataset');
+		return ipcRenderer.invoke('create-new-dataset');
+	},
+});
+
+console.log('[preload] Context bridge APIs exposed using IPC.');

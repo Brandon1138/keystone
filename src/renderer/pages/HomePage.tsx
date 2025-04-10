@@ -69,7 +69,7 @@ export const HomePage: React.FC = () => {
 		{
 			title: 'Codex',
 			description:
-				'Access knowledge about PQC schemes, quantum threats, and specialized RSS feeds.',
+				'Access resources on standards, libraries, quantum frameworks, and research materials.',
 			icon: <MenuBookIcon style={{ color: '#9747FF' }} />,
 			link: '/codex',
 		},

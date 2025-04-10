@@ -5,3 +5,4 @@ export { BenchmarkResultCard } from './BenchmarkResultCard';
 export { Speedometer } from './Speedometer';
 export { MetricsCard } from './MetricsCard';
 export { RecentBenchmarks } from './RecentBenchmarks';
+export { DatasetManager } from './DatasetManager';

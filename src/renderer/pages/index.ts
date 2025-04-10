@@ -6,3 +6,5 @@ export { default as CodexPage } from './CodexPage';
 export { default as ExportPage } from './ExportPage';
 export { default as RunQuantumWorkloadsPage } from './RunQuantumWorkloadsPage';
 export { default as ScheduleJobsPage } from './ScheduleJobsPage';
+export { default as ImportPage } from './ImportPage';
+export { default as SettingsPage } from './SettingsPage';

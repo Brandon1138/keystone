@@ -57,7 +57,28 @@ document.addEventListener('DOMContentLoaded', () => {
 	// Set version info in the footer (keeping this functionality from the original)
 	const replaceText = (selector: string, text: string) => {
 		const element = document.getElementById(selector);
-		if (element) element.innerText = text;
+		if (element) {
+			element.innerText = text;
+			// Add styling to make version text less visible and theme-responsive
+			element.style.opacity = '0.6';
+			element.style.fontSize = '90%';
+
+			// Update text color based on theme
+			const updateTextColor = () => {
+				const isDarkMode = document.documentElement.classList.contains('dark');
+				element.style.color = isDarkMode ? '#808080' : '#808080';
+			};
+
+			// Set initial color
+			updateTextColor();
+
+			// Add listener to update when theme changes
+			const observer = new MutationObserver(updateTextColor);
+			observer.observe(document.documentElement, {
+				attributes: true,
+				attributeFilter: ['class'],
+			});
+		}
 	};
 
 	// This will be populated by Electron through preload.js

@@ -78,7 +78,7 @@ const DEFAULT_GROVER_SHOTS = 8196;
 // Interface for batch job settings
 interface BatchJobSettings {
 	[algorithm: string]: {
-		securityParameter: string;
+		securityParameters: { [param: string]: boolean };
 		iterations: number;
 	};
 }
@@ -139,8 +139,15 @@ const JobSchedulerForm: React.FC<JobSchedulerFormProps> = ({
 		const initialSettings: BatchJobSettings = {};
 		SUPPORTED_ALGORITHMS.forEach((algo) => {
 			if (SECURITY_PARAMS[algo] && SECURITY_PARAMS[algo].length > 0) {
+				const securityParameters: { [param: string]: boolean } = {};
+
+				// Initialize all security parameters to true (selected)
+				SECURITY_PARAMS[algo].forEach((param) => {
+					securityParameters[param] = true;
+				});
+
 				initialSettings[algo] = {
-					securityParameter: SECURITY_PARAMS[algo][0],
+					securityParameters,
 					iterations: getDefaultIterations(algo),
 				};
 			}
@@ -273,6 +280,41 @@ const JobSchedulerForm: React.FC<JobSchedulerFormProps> = ({
 		});
 	};
 
+	// Handle security parameter selection in batch dialog
+	const handleSecurityParamSelect = (algo: string, param: string) => {
+		setBatchSettings({
+			...batchSettings,
+			[algo]: {
+				...batchSettings[algo],
+				securityParameters: {
+					...batchSettings[algo].securityParameters,
+					[param]: !batchSettings[algo].securityParameters[param],
+				},
+			},
+		});
+	};
+
+	// Toggle all security parameters for an algorithm
+	const toggleAllSecurityParams = (algo: string, value: boolean) => {
+		if (batchSettings[algo] && SECURITY_PARAMS[algo]) {
+			const updatedSecurityParams = {
+				...batchSettings[algo].securityParameters,
+			};
+
+			SECURITY_PARAMS[algo].forEach((param) => {
+				updatedSecurityParams[param] = value;
+			});
+
+			setBatchSettings({
+				...batchSettings,
+				[algo]: {
+					...batchSettings[algo],
+					securityParameters: updatedSecurityParams,
+				},
+			});
+		}
+	};
+
 	// Handle common iterations change
 	const handleCommonIterationsChange = (
 		e: React.ChangeEvent<HTMLInputElement>
@@ -345,8 +387,8 @@ const JobSchedulerForm: React.FC<JobSchedulerFormProps> = ({
 	// Update batch settings for a specific algorithm
 	const updateBatchSetting = (
 		algo: string,
-		field: 'securityParameter' | 'iterations',
-		value: string | number
+		field: 'iterations',
+		value: number
 	) => {
 		setBatchSettings({
 			...batchSettings,
@@ -388,26 +430,32 @@ const JobSchedulerForm: React.FC<JobSchedulerFormProps> = ({
 					SECURITY_PARAMS[algo] &&
 					SECURITY_PARAMS[algo].length > 0
 				) {
-					const { securityParameter, iterations } = batchSettings[algo];
+					const { securityParameters, iterations } = batchSettings[algo];
 					const runs = applyCommonRuns ? commonRuns : numberOfRuns;
 
 					// Make sure iterations is a valid number (never 0)
 					const actualIterations =
 						iterations > 0 ? iterations : getDefaultIterations(algo);
 
-					const benchmarkJob = {
-						type: 'benchmark' as const,
-						algorithm: algo,
-						securityParameter,
-						iterations: actualIterations, // Ensure we have valid iterations
-						numberOfRuns: runs,
-						scheduledTime,
-					};
+					// Create a job for each selected security parameter
+					for (const param of SECURITY_PARAMS[algo]) {
+						// Skip if this security parameter isn't selected
+						if (!securityParameters[param]) continue;
 
-					console.log(
-						`Scheduling job for ${algo} with ${actualIterations} iterations`
-					);
-					await window.jobSchedulerAPI.scheduleJob(benchmarkJob);
+						const benchmarkJob = {
+							type: 'benchmark' as const,
+							algorithm: algo,
+							securityParameter: param,
+							iterations: actualIterations,
+							numberOfRuns: runs,
+							scheduledTime,
+						};
+
+						console.log(
+							`Scheduling job for ${algo} with parameter ${param} and ${actualIterations} iterations`
+						);
+						await window.jobSchedulerAPI.scheduleJob(benchmarkJob);
+					}
 				}
 			}
 
@@ -808,7 +856,7 @@ const JobSchedulerForm: React.FC<JobSchedulerFormProps> = ({
 									Algorithm
 								</TableCell>
 								<TableCell sx={{ color: isDarkMode ? '#fff' : '#333' }}>
-									Security Parameter
+									Security Parameters
 								</TableCell>
 								<TableCell sx={{ color: isDarkMode ? '#fff' : '#333' }}>
 									Iterations
@@ -819,9 +867,25 @@ const JobSchedulerForm: React.FC<JobSchedulerFormProps> = ({
 							{SUPPORTED_ALGORITHMS.map((algo) => {
 								const { displayName, category } = getAlgorithmInfo(algo);
 								const settings = batchSettings[algo] || {
-									securityParameter: '',
+									securityParameters: {},
 									iterations: 0,
 								};
+
+								// Check if all security parameters are selected
+								const allSecurityParamsSelected =
+									SECURITY_PARAMS[algo] &&
+									SECURITY_PARAMS[algo].length > 0 &&
+									SECURITY_PARAMS[algo].every(
+										(param) => settings.securityParameters[param]
+									);
+
+								// Check if some security parameters are selected
+								const someSecurityParamsSelected =
+									SECURITY_PARAMS[algo] &&
+									SECURITY_PARAMS[algo].length > 0 &&
+									SECURITY_PARAMS[algo].some(
+										(param) => settings.securityParameters[param]
+									);
 
 								return (
 									<TableRow
@@ -850,33 +914,79 @@ const JobSchedulerForm: React.FC<JobSchedulerFormProps> = ({
 											{displayName} ({category})
 										</TableCell>
 										<TableCell>
-											<Select
-												size="small"
-												value={
-													settings.securityParameter ||
-													(SECURITY_PARAMS[algo] && SECURITY_PARAMS[algo][0]) ||
-													''
-												}
-												onChange={(e) =>
-													updateBatchSetting(
-														algo,
-														'securityParameter',
-														e.target.value
-													)
-												}
-												disabled={!selectedAlgorithms[algo]}
-												sx={{
-													minWidth: 100,
-													bgcolor: isDarkMode ? '#333' : '#fff',
-													color: isDarkMode ? '#fff' : '#333',
-												}}
-											>
-												{SECURITY_PARAMS[algo]?.map((param) => (
-													<MenuItem key={param} value={param}>
-														{param}
-													</MenuItem>
-												))}
-											</Select>
+											<Box sx={{ display: 'flex', flexDirection: 'column' }}>
+												<Box
+													sx={{ display: 'flex', alignItems: 'center', mb: 1 }}
+												>
+													<Checkbox
+														checked={allSecurityParamsSelected}
+														indeterminate={
+															!allSecurityParamsSelected &&
+															someSecurityParamsSelected
+														}
+														onChange={() =>
+															toggleAllSecurityParams(
+																algo,
+																!allSecurityParamsSelected
+															)
+														}
+														disabled={!selectedAlgorithms[algo]}
+														size="small"
+														sx={{
+															color: isDarkMode ? '#9747FF80' : '#9747FF80',
+															'&.Mui-checked': {
+																color: '#9747FF',
+															},
+														}}
+													/>
+													<Typography
+														variant="body2"
+														sx={{ color: isDarkMode ? '#fff' : '#333' }}
+													>
+														All Parameters
+													</Typography>
+												</Box>
+												<Box
+													sx={{
+														display: 'flex',
+														flexWrap: 'wrap',
+														gap: 1,
+														pl: 4,
+													}}
+												>
+													{SECURITY_PARAMS[algo]?.map((param) => (
+														<FormControlLabel
+															key={param}
+															control={
+																<Checkbox
+																	checked={!!settings.securityParameters[param]}
+																	onChange={() =>
+																		handleSecurityParamSelect(algo, param)
+																	}
+																	disabled={!selectedAlgorithms[algo]}
+																	size="small"
+																	sx={{
+																		color: isDarkMode
+																			? '#9747FF80'
+																			: '#9747FF80',
+																		'&.Mui-checked': {
+																			color: '#9747FF',
+																		},
+																	}}
+																/>
+															}
+															label={param}
+															sx={{
+																m: 0,
+																color: isDarkMode ? '#fff' : '#333',
+																'& .MuiFormControlLabel-label': {
+																	fontSize: '0.75rem',
+																},
+															}}
+														/>
+													))}
+												</Box>
+											</Box>
 										</TableCell>
 										<TableCell>
 											<TextField
@@ -1495,11 +1605,14 @@ const JobSchedulerForm: React.FC<JobSchedulerFormProps> = ({
 									}
 									onClick={handleBatchScheduleClick}
 									sx={{
+										bgcolor: 'transparent',
 										borderColor: '#9747FF',
-										color: '#9747FF',
+										color: isDarkMode ? '#FFFFFF' : '#000000',
 										'&:hover': {
-											borderColor: '#8030E0',
-											backgroundColor: 'rgba(151, 71, 255, 0.04)',
+											bgcolor: isDarkMode
+												? 'rgba(151, 71, 255, 0.1)'
+												: 'rgba(151, 71, 255, 0.1)',
+											borderColor: '#9747FF',
 										},
 										textTransform: 'uppercase',
 										fontWeight: 'bold',

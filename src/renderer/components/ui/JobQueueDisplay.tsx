@@ -26,6 +26,7 @@ import {
 	ViewList as ViewListIcon,
 	Schedule as ScheduleIcon,
 	AccessTime as AccessTimeIcon,
+	Refresh as RefreshIcon,
 } from '@mui/icons-material';
 import { Job } from '../../../types/jobs';
 import { formatDistanceToNow, format } from 'date-fns';
@@ -188,6 +189,12 @@ const JobQueueDisplay: React.FC<JobQueueDisplayProps> = ({
 		);
 	};
 
+	// Function to handle scheduling all benchmarks
+	const handleScheduleAllBenchmarks = () => {
+		// Implementation to be added
+		console.log('Schedule all benchmarks clicked');
+	};
+
 	return (
 		<Card
 			className={`p-6 rounded-xl shadow-md ${
@@ -214,12 +221,15 @@ const JobQueueDisplay: React.FC<JobQueueDisplayProps> = ({
 					variant="outlined"
 					size="small"
 					onClick={onRefresh}
+					startIcon={<RefreshIcon />}
 					sx={{
 						borderColor: '#9747FF',
-						color: '#9747FF',
+						color: isDarkMode ? '#FFFFFF' : '#000000',
 						'&:hover': {
 							borderColor: '#8030E0',
-							backgroundColor: 'rgba(151, 71, 255, 0.04)',
+							bgcolor: isDarkMode
+								? 'rgba(151, 71, 255, 0.1)'
+								: 'rgba(151, 71, 255, 0.1)',
 						},
 					}}
 				>

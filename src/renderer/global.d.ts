@@ -1,4 +1,5 @@
 import { Job } from '../types/jobs';
+import { Article, RssFeed } from '../types/articles';
 
 declare global {
 	interface Window {
@@ -109,6 +110,18 @@ declare global {
 			getPqcClassicalByAlgorithm: (algorithm: string) => Promise<any[]>;
 			deleteRun: (runId: string) => Promise<boolean>;
 			clearAllData: () => Promise<void>;
+		};
+		articleAPI: {
+			getAllArticles: () => Promise<Article[]>;
+			addManualArticle: (article: Omit<Article, 'id'>) => Promise<string>;
+			updateArticle: (
+				id: string,
+				updates: Partial<Article>
+			) => Promise<boolean>;
+			deleteArticle: (id: string) => Promise<boolean>;
+			addRssFeed: (feed: Omit<RssFeed, 'id'>) => Promise<string>;
+			getAllRssFeeds: () => Promise<RssFeed[]>;
+			refreshAllRssFeeds: () => Promise<Article[]>;
 		};
 	}
 }

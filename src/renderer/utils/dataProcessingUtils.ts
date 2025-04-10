@@ -210,9 +210,9 @@ export async function fetchAndProcessData(): Promise<{
 		console.log(`Retrieved ${runs.length} runs from database`);
 
 		// Log run types for debugging
-		const pqcRuns = runs.filter((r) => r.runType === 'PQC_Classical');
-		const shorRuns = runs.filter((r) => r.runType === 'Quantum_Shor');
-		const groverRuns = runs.filter((r) => r.runType === 'Quantum_Grover');
+		const pqcRuns = runs.filter((r: Run) => r.runType === 'PQC_Classical');
+		const shorRuns = runs.filter((r: Run) => r.runType === 'Quantum_Shor');
+		const groverRuns = runs.filter((r: Run) => r.runType === 'Quantum_Grover');
 
 		console.log(
 			`Run types: PQC=${pqcRuns.length}, Shor=${shorRuns.length}, Grover=${groverRuns.length}`

@@ -829,27 +829,15 @@ export const QuantumWorkloadRunner: React.FC = () => {
 						}
 						onClick={() => runQuantumWorkload(false)}
 						sx={{
-							backgroundColor: isDarkMode
-								? 'rgba(255, 255, 255, 0.08)'
-								: 'rgba(0, 0, 0, 0.04)',
-							color: isDarkMode
-								? 'rgba(255, 255, 255, 0.85)'
-								: 'rgba(0, 0, 0, 0.75)',
-							borderColor: isDarkMode
-								? 'rgba(255, 255, 255, 0.23)'
-								: 'rgba(0, 0, 0, 0.23)',
-							padding: '10px 24px',
-							fontSize: '0.9rem',
+							borderColor: '#9747FF',
+							color: isDarkMode ? '#FFFFFF' : '#000000',
 							fontWeight: 'bold',
 							textTransform: 'uppercase',
-							borderRadius: '8px',
 							'&:hover': {
-								backgroundColor: isDarkMode
-									? 'rgba(255, 255, 255, 0.12)'
-									: 'rgba(0, 0, 0, 0.08)',
-								borderColor: isDarkMode
-									? 'rgba(255, 255, 255, 0.3)'
-									: 'rgba(0, 0, 0, 0.3)',
+								borderColor: '#8030E0',
+								bgcolor: isDarkMode
+									? 'rgba(151, 71, 255, 0.1)'
+									: 'rgba(151, 71, 255, 0.1)',
 							},
 						}}
 						startIcon={
