@@ -11,6 +11,7 @@ import DarkModeIcon from '@mui/icons-material/DarkMode';
 import { Switch, Divider, ThemeProvider, createTheme } from '@mui/material';
 import CssBaseline from '@mui/material/CssBaseline';
 import '@fontsource/inter';
+import { BackgroundContext } from './pages/HomePage';
 
 // Pages
 import {
@@ -25,6 +26,9 @@ import {
 	ImportPage,
 	SettingsPage,
 } from './pages';
+
+// Components
+import { QuantumLatticeBackground } from './components';
 
 // Create theme based on mode
 const createAppTheme = (mode: 'light' | 'dark') =>
@@ -61,6 +65,7 @@ const App: React.FC = () => {
 	// Start with dark mode by default
 	const [lightMode, setLightMode] = useState(false);
 	const theme = createAppTheme(lightMode ? 'light' : 'dark');
+	const [backgroundIntensity, setBackgroundIntensity] = useState(1);
 
 	// Initialize theme mode
 	useEffect(() => {
@@ -86,91 +91,109 @@ const App: React.FC = () => {
 	return (
 		<ThemeProvider theme={theme}>
 			<CssBaseline />
-			<Router>
-				<div className="min-h-screen bg-background text-foreground relative overflow-hidden">
-					{/* Background circles - only visible in dark mode */}
-					{!lightMode && (
-						<>
-							<div className="bg-circle bg-circle-topleft"></div>
-							<div className="bg-circle bg-circle-bottomright"></div>
-						</>
-					)}
+			<BackgroundContext.Provider
+				value={{ setIntensity: setBackgroundIntensity }}
+			>
+				<Router>
+					<div className="min-h-screen bg-background text-foreground relative overflow-hidden">
+						{/* Quantum Lattice Background */}
+						<QuantumLatticeBackground
+							enabled={!lightMode}
+							intensity={backgroundIntensity}
+						/>
 
-					<div className="container mx-auto p-2 relative z-10">
-						{/* Header */}
-						<header className="mb-4">
-							<div className="flex justify-between items-center">
-								{/* Logo */}
-								<div className="p-2">
-									<img
-										src={
-											lightMode
-												? './keystone_logo_light.svg'
-												: './keystone_logo_dark.svg'
-										}
-										alt="Keystone Logo"
-										className="h-40"
-									/>
+						{/* Background circles - only visible in dark mode */}
+						{!lightMode && (
+							<>
+								<div className="bg-circle bg-circle-topleft"></div>
+								<div className="bg-circle bg-circle-bottomright"></div>
+							</>
+						)}
+
+						<div className="container mx-auto p-2 relative z-10">
+							{/* Header */}
+							<header className="mb-4">
+								<div className="flex justify-between items-center">
+									{/* Logo */}
+									<div className="p-2">
+										<img
+											src={
+												lightMode
+													? './keystone_logo_light.svg'
+													: './keystone_logo_dark.svg'
+											}
+											alt="Keystone Logo"
+											className="h-40"
+										/>
+									</div>
+
+									{/* Dark Mode Toggle */}
+									<div className="flex items-center">
+										<DarkModeIcon
+											className={
+												lightMode ? 'text-[#131313]' : 'text-[#FAFAFA]'
+											}
+										/>
+										<Switch
+											checked={!lightMode}
+											onChange={toggleTheme}
+											color="primary"
+										/>
+									</div>
 								</div>
 
-								{/* Dark Mode Toggle */}
-								<div className="flex items-center">
-									<DarkModeIcon
-										className={lightMode ? 'text-[#131313]' : 'text-[#FAFAFA]'}
+								{/* Introductory Text */}
+								<p
+									className="text-xl mb-2"
+									style={{ color: lightMode ? '#000000' : '#FFFFFF' }}
+								>
+									A Multi-Backend Workbench for Post-Quantum Cryptography &
+									Quantum Runtimes
+								</p>
+							</header>
+
+							{/* Navigation */}
+							<Navigation toggleTheme={toggleTheme} lightMode={lightMode} />
+
+							{/* Main Content */}
+							<main>
+								<Routes>
+									<Route path="/" element={<HomePage />} />
+									<Route path="/home" element={<HomePage />} />
+									<Route path="/run-benchmark" element={<RunBenchmarkPage />} />
+									<Route
+										path="/run-encryption"
+										element={<RunEncryptionPage />}
 									/>
-									<Switch
-										checked={!lightMode}
-										onChange={toggleTheme}
-										color="primary"
+									<Route
+										path="/visualization"
+										element={<VisualizationPage />}
 									/>
-								</div>
-							</div>
+									<Route path="/codex" element={<CodexPage />} />
+									<Route path="/export" element={<ExportPage />} />
+									<Route
+										path="/quantum-workloads"
+										element={<RunQuantumWorkloadsPage />}
+									/>
+									<Route path="/schedule-jobs" element={<ScheduleJobsPage />} />
+									<Route path="/import" element={<ImportPage />} />
+									<Route path="/settings" element={<SettingsPage />} />
+								</Routes>
+							</main>
 
-							{/* Introductory Text */}
-							<p
-								className="text-xl mb-2"
-								style={{ color: lightMode ? '#000000' : '#FFFFFF' }}
-							>
-								A Multi-Backend Workbench for Post-Quantum Cryptography &
-								Quantum Runtimes
-							</p>
-						</header>
-
-						{/* Navigation */}
-						<Navigation toggleTheme={toggleTheme} lightMode={lightMode} />
-
-						{/* Main Content */}
-						<main>
-							<Routes>
-								<Route path="/" element={<HomePage />} />
-								<Route path="/home" element={<HomePage />} />
-								<Route path="/run-benchmark" element={<RunBenchmarkPage />} />
-								<Route path="/run-encryption" element={<RunEncryptionPage />} />
-								<Route path="/visualization" element={<VisualizationPage />} />
-								<Route path="/codex" element={<CodexPage />} />
-								<Route path="/export" element={<ExportPage />} />
-								<Route
-									path="/quantum-workloads"
-									element={<RunQuantumWorkloadsPage />}
-								/>
-								<Route path="/schedule-jobs" element={<ScheduleJobsPage />} />
-								<Route path="/import" element={<ImportPage />} />
-								<Route path="/settings" element={<SettingsPage />} />
-							</Routes>
-						</main>
-
-						{/* Footer */}
-						<footer className="mt-8 text-center text-sm text-gray-500">
-							<p>Keystone - Version 1.0.0</p>
-							<p>
-								Running on Electron<span id="electron-version"></span>, Node
-								<span id="node-version"></span>, and Chromium
-								<span id="chrome-version"></span>
-							</p>
-						</footer>
+							{/* Footer */}
+							<footer className="mt-8 text-center text-sm text-gray-500">
+								<p>Keystone - Version 1.0.0</p>
+								<p>
+									Running on Electron<span id="electron-version"></span>, Node
+									<span id="node-version"></span>, and Chromium
+									<span id="chrome-version"></span>
+								</p>
+							</footer>
+						</div>
 					</div>
-				</div>
-			</Router>
+				</Router>
+			</BackgroundContext.Provider>
 		</ThemeProvider>
 	);
 };

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useContext, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useTheme } from '@mui/material/styles';
 import { Button } from '@mui/material';
@@ -21,12 +21,18 @@ import MenuBookIcon from '@mui/icons-material/MenuBook';
 import { Card } from '../components/ui/card';
 // ^ Adjust path if needed
 
+// Background context for demonstrating intensity changes
+export const BackgroundContext = React.createContext({
+	setIntensity: (value: number) => {},
+});
+
 /**
  * Home Page Component
  */
 export const HomePage: React.FC = () => {
 	const theme = useTheme();
 	const isDarkMode = theme.palette.mode === 'dark';
+	const { setIntensity } = useContext(BackgroundContext);
 
 	// Feature cards data
 	const featureCards = [
@@ -94,6 +100,28 @@ export const HomePage: React.FC = () => {
 			link: '/settings',
 		},
 	];
+
+	// Simulate random intensity changes to demonstrate the background reactivity
+	useEffect(() => {
+		// Only run this demo effect when in dark mode
+		if (!isDarkMode) {
+			setIntensity(1);
+			return;
+		}
+
+		// Periodically change intensity
+		const intensityInterval = setInterval(() => {
+			// Random intensity between 1 and 2.5
+			const newIntensity = 1 + Math.random() * 1.5;
+			setIntensity(newIntensity);
+		}, 5000);
+
+		return () => {
+			clearInterval(intensityInterval);
+			// Reset to default when component unmounts
+			setIntensity(1);
+		};
+	}, [isDarkMode, setIntensity]);
 
 	return (
 		<div className="space-y-4 relative z-10">
