@@ -2,6 +2,9 @@ import React, { useState, useRef, DragEvent } from 'react';
 import { DatasetManager } from '../components';
 import { Alert, Snackbar } from '@mui/material';
 
+// Custom event for dataset refresh
+const DATASET_IMPORTED_EVENT = 'dataset-imported';
+
 /**
  * Import Page Component
  */
@@ -52,10 +55,59 @@ export const ImportPage: React.FC = () => {
 			}
 
 			try {
-				// Use the datasetAPI to import the file from its path
-				const filePath = file.path;
+				// Try different methods to access the file path
+				// 1. Direct path property (works in some Electron environments)
+				let filePath = (file as any).path;
+
+				// 2. Use Electron-specific properties if available
 				if (!filePath) {
-					setImportError('Unable to access file path.');
+					// Try to get file from original event
+					const item = e.dataTransfer.items[0];
+					if (item?.kind === 'file') {
+						const electronFile = item.getAsFile();
+						filePath = (electronFile as any)?.path;
+					}
+				}
+
+				// 3. If we still can't get the path, read the file and save it temporarily
+				if (!filePath) {
+					// Read the file and create a temporary file
+					const reader = new FileReader();
+
+					try {
+						const fileContent = await new Promise<string>((resolve, reject) => {
+							reader.onload = () => resolve(reader.result as string);
+							reader.onerror = reject;
+							reader.readAsText(file);
+						});
+
+						// Save the file content to a temporary location via IPC
+						const tempResult = await window.electron.ipcRenderer.invoke(
+							'save-temp-json',
+							fileContent,
+							file.name
+						);
+
+						if (tempResult && tempResult.success) {
+							filePath = tempResult.path;
+						} else {
+							throw new Error(
+								tempResult.message || 'Failed to create temporary file'
+							);
+						}
+					} catch (readError) {
+						console.error('Error reading file:', readError);
+						setImportError(
+							'Error reading file: ' + (readError as Error).message
+						);
+						return;
+					}
+				}
+
+				if (!filePath) {
+					setImportError(
+						'Unable to access file path. Please try importing through the Import button instead.'
+					);
 					return;
 				}
 
@@ -64,6 +116,11 @@ export const ImportPage: React.FC = () => {
 					setImportError(result.message || 'Failed to import dataset');
 				} else {
 					setSuccessMessage('Dataset imported successfully!');
+
+					// Dispatch a custom event to notify any listeners (like DatasetManager) that a dataset has been imported
+					window.dispatchEvent(
+						new CustomEvent(DATASET_IMPORTED_EVENT, { detail: result })
+					);
 				}
 			} catch (error) {
 				console.error('Error importing dropped file:', error);

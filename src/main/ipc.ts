@@ -1846,6 +1846,41 @@ export function setupExportIPC() {
 		}
 	);
 
+	// Handler to get default export path
+	ipcMain.handle('get-default-export-path', async () => {
+		try {
+			const userDataPath = app.getPath('documents');
+			return path.join(userDataPath, 'PQCBenchmark', 'exports');
+		} catch (error: any) {
+			console.error('[IPC Error] get-default-export-path:', error);
+			return '';
+		}
+	});
+
+	// Handler to select export directory
+	ipcMain.handle('select-export-directory', async () => {
+		try {
+			const { dialog } = electron;
+			const result = await dialog.showOpenDialog({
+				properties: ['openDirectory'],
+				title: 'Select Export Directory',
+				buttonLabel: 'Select Folder',
+			});
+
+			if (result.canceled) {
+				return { success: false };
+			}
+
+			return {
+				success: true,
+				path: result.filePaths[0],
+			};
+		} catch (error: any) {
+			console.error('[IPC Error] select-export-directory:', error);
+			return { success: false, message: error.message };
+		}
+	});
+
 	// Handler to get all runs
 	ipcMain.handle('get-all-runs', async () => {
 		try {

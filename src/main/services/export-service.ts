@@ -8,6 +8,7 @@ interface ExportOptions {
 	format: 'csv' | 'json' | 'pdf';
 	filename: string;
 	data: any;
+	exportPath?: string;
 }
 
 class ExportService {
@@ -20,13 +21,26 @@ class ExportService {
 		message?: string;
 	}> {
 		try {
+			// Determine the initial path for the save dialog
+			let defaultSavePath;
+			if (options.exportPath) {
+				// Use the provided export path if available
+				defaultSavePath = path.join(
+					options.exportPath,
+					`${options.filename}.${options.format}`
+				);
+			} else {
+				// Fall back to documents folder
+				defaultSavePath = path.join(
+					app.getPath('documents'),
+					`${options.filename}.${options.format}`
+				);
+			}
+
 			// Let the user select where to save the file
 			const { filePath, canceled } = await dialog.showSaveDialog({
 				title: `Export Data as ${options.format.toUpperCase()}`,
-				defaultPath: path.join(
-					app.getPath('documents'),
-					`${options.filename}.${options.format}`
-				),
+				defaultPath: defaultSavePath,
 				filters: this.getFileFilters(options.format),
 			});
 

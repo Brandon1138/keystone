@@ -12,6 +12,7 @@ import { Switch, Divider, ThemeProvider, createTheme } from '@mui/material';
 import CssBaseline from '@mui/material/CssBaseline';
 import '@fontsource/inter';
 import { BackgroundContext } from './pages/HomePage';
+import { gsap } from 'gsap';
 
 // Pages
 import {
@@ -60,6 +61,72 @@ const createAppTheme = (mode: 'light' | 'dark') =>
 			},
 		},
 	});
+
+// PageTransition Component
+const PageTransition = ({ children }: { children: React.ReactNode }) => {
+	const location = useLocation();
+	const containerRef = React.useRef<HTMLDivElement>(null);
+	const [isTransitioning, setIsTransitioning] = useState(false);
+
+	useEffect(() => {
+		if (!containerRef.current) return;
+
+		setIsTransitioning(true);
+
+		// Create a timeline with staggered effects that match the quantum theme
+		const timeline = gsap.timeline({
+			onComplete: () => setIsTransitioning(false),
+			immediateRender: true,
+			defaults: { overwrite: 'auto' },
+		});
+
+		// First fade out the current page with a slight blur and scale effect
+		timeline.to(containerRef.current, {
+			opacity: 0,
+			scale: 0.98,
+			filter: 'blur(5px)',
+			duration: 0.25,
+			ease: 'power3.out',
+		});
+
+		// Then bring in the new page with a subtle quantum-like effect
+		timeline.fromTo(
+			containerRef.current,
+			{
+				opacity: 0,
+				scale: 1.02,
+				filter: 'blur(5px)',
+				y: -10,
+			},
+			{
+				opacity: 1,
+				scale: 1,
+				filter: 'blur(0px)',
+				y: 0,
+				duration: 0.45,
+				ease: 'power2.inOut',
+				clearProps: 'all',
+			}
+		);
+
+		return () => {
+			// Clean up animation if component unmounts during transition
+			timeline.kill();
+		};
+	}, [location.pathname]);
+
+	return (
+		<div
+			ref={containerRef}
+			className={`transition-container ${
+				isTransitioning ? 'is-transitioning' : ''
+			}`}
+			style={{ willChange: 'opacity, transform' }}
+		>
+			{children}
+		</div>
+	);
+};
 
 const App: React.FC = () => {
 	// Start with dark mode by default
@@ -157,28 +224,36 @@ const App: React.FC = () => {
 
 							{/* Main Content */}
 							<main>
-								<Routes>
-									<Route path="/" element={<HomePage />} />
-									<Route path="/home" element={<HomePage />} />
-									<Route path="/run-benchmark" element={<RunBenchmarkPage />} />
-									<Route
-										path="/run-encryption"
-										element={<RunEncryptionPage />}
-									/>
-									<Route
-										path="/visualization"
-										element={<VisualizationPage />}
-									/>
-									<Route path="/codex" element={<CodexPage />} />
-									<Route path="/export" element={<ExportPage />} />
-									<Route
-										path="/quantum-workloads"
-										element={<RunQuantumWorkloadsPage />}
-									/>
-									<Route path="/schedule-jobs" element={<ScheduleJobsPage />} />
-									<Route path="/import" element={<ImportPage />} />
-									<Route path="/settings" element={<SettingsPage />} />
-								</Routes>
+								<PageTransition>
+									<Routes>
+										<Route path="/" element={<HomePage />} />
+										<Route path="/home" element={<HomePage />} />
+										<Route
+											path="/run-benchmark"
+											element={<RunBenchmarkPage />}
+										/>
+										<Route
+											path="/run-encryption"
+											element={<RunEncryptionPage />}
+										/>
+										<Route
+											path="/visualization"
+											element={<VisualizationPage />}
+										/>
+										<Route path="/codex" element={<CodexPage />} />
+										<Route path="/export" element={<ExportPage />} />
+										<Route
+											path="/quantum-workloads"
+											element={<RunQuantumWorkloadsPage />}
+										/>
+										<Route
+											path="/schedule-jobs"
+											element={<ScheduleJobsPage />}
+										/>
+										<Route path="/import" element={<ImportPage />} />
+										<Route path="/settings" element={<SettingsPage />} />
+									</Routes>
+								</PageTransition>
 							</main>
 
 							{/* Footer */}

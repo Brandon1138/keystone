@@ -87,6 +87,11 @@ interface Window {
 					message: string;
 			  }
 		>;
+		removeDatasetFromHistory?: (datasetPath: string) => Promise<{
+			success: boolean;
+			message?: string;
+			newCurrentPath?: string;
+		}>;
 	};
 
 	// Existing APIs

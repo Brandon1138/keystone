@@ -768,7 +768,7 @@ export const VisualizationPage: React.FC = () => {
 								borderRadius: '8px',
 							}}
 						>
-							Operations Per Second
+							Operations/Sec
 						</Button>
 						<Button
 							variant={activeChart === 'trend' ? 'contained' : 'outlined'}
@@ -795,7 +795,7 @@ export const VisualizationPage: React.FC = () => {
 								borderRadius: '8px',
 							}}
 						>
-							Peak Memory Usage
+							Memory Usage
 						</Button>
 						<Button
 							variant={activeChart === 'compare' ? 'contained' : 'outlined'}
@@ -822,305 +822,382 @@ export const VisualizationPage: React.FC = () => {
 								borderRadius: '8px',
 							}}
 						>
-							Comparison View
+							Compare
 						</Button>
 					</Box>
 				</Card>
 
-				{/* Visualization Area */}
-				<div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-					{/* Main Chart with refs */}
-					<Card
-						className={`p-6 rounded-xl shadow-md col-span-3 ${
-							isDarkMode ? 'bg-[#212121]' : 'bg-[#E9E9E9]'
-						}`}
-						ref={chartContainerRef}
-					>
-						<Typography
-							variant="h6"
-							gutterBottom
-							className="mb-4"
-							style={{ color: isDarkMode ? '#FFFFFF' : '#000000' }}
+				{/* Main Chart with refs */}
+				<Card
+					className={`p-6 rounded-xl shadow-md col-span-3 ${
+						isDarkMode ? 'bg-[#212121]' : 'bg-[#E9E9E9]'
+					}`}
+					ref={chartContainerRef}
+				>
+					{/* Add loading overlay using the custom CSS class */}
+					{loading && (
+						<div
+							className={`visualization-loading-overlay ${
+								isDarkMode ? 'dark' : 'light'
+							}`}
 						>
-							{activeChart === 'performance' && 'Average Time'}
-							{activeChart === 'bar' && 'Operations Per Second'}
-							{activeChart === 'trend' && 'Peak Memory Usage'}
-							{activeChart === 'compare' && 'Algorithm Comparison View'}
-						</Typography>
+							<div className="text-center">
+								<CircularProgress
+									size={60}
+									sx={{
+										color: '#9747FF',
+										marginBottom: '16px',
+									}}
+								/>
+								<Typography variant="h6" color={isDarkMode ? 'white' : 'black'}>
+									Loading visualization data...
+								</Typography>
+							</div>
+						</div>
+					)}
 
-						{/* Render appropriate visualization based on dataSource and activeChart */}
-						{dataSource === 'benchmarks' ? (
-							<>
-								{activeChart === 'performance' && (
-									<PerformanceChart
-										data={filteredBenchmarkData}
-										metricType="avg_ms"
-										loading={loading}
-										title="Average Time"
-										// Pass saved selections
-										selectedOperations={selectedOperations}
-										selectedAlgorithms={selectedAlgorithmFilters}
-										sortOrder={currentSortOrder}
-										// Pass callbacks to update parent state
-										onOperationsChange={handleOperationsChange}
-										onAlgorithmsChange={handleAlgorithmFiltersChange}
-										onSortOrderChange={handleSortOrderChange}
-										chartRef={perfChartRef}
-									/>
-								)}
-								{activeChart === 'bar' && (
-									<PerformanceChart
-										data={filteredBenchmarkData}
-										metricType="ops_per_sec"
-										title="Operations Per Second"
-										loading={loading}
-										// Pass saved selections
-										selectedOperations={selectedOperations}
-										selectedAlgorithms={selectedAlgorithmFilters}
-										sortOrder={currentSortOrder}
-										// Pass callbacks to update parent state
-										onOperationsChange={handleOperationsChange}
-										onAlgorithmsChange={handleAlgorithmFiltersChange}
-										onSortOrderChange={handleSortOrderChange}
-										chartRef={perfChartRef}
-									/>
-								)}
-								{activeChart === 'trend' && (
-									<PerformanceChart
-										data={filteredBenchmarkData}
-										metricType="mem_peak_kb"
-										title="Peak Memory Usage"
-										loading={loading}
-										// Pass saved selections
-										selectedOperations={selectedOperations}
-										selectedAlgorithms={selectedAlgorithmFilters}
-										sortOrder={currentSortOrder}
-										// Pass callbacks to update parent state
-										onOperationsChange={handleOperationsChange}
-										onAlgorithmsChange={handleAlgorithmFiltersChange}
-										onSortOrderChange={handleSortOrderChange}
-										chartRef={perfChartRef}
-									/>
-								)}
-								{activeChart === 'compare' && (
-									<AlgorithmComparisonView
-										data={filteredBenchmarkData}
-										title="Algorithm Comparison"
-										loading={loading}
-										chartRef={perfChartRef}
-									/>
-								)}
-							</>
-						) : dataSource === 'quantum' ? (
-							<>
-								{activeChart === 'performance' && (
-									<QuantumResultsChart
-										data={filteredQuantumData}
-										chartType="bars"
-										metricType={currentMetricType}
-										loading={loading}
-										sortOrder={currentSortOrder}
-										onSortOrderChange={handleSortOrderChange}
-										onMetricTypeChange={handleMetricTypeChange}
-										chartRef={quantumChartRef}
-									/>
-								)}
-								{activeChart === 'bar' && (
-									<QuantumResultsChart
-										data={filteredQuantumData}
-										chartType="bars"
-										metricType={currentMetricType}
-										title="Circuit Depth Comparison"
-										loading={loading}
-										sortOrder={currentSortOrder}
-										onSortOrderChange={handleSortOrderChange}
-										onMetricTypeChange={handleMetricTypeChange}
-										chartRef={quantumChartRef}
-									/>
-								)}
-								{activeChart === 'trend' && (
-									<QuantumResultsChart
-										data={filteredQuantumData}
-										chartType="histogram"
-										title="Quantum Measurement Distribution"
-										loading={loading}
-										sortOrder={currentSortOrder}
-										onSortOrderChange={handleSortOrderChange}
-										onMetricTypeChange={handleMetricTypeChange}
-										metricType={currentMetricType}
-										chartRef={quantumChartRef}
-									/>
-								)}
-								{activeChart === 'compare' && (
-									<QuantumResultsChart
-										data={filteredQuantumData}
-										chartType="scatter"
-										title="Execution Time vs Circuit Complexity"
-										loading={loading}
-										sortOrder={currentSortOrder}
-										onSortOrderChange={handleSortOrderChange}
-										onMetricTypeChange={handleMetricTypeChange}
-										metricType={currentMetricType}
-										chartRef={quantumChartRef}
-									/>
-								)}
-							</>
-						) : (
-							// Placeholder for encryption data (not implemented yet)
-							<div
-								className="border border-gray-300 dark:border-gray-700 rounded-lg p-4 h-96 flex items-center justify-center"
-								style={{ backgroundColor: isDarkMode ? '#1a1a1a' : '#f0f0f0' }}
-							>
-								<div className="text-center">
-									<svg
-										xmlns="http://www.w3.org/2000/svg"
-										className="h-24 w-24 mx-auto"
-										fill="none"
-										viewBox="0 0 24 24"
-										stroke={
-											isDarkMode
-												? 'rgba(255, 255, 255, 0.5)'
-												: 'rgba(0, 0, 0, 0.5)'
-										}
-									>
-										<path
-											strokeLinecap="round"
-											strokeLinejoin="round"
-											strokeWidth="1"
-											d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+					<Typography
+						variant="h6"
+						gutterBottom
+						className="mb-4"
+						style={{ color: isDarkMode ? '#FFFFFF' : '#000000' }}
+					>
+						{dataSource === 'benchmarks'
+							? activeChart === 'performance'
+								? 'Average Time'
+								: activeChart === 'bar'
+								? 'Operations Per Second'
+								: activeChart === 'trend'
+								? 'Peak Memory Usage'
+								: activeChart === 'compare'
+								? 'Algorithm Comparison'
+								: ''
+							: dataSource === 'quantum'
+							? activeChart === 'performance'
+								? 'Quantum Results'
+								: activeChart === 'bar'
+								? 'Circuit Depth Comparison'
+								: activeChart === 'trend'
+								? 'Quantum Measurement Distribution'
+								: activeChart === 'compare'
+								? 'Execution Time vs Circuit Complexity'
+								: ''
+							: 'Encryption Performance'}
+					</Typography>
+
+					{hasData ? (
+						<>
+							{dataSource === 'benchmarks' ? (
+								<>
+									{activeChart === 'performance' && (
+										<PerformanceChart
+											data={filteredBenchmarkData}
+											metricType="avg_ms"
+											loading={loading}
+											title="Average Time"
+											// Pass saved selections
+											selectedOperations={selectedOperations}
+											selectedAlgorithms={selectedAlgorithmFilters}
+											sortOrder={currentSortOrder}
+											// Pass callbacks to update parent state
+											onOperationsChange={handleOperationsChange}
+											onAlgorithmsChange={handleAlgorithmFiltersChange}
+											onSortOrderChange={handleSortOrderChange}
+											chartRef={perfChartRef}
 										/>
-									</svg>
+									)}
+									{activeChart === 'bar' && (
+										<PerformanceChart
+											data={filteredBenchmarkData}
+											metricType="ops_per_sec"
+											title="Operations Per Second"
+											loading={loading}
+											// Pass saved selections
+											selectedOperations={selectedOperations}
+											selectedAlgorithms={selectedAlgorithmFilters}
+											sortOrder={currentSortOrder}
+											// Pass callbacks to update parent state
+											onOperationsChange={handleOperationsChange}
+											onAlgorithmsChange={handleAlgorithmFiltersChange}
+											onSortOrderChange={handleSortOrderChange}
+											chartRef={perfChartRef}
+										/>
+									)}
+									{activeChart === 'trend' && (
+										<PerformanceChart
+											data={filteredBenchmarkData}
+											metricType="mem_peak_kb"
+											title="Peak Memory Usage"
+											loading={loading}
+											// Pass saved selections
+											selectedOperations={selectedOperations}
+											selectedAlgorithms={selectedAlgorithmFilters}
+											sortOrder={currentSortOrder}
+											// Pass callbacks to update parent state
+											onOperationsChange={handleOperationsChange}
+											onAlgorithmsChange={handleAlgorithmFiltersChange}
+											onSortOrderChange={handleSortOrderChange}
+											chartRef={perfChartRef}
+										/>
+									)}
+									{activeChart === 'compare' && (
+										<AlgorithmComparisonView
+											data={filteredBenchmarkData}
+											title="Algorithm Comparison"
+											loading={loading}
+											chartRef={perfChartRef}
+										/>
+									)}
+								</>
+							) : dataSource === 'quantum' ? (
+								<>
+									{activeChart === 'performance' && (
+										<QuantumResultsChart
+											data={filteredQuantumData}
+											chartType="bars"
+											metricType={currentMetricType}
+											loading={loading}
+											sortOrder={currentSortOrder}
+											onSortOrderChange={handleSortOrderChange}
+											onMetricTypeChange={handleMetricTypeChange}
+											chartRef={quantumChartRef}
+										/>
+									)}
+									{activeChart === 'bar' && (
+										<QuantumResultsChart
+											data={filteredQuantumData}
+											chartType="bars"
+											metricType={currentMetricType}
+											title="Circuit Depth Comparison"
+											loading={loading}
+											sortOrder={currentSortOrder}
+											onSortOrderChange={handleSortOrderChange}
+											onMetricTypeChange={handleMetricTypeChange}
+											chartRef={quantumChartRef}
+										/>
+									)}
+									{activeChart === 'trend' && (
+										<QuantumResultsChart
+											data={filteredQuantumData}
+											chartType="histogram"
+											title="Quantum Measurement Distribution"
+											loading={loading}
+											sortOrder={currentSortOrder}
+											onSortOrderChange={handleSortOrderChange}
+											onMetricTypeChange={handleMetricTypeChange}
+											metricType={currentMetricType}
+											chartRef={quantumChartRef}
+										/>
+									)}
+									{activeChart === 'compare' && (
+										<QuantumResultsChart
+											data={filteredQuantumData}
+											chartType="scatter"
+											title="Execution Time vs Circuit Complexity"
+											loading={loading}
+											sortOrder={currentSortOrder}
+											onSortOrderChange={handleSortOrderChange}
+											onMetricTypeChange={handleMetricTypeChange}
+											metricType={currentMetricType}
+											chartRef={quantumChartRef}
+										/>
+									)}
+								</>
+							) : (
+								// Placeholder for encryption data (not implemented yet)
+								<div
+									className="border border-gray-300 dark:border-gray-700 rounded-lg p-4 h-96 flex items-center justify-center"
+									style={{
+										backgroundColor: isDarkMode ? '#1a1a1a' : '#f0f0f0',
+									}}
+								>
+									<div className="text-center">
+										<svg
+											xmlns="http://www.w3.org/2000/svg"
+											className="h-24 w-24 mx-auto"
+											fill="none"
+											viewBox="0 0 24 24"
+											stroke={
+												isDarkMode
+													? 'rgba(255, 255, 255, 0.5)'
+													: 'rgba(0, 0, 0, 0.5)'
+											}
+										>
+											<path
+												strokeLinecap="round"
+												strokeLinejoin="round"
+												strokeWidth="1"
+												d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+											/>
+										</svg>
+										<Typography
+											variant="h6"
+											style={{
+												marginTop: '16px',
+												color: isDarkMode
+													? 'rgba(255, 255, 255, 0.7)'
+													: 'rgba(0, 0, 0, 0.7)',
+											}}
+										>
+											Run encryption demos to view visualization data
+										</Typography>
+									</div>
+								</div>
+							)}
+						</>
+					) : (
+						// Placeholders for encryption data
+						<Card
+							className={`p-6 rounded-xl shadow-md ${
+								isDarkMode ? 'bg-[#212121]' : 'bg-[#E9E9E9]'
+							}`}
+						>
+							<div>
+								<Typography
+									variant="h6"
+									gutterBottom
+									className="mb-4"
+									style={{ color: isDarkMode ? '#FFFFFF' : '#000000' }}
+								>
+									Encryption Performance
+								</Typography>
+								<div
+									className="border border-gray-300 dark:border-gray-700 rounded-lg p-4 h-64 flex items-center justify-center"
+									style={{
+										backgroundColor: isDarkMode ? '#1a1a1a' : '#f0f0f0',
+									}}
+								>
 									<Typography
-										variant="h6"
 										style={{
-											marginTop: '16px',
 											color: isDarkMode
 												? 'rgba(255, 255, 255, 0.7)'
 												: 'rgba(0, 0, 0, 0.7)',
 										}}
 									>
-										Run encryption demos to view visualization data
+										Encryption statistics will appear here
 									</Typography>
 								</div>
 							</div>
-						)}
-					</Card>
+						</Card>
+					)}
+				</Card>
 
-					{/* Statistics Cards */}
-					{dataSource === 'benchmarks' ? (
-						<>
-							{/* Show comparison cards only when "All Algorithms" is selected AND view is "Comparison View" */}
-							{selectedAlgorithm === 'all' && activeChart === 'compare' ? (
-								<>
+				{/* Statistics Cards */}
+				{dataSource === 'benchmarks' ? (
+					<>
+						{/* Show comparison cards only when "All Algorithms" is selected AND view is "Comparison View" */}
+						{selectedAlgorithm === 'all' && activeChart === 'compare' ? (
+							<div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+								<Card
+									className={`p-6 rounded-xl shadow-md ${
+										isDarkMode ? 'bg-[#212121]' : 'bg-[#E9E9E9]'
+									}`}
+								>
+									<AlgorithmComparisonCard
+										data={filteredBenchmarkData}
+										title="Performance Comparison"
+										titleIcon="Speed"
+										loading={loading}
+										comparisonType="performance"
+									/>
+								</Card>
+
+								<Card
+									className={`p-6 rounded-xl shadow-md ${
+										isDarkMode ? 'bg-[#212121]' : 'bg-[#E9E9E9]'
+									}`}
+								>
+									<AlgorithmComparisonCard
+										data={filteredBenchmarkData}
+										title="Memory Comparison"
+										titleIcon="Memory"
+										loading={loading}
+										comparisonType="memory"
+									/>
+								</Card>
+
+								<Card
+									className={`p-6 rounded-xl shadow-md ${
+										isDarkMode ? 'bg-[#212121]' : 'bg-[#E9E9E9]'
+									}`}
+								>
+									<AlgorithmComparisonCard
+										data={filteredBenchmarkData}
+										title="Size Comparison"
+										titleIcon="Storage"
+										loading={loading}
+										comparisonType="size"
+									/>
+								</Card>
+							</div>
+						) : (
+							<>
+								{/* Show BenchmarkDataTable for Average Time, Operations/Sec, and Memory Usage views */}
+								{activeChart === 'performance' ||
+								activeChart === 'bar' ||
+								activeChart === 'trend' ? (
 									<Card
-										className={`p-6 rounded-xl shadow-md ${
+										className={`p-6 rounded-xl shadow-md col-span-3 ${
 											isDarkMode ? 'bg-[#212121]' : 'bg-[#E9E9E9]'
 										}`}
 									>
-										<AlgorithmComparisonCard
+										<BenchmarkDataTable
 											data={filteredBenchmarkData}
-											title="Performance Comparison"
-											titleIcon="Speed"
+											metric={
+												activeChart === 'performance'
+													? 'avg_ms'
+													: activeChart === 'bar'
+													? 'ops_per_sec'
+													: 'mem_peak_kb'
+											}
 											loading={loading}
-											comparisonType="performance"
+											height={450}
 										/>
 									</Card>
+								) : (
+									<>
+										{/* AES has only two cards that should appear side by side */}
+										{selectedAlgorithm?.toLowerCase().includes('aes') ? (
+											// Special 2-column grid layout just for AES cards
+											<div className="grid grid-cols-1 md:grid-cols-2 gap-5 col-span-3">
+												{/* AES Encryption Card */}
+												<Card
+													className={`p-6 rounded-xl shadow-md ${
+														isDarkMode ? 'bg-[#212121]' : 'bg-[#E9E9E9]'
+													}`}
+												>
+													<StatisticsCard
+														data={filteredBenchmarkData}
+														title="Encryption Performance"
+														titleIcon="LockOpen"
+														algorithm={selectedAlgorithm}
+														loading={loading}
+														metricType="performance"
+														operation="encryption"
+													/>
+												</Card>
 
-									<Card
-										className={`p-6 rounded-xl shadow-md ${
-											isDarkMode ? 'bg-[#212121]' : 'bg-[#E9E9E9]'
-										}`}
-									>
-										<AlgorithmComparisonCard
-											data={filteredBenchmarkData}
-											title="Memory Comparison"
-											titleIcon="Memory"
-											loading={loading}
-											comparisonType="memory"
-										/>
-									</Card>
-
-									<Card
-										className={`p-6 rounded-xl shadow-md ${
-											isDarkMode ? 'bg-[#212121]' : 'bg-[#E9E9E9]'
-										}`}
-									>
-										<AlgorithmComparisonCard
-											data={filteredBenchmarkData}
-											title="Size Comparison"
-											titleIcon="Storage"
-											loading={loading}
-											comparisonType="size"
-										/>
-									</Card>
-								</>
-							) : (
-								<>
-									{/* Show BenchmarkDataTable for Average Time, Operations/Sec, and Memory Usage views */}
-									{activeChart === 'performance' ||
-									activeChart === 'bar' ||
-									activeChart === 'trend' ? (
-										<Card
-											className={`p-6 rounded-xl shadow-md col-span-3 ${
-												isDarkMode ? 'bg-[#212121]' : 'bg-[#E9E9E9]'
-											}`}
-										>
-											<BenchmarkDataTable
-												data={filteredBenchmarkData}
-												metric={
-													activeChart === 'performance'
-														? 'avg_ms'
-														: activeChart === 'bar'
-														? 'ops_per_sec'
-														: 'mem_peak_kb'
-												}
-												loading={loading}
-												height={450}
-											/>
-										</Card>
-									) : (
-										<>
-											{/* AES has only two cards that should appear side by side */}
-											{selectedAlgorithm?.toLowerCase().includes('aes') ? (
-												// Special 2-column grid layout just for AES cards
-												<div className="grid grid-cols-1 md:grid-cols-2 gap-5 col-span-3">
-													{/* AES Encryption Card */}
-													<Card
-														className={`p-6 rounded-xl shadow-md ${
-															isDarkMode ? 'bg-[#212121]' : 'bg-[#E9E9E9]'
-														}`}
-													>
-														<StatisticsCard
-															data={filteredBenchmarkData}
-															title="Encryption Performance"
-															titleIcon="LockOpen"
-															algorithm={selectedAlgorithm}
-															loading={loading}
-															metricType="performance"
-															operation="encryption"
-														/>
-													</Card>
-
-													{/* AES Decryption Card */}
-													<Card
-														className={`p-6 rounded-xl shadow-md ${
-															isDarkMode ? 'bg-[#212121]' : 'bg-[#E9E9E9]'
-														}`}
-													>
-														<StatisticsCard
-															data={filteredBenchmarkData}
-															title="Decryption Performance"
-															titleIcon="Lock"
-															algorithm={selectedAlgorithm}
-															loading={loading}
-															metricType="performance"
-															operation="decryption"
-														/>
-													</Card>
-												</div>
-											) : (
-												<>
-													{/* Standard 3-card layout for all other algorithms */}
+												{/* AES Decryption Card */}
+												<Card
+													className={`p-6 rounded-xl shadow-md ${
+														isDarkMode ? 'bg-[#212121]' : 'bg-[#E9E9E9]'
+													}`}
+												>
+													<StatisticsCard
+														data={filteredBenchmarkData}
+														title="Decryption Performance"
+														titleIcon="Lock"
+														algorithm={selectedAlgorithm}
+														loading={loading}
+														metricType="performance"
+														operation="decryption"
+													/>
+												</Card>
+											</div>
+										) : (
+											<>
+												{/* Standard 3-card layout for all other algorithms */}
+												<div className="grid grid-cols-1 md:grid-cols-3 gap-5">
 													<Card
 														className={`p-6 rounded-xl shadow-md ${
 															isDarkMode ? 'bg-[#212121]' : 'bg-[#E9E9E9]'
@@ -1342,170 +1419,170 @@ export const VisualizationPage: React.FC = () => {
 															}
 														/>
 													</Card>
-												</>
-											)}
-										</>
-									)}
-								</>
-							)}
-						</>
-					) : dataSource === 'quantum' ? (
-						<>
-							<Card
-								className={`p-6 rounded-xl shadow-md ${
-									isDarkMode ? 'bg-[#212121]' : 'bg-[#E9E9E9]'
-								}`}
-							>
-								<QuantumStatsCard
-									data={filteredQuantumData}
-									title="Success Rate Analysis"
-									titleIcon="CheckCircle"
-									algorithm={
-										selectedAlgorithm !== 'all' ? selectedAlgorithm : undefined
-									}
-									loading={loading}
-									metricType="success"
-								/>
-							</Card>
+												</div>
+											</>
+										)}
+									</>
+								)}
+							</>
+						)}
+					</>
+				) : dataSource === 'quantum' ? (
+					<div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+						<Card
+							className={`p-6 rounded-xl shadow-md ${
+								isDarkMode ? 'bg-[#212121]' : 'bg-[#E9E9E9]'
+							}`}
+						>
+							<QuantumStatsCard
+								data={filteredQuantumData}
+								title="Success Rate Analysis"
+								titleIcon="CheckCircle"
+								algorithm={
+									selectedAlgorithm !== 'all' ? selectedAlgorithm : undefined
+								}
+								loading={loading}
+								metricType="success"
+							/>
+						</Card>
 
-							<Card
-								className={`p-6 rounded-xl shadow-md ${
-									isDarkMode ? 'bg-[#212121]' : 'bg-[#E9E9E9]'
-								}`}
-							>
-								<QuantumStatsCard
-									data={filteredQuantumData}
-									title="Circuit Metrics"
-									titleIcon="Memory"
-									algorithm={
-										selectedAlgorithm !== 'all' ? selectedAlgorithm : undefined
-									}
-									loading={loading}
-									metricType="circuit"
-								/>
-							</Card>
+						<Card
+							className={`p-6 rounded-xl shadow-md ${
+								isDarkMode ? 'bg-[#212121]' : 'bg-[#E9E9E9]'
+							}`}
+						>
+							<QuantumStatsCard
+								data={filteredQuantumData}
+								title="Circuit Metrics"
+								titleIcon="Memory"
+								algorithm={
+									selectedAlgorithm !== 'all' ? selectedAlgorithm : undefined
+								}
+								loading={loading}
+								metricType="circuit"
+							/>
+						</Card>
 
-							<Card
-								className={`p-6 rounded-xl shadow-md ${
-									isDarkMode ? 'bg-[#212121]' : 'bg-[#E9E9E9]'
-								}`}
-							>
-								<QuantumStatsCard
-									data={filteredQuantumData}
-									title="Runtime Analysis"
-									titleIcon="Timer"
-									algorithm={
-										selectedAlgorithm !== 'all' ? selectedAlgorithm : undefined
-									}
-									loading={loading}
-									metricType="runtime"
-								/>
-							</Card>
-						</>
-					) : (
-						<>
-							{/* Placeholders for encryption data */}
-							<Card
-								className={`p-6 rounded-xl shadow-md ${
-									isDarkMode ? 'bg-[#212121]' : 'bg-[#E9E9E9]'
-								}`}
-							>
-								<div>
+						<Card
+							className={`p-6 rounded-xl shadow-md ${
+								isDarkMode ? 'bg-[#212121]' : 'bg-[#E9E9E9]'
+							}`}
+						>
+							<QuantumStatsCard
+								data={filteredQuantumData}
+								title="Runtime Analysis"
+								titleIcon="Timer"
+								algorithm={
+									selectedAlgorithm !== 'all' ? selectedAlgorithm : undefined
+								}
+								loading={loading}
+								metricType="runtime"
+							/>
+						</Card>
+					</div>
+				) : (
+					<div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+						{/* Placeholders for encryption data */}
+						<Card
+							className={`p-6 rounded-xl shadow-md ${
+								isDarkMode ? 'bg-[#212121]' : 'bg-[#E9E9E9]'
+							}`}
+						>
+							<div>
+								<Typography
+									variant="h6"
+									gutterBottom
+									className="mb-4"
+									style={{ color: isDarkMode ? '#FFFFFF' : '#000000' }}
+								>
+									Encryption Performance
+								</Typography>
+								<div
+									className="border border-gray-300 dark:border-gray-700 rounded-lg p-4 h-64 flex items-center justify-center"
+									style={{
+										backgroundColor: isDarkMode ? '#1a1a1a' : '#f0f0f0',
+									}}
+								>
 									<Typography
-										variant="h6"
-										gutterBottom
-										className="mb-4"
-										style={{ color: isDarkMode ? '#FFFFFF' : '#000000' }}
-									>
-										Encryption Performance
-									</Typography>
-									<div
-										className="border border-gray-300 dark:border-gray-700 rounded-lg p-4 h-64 flex items-center justify-center"
 										style={{
-											backgroundColor: isDarkMode ? '#1a1a1a' : '#f0f0f0',
+											color: isDarkMode
+												? 'rgba(255, 255, 255, 0.7)'
+												: 'rgba(0, 0, 0, 0.7)',
 										}}
 									>
-										<Typography
-											style={{
-												color: isDarkMode
-													? 'rgba(255, 255, 255, 0.7)'
-													: 'rgba(0, 0, 0, 0.7)',
-											}}
-										>
-											Encryption statistics will appear here
-										</Typography>
-									</div>
-								</div>
-							</Card>
-
-							<Card
-								className={`p-6 rounded-xl shadow-md ${
-									isDarkMode ? 'bg-[#212121]' : 'bg-[#E9E9E9]'
-								}`}
-							>
-								<div>
-									<Typography
-										variant="h6"
-										gutterBottom
-										className="mb-4"
-										style={{ color: isDarkMode ? '#FFFFFF' : '#000000' }}
-									>
-										Key Metrics
+										Encryption statistics will appear here
 									</Typography>
-									<div
-										className="border border-gray-300 dark:border-gray-700 rounded-lg p-4 h-64 flex items-center justify-center"
+								</div>
+							</div>
+						</Card>
+
+						<Card
+							className={`p-6 rounded-xl shadow-md ${
+								isDarkMode ? 'bg-[#212121]' : 'bg-[#E9E9E9]'
+							}`}
+						>
+							<div>
+								<Typography
+									variant="h6"
+									gutterBottom
+									className="mb-4"
+									style={{ color: isDarkMode ? '#FFFFFF' : '#000000' }}
+								>
+									Key Metrics
+								</Typography>
+								<div
+									className="border border-gray-300 dark:border-gray-700 rounded-lg p-4 h-64 flex items-center justify-center"
+									style={{
+										backgroundColor: isDarkMode ? '#1a1a1a' : '#f0f0f0',
+									}}
+								>
+									<Typography
 										style={{
-											backgroundColor: isDarkMode ? '#1a1a1a' : '#f0f0f0',
+											color: isDarkMode
+												? 'rgba(255, 255, 255, 0.7)'
+												: 'rgba(0, 0, 0, 0.7)',
 										}}
 									>
-										<Typography
-											style={{
-												color: isDarkMode
-													? 'rgba(255, 255, 255, 0.7)'
-													: 'rgba(0, 0, 0, 0.7)',
-											}}
-										>
-											Key metrics will appear here
-										</Typography>
-									</div>
-								</div>
-							</Card>
-
-							<Card
-								className={`p-6 rounded-xl shadow-md ${
-									isDarkMode ? 'bg-[#212121]' : 'bg-[#E9E9E9]'
-								}`}
-							>
-								<div>
-									<Typography
-										variant="h6"
-										gutterBottom
-										className="mb-4"
-										style={{ color: isDarkMode ? '#FFFFFF' : '#000000' }}
-									>
-										Security Analysis
+										Key metrics will appear here
 									</Typography>
-									<div
-										className="border border-gray-300 dark:border-gray-700 rounded-lg p-4 h-64 flex items-center justify-center"
+								</div>
+							</div>
+						</Card>
+
+						<Card
+							className={`p-6 rounded-xl shadow-md ${
+								isDarkMode ? 'bg-[#212121]' : 'bg-[#E9E9E9]'
+							}`}
+						>
+							<div>
+								<Typography
+									variant="h6"
+									gutterBottom
+									className="mb-4"
+									style={{ color: isDarkMode ? '#FFFFFF' : '#000000' }}
+								>
+									Security Analysis
+								</Typography>
+								<div
+									className="border border-gray-300 dark:border-gray-700 rounded-lg p-4 h-64 flex items-center justify-center"
+									style={{
+										backgroundColor: isDarkMode ? '#1a1a1a' : '#f0f0f0',
+									}}
+								>
+									<Typography
 										style={{
-											backgroundColor: isDarkMode ? '#1a1a1a' : '#f0f0f0',
+											color: isDarkMode
+												? 'rgba(255, 255, 255, 0.7)'
+												: 'rgba(0, 0, 0, 0.7)',
 										}}
 									>
-										<Typography
-											style={{
-												color: isDarkMode
-													? 'rgba(255, 255, 255, 0.7)'
-													: 'rgba(0, 0, 0, 0.7)',
-											}}
-										>
-											Security analysis will appear here
-										</Typography>
-									</div>
+										Security analysis will appear here
+									</Typography>
 								</div>
-							</Card>
-						</>
-					)}
-				</div>
+							</div>
+						</Card>
+					</div>
+				)}
 			</div>
 		</div>
 	);

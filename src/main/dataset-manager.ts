@@ -448,4 +448,91 @@ export function initDatasetManager() {
 			};
 		}
 	});
+
+	// Handler to remove a dataset from history
+	ipcMain.handle('remove-dataset-from-history', async (_, datasetPath) => {
+		try {
+			// Remove the dataset from history
+			datasetHistory = datasetHistory.filter(
+				(dataset) => dataset.path !== datasetPath
+			);
+
+			// Save updated history
+			saveSettings();
+
+			// If we removed the current dataset, switch to the first available one or use default
+			if (datasetPath === currentDatasetPath) {
+				// Find the first dataset in history that exists
+				const firstValidDataset = datasetHistory.find((dataset) =>
+					fs.existsSync(dataset.path)
+				);
+
+				if (firstValidDataset) {
+					// Switch to this dataset
+					currentDatasetPath = firstValidDataset.path;
+					await lowdbService.switchDatabase(currentDatasetPath);
+
+					// Update the lastUsed flags
+					datasetHistory = datasetHistory.map((dataset) => ({
+						...dataset,
+						lastUsed: dataset.path === currentDatasetPath,
+					}));
+					saveSettings();
+
+					return {
+						success: true,
+						newCurrentPath: currentDatasetPath,
+					};
+				} else {
+					// Switch to default dataset
+					currentDatasetPath = defaultDatasetPath;
+					await lowdbService.switchDatabase(currentDatasetPath);
+
+					return {
+						success: true,
+						newCurrentPath: currentDatasetPath,
+					};
+				}
+			}
+
+			return { success: true };
+		} catch (error: any) {
+			console.error('Error removing dataset from history:', error);
+			return {
+				success: false,
+				message: 'Error removing dataset from history: ' + error.message,
+			};
+		}
+	});
+
+	// Handler to save a temporary JSON file (for drag and drop operations)
+	ipcMain.handle('save-temp-json', async (_, jsonContent, fileName) => {
+		try {
+			// Create a temporary file name
+			const tempDir = path.join(app.getPath('temp'), 'pqcbench');
+
+			// Ensure temp directory exists
+			if (!fs.existsSync(tempDir)) {
+				fs.mkdirSync(tempDir, { recursive: true });
+			}
+
+			// Create temp file path with original filename
+			const baseName = path.basename(fileName, '.json');
+			const tempFilePath = path.join(tempDir, `${baseName}-${Date.now()}.json`);
+
+			// Write the JSON content to the file
+			fs.writeFileSync(tempFilePath, jsonContent);
+
+			return {
+				success: true,
+				path: tempFilePath,
+			};
+		} catch (error: any) {
+			console.error('Error saving temporary JSON file:', error);
+			return {
+				success: false,
+				message: 'Error saving temporary file: ' + error.message,
+			};
+		}
+	});
 }

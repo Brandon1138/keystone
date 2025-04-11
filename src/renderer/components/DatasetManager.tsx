@@ -16,6 +16,8 @@ import {
 	DialogTitle,
 	Skeleton,
 	Box,
+	IconButton,
+	Tooltip,
 } from '@mui/material';
 import ImportIcon from '@mui/icons-material/Upload';
 import SaveIcon from '@mui/icons-material/Save';
@@ -23,6 +25,7 @@ import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import InfoIcon from '@mui/icons-material/Info';
 import AddIcon from '@mui/icons-material/Add';
 import WarningIcon from '@mui/icons-material/Warning';
+import DeleteIcon from '@mui/icons-material/Delete';
 
 interface DatasetInfo {
 	path: string;
@@ -48,6 +51,10 @@ export const DatasetManager: React.FC = () => {
 
 	// Dialog state
 	const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
+
+	// Dialog state for delete confirmation
+	const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+	const [datasetToDelete, setDatasetToDelete] = useState<string | null>(null);
 
 	// State for notifications
 	const [notification, setNotification] = useState<{
@@ -117,6 +124,64 @@ export const DatasetManager: React.FC = () => {
 		};
 
 		initializeDataManager();
+	}, []);
+
+	// Listen for dataset import events (from drag and drop)
+	useEffect(() => {
+		// Define the type for our custom event
+		type DatasetImportedEvent = CustomEvent<{
+			success: boolean;
+			path: string;
+			stats?: {
+				runs: number;
+				quantum: number;
+				pqcClassical: number;
+			};
+		}>;
+
+		// Handler for dataset imported event
+		const handleDatasetImported = async (event: Event) => {
+			// Cast to our custom event type
+			const customEvent = event as DatasetImportedEvent;
+			if (customEvent.detail && customEvent.detail.success) {
+				try {
+					// Get updated dataset history
+					const history: Array<{ path: string; lastUsed?: boolean }> =
+						await window.datasetAPI.getDatasetHistory();
+
+					// Refresh imported datasets with the updated history
+					const updatedDatasets = await Promise.all(
+						history.map(async (dataset) => {
+							const stats = await window.datasetAPI.getDatasetStats(
+								dataset.path
+							);
+							return { ...dataset, stats };
+						})
+					);
+
+					setImportedDatasets(updatedDatasets);
+
+					// Update current dataset
+					if (customEvent.detail.path) {
+						setCurrentDataset({
+							path: customEvent.detail.path,
+							lastUsed: true,
+							stats: customEvent.detail.stats,
+						});
+					}
+				} catch (error) {
+					console.error('Failed to refresh after dataset import:', error);
+				}
+			}
+		};
+
+		// Add event listener - the function takes an Event parameter which matches EventListener
+		window.addEventListener('dataset-imported', handleDatasetImported);
+
+		// Cleanup
+		return () => {
+			window.removeEventListener('dataset-imported', handleDatasetImported);
+		};
 	}, []);
 
 	// Function to refresh dataset stats when needed
@@ -390,6 +455,85 @@ export const DatasetManager: React.FC = () => {
 		const start = path.substring(0, 20);
 		const end = path.substring(path.length - 30);
 		return `${start}...${end}`;
+	};
+
+	// Handler to remove a dataset from history
+	const handleRemoveDataset = async (datasetPath: string) => {
+		try {
+			setDatasetToDelete(datasetPath);
+			setDeleteDialogOpen(true);
+		} catch (error) {
+			console.error('Error preparing to delete dataset:', error);
+			showNotification('Error preparing to delete dataset', 'error');
+		}
+	};
+
+	// Handler to confirm dataset deletion
+	const handleConfirmDelete = async () => {
+		if (!datasetToDelete) return;
+
+		try {
+			setIsLoading(true);
+			setDeleteDialogOpen(false);
+
+			// Use the API method if available, otherwise fallback to direct IPC
+			let result;
+			if (window.datasetAPI.removeDatasetFromHistory) {
+				result = await window.datasetAPI.removeDatasetFromHistory(
+					datasetToDelete
+				);
+			} else {
+				// Fallback to direct IPC if API method is not defined
+				result = await window.electron.ipcRenderer.invoke(
+					'remove-dataset-from-history',
+					datasetToDelete
+				);
+			}
+
+			if (result.success) {
+				showNotification('Dataset removed from history', 'success');
+
+				// Get updated dataset history
+				const history: Array<{ path: string; lastUsed?: boolean }> =
+					await window.datasetAPI.getDatasetHistory();
+
+				// Refresh imported datasets with the updated history
+				const updatedDatasets = await Promise.all(
+					history.map(async (dataset) => {
+						const stats = await window.datasetAPI.getDatasetStats(dataset.path);
+						return { ...dataset, stats };
+					})
+				);
+
+				setImportedDatasets(updatedDatasets);
+
+				// If the current dataset was changed, update it
+				if (result.newCurrentPath) {
+					const stats = await window.datasetAPI.getDatasetStats(
+						result.newCurrentPath
+					);
+					setCurrentDataset({
+						path: result.newCurrentPath,
+						lastUsed: true,
+						stats,
+					});
+				}
+			} else {
+				showNotification(result.message || 'Failed to remove dataset', 'error');
+			}
+		} catch (error) {
+			console.error('Error removing dataset:', error);
+			showNotification('Failed to remove dataset', 'error');
+		} finally {
+			setIsLoading(false);
+			setDatasetToDelete(null);
+		}
+	};
+
+	// Handler to cancel dataset deletion
+	const handleCancelDelete = () => {
+		setDeleteDialogOpen(false);
+		setDatasetToDelete(null);
 	};
 
 	return (
@@ -713,29 +857,49 @@ export const DatasetManager: React.FC = () => {
 										</Typography>
 									)}
 								</div>
-								<Button
-									variant="contained"
-									size="small"
-									disableElevation
-									onClick={() => handleSwitchToDataset(dataset.path)}
-									disabled={isLoading || currentDataset?.path === dataset.path}
-									sx={{
-										bgcolor:
-											currentDataset?.path === dataset.path
-												? '#6C757D'
-												: '#9747FF',
-										'&:hover': {
+								<div className="flex items-center space-x-2">
+									<Tooltip title="Remove from history">
+										<IconButton
+											size="small"
+											onClick={() => handleRemoveDataset(dataset.path)}
+											sx={{
+												color: isDarkMode ? '#AAAAAA' : '#666666',
+												'&:hover': {
+													color: '#F44336',
+												},
+											}}
+										>
+											<DeleteIcon fontSize="small" />
+										</IconButton>
+									</Tooltip>
+									<Button
+										variant="contained"
+										size="small"
+										disableElevation
+										onClick={() => handleSwitchToDataset(dataset.path)}
+										disabled={
+											isLoading || currentDataset?.path === dataset.path
+										}
+										sx={{
 											bgcolor:
 												currentDataset?.path === dataset.path
 													? '#6C757D'
-													: '#8030E0',
-										},
-										fontSize: '0.7rem',
-										borderRadius: '6px',
-									}}
-								>
-									{currentDataset?.path === dataset.path ? 'ACTIVE' : 'SWITCH'}
-								</Button>
+													: '#9747FF',
+											'&:hover': {
+												bgcolor:
+													currentDataset?.path === dataset.path
+														? '#6C757D'
+														: '#8030E0',
+											},
+											fontSize: '0.7rem',
+											borderRadius: '6px',
+										}}
+									>
+										{currentDataset?.path === dataset.path
+											? 'ACTIVE'
+											: 'SWITCH'}
+									</Button>
+								</div>
 							</div>
 						))}
 					</div>
@@ -820,6 +984,74 @@ export const DatasetManager: React.FC = () => {
 						}}
 					>
 						Save & Continue
+					</Button>
+				</DialogActions>
+			</Dialog>
+
+			{/* Delete Confirmation Dialog */}
+			<Dialog
+				open={deleteDialogOpen}
+				onClose={handleCancelDelete}
+				aria-labelledby="delete-dialog-title"
+				aria-describedby="delete-dialog-description"
+				PaperProps={{
+					style: {
+						backgroundColor: isDarkMode ? '#2a2a2a' : '#f8f8f8',
+						color: isDarkMode ? '#FFFFFF' : '#000000',
+						borderRadius: '8px',
+					},
+				}}
+			>
+				<DialogTitle
+					id="delete-dialog-title"
+					sx={{
+						display: 'flex',
+						alignItems: 'center',
+						gap: 1,
+						color: isDarkMode ? '#FFFFFF' : '#000000',
+					}}
+				>
+					<DeleteIcon sx={{ color: '#F44336' }} />
+					Remove Dataset
+				</DialogTitle>
+				<DialogContent>
+					<DialogContentText
+						id="delete-dialog-description"
+						sx={{ color: isDarkMode ? '#CCCCCC' : '#666666' }}
+					>
+						Are you sure you want to remove this dataset from your history? This
+						will not delete the file from your system, but it will no longer
+						appear in the list.
+					</DialogContentText>
+				</DialogContent>
+				<DialogActions sx={{ padding: '16px' }}>
+					<Button
+						onClick={handleCancelDelete}
+						sx={{
+							color: isDarkMode ? '#FFFFFF' : '#000000',
+							borderColor: isDarkMode
+								? 'rgba(255, 255, 255, 0.3)'
+								: 'rgba(0, 0, 0, 0.23)',
+							'&:hover': {
+								borderColor: '#9747FF',
+								bgcolor: 'rgba(151, 71, 255, 0.04)',
+							},
+						}}
+					>
+						Cancel
+					</Button>
+					<Button
+						onClick={handleConfirmDelete}
+						variant="contained"
+						disableElevation
+						sx={{
+							bgcolor: '#F44336',
+							'&:hover': {
+								bgcolor: '#D32F2F',
+							},
+						}}
+					>
+						Remove
 					</Button>
 				</DialogActions>
 			</Dialog>

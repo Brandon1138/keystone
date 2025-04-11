@@ -507,6 +507,27 @@ This enhancement improves the visual coherence of the application by ensuring th
 
 **Status:** Accepted
 
+### 2024-04-10: Enhanced Export Functionality with Custom Path Selection
+
+**Decision:**
+
+1. Added export file path selection functionality to the Export page
+2. Implemented IPC handlers for getting default export path and directory selection
+3. Updated ExportOptions interface to accommodate custom export paths
+4. Added UI component for selecting and displaying the export directory
+
+**Consequences:**
+
+- Positive:
+  - Improved user experience by allowing file path customization
+  - Better organization of exported data through user-defined directories
+  - Persistent directory selection for subsequent exports
+- Negative:
+  - Additional IPC handling complexity
+  - Need to maintain path selection state across application restarts
+
+**Status:** Accepted
+
 ### 2024-03-23: ECDH Live Benchmarking Implementation
 
 **Decision:**
@@ -841,50 +862,9 @@ We implemented a targeted chart resize handler with the following approach:
 
 2. **Efficient Resize Response**
 
-   - Used Plotly's built-in `handleResize` method to update chart dimensions
-   - Applied the resize handler without recalculating or refiltering data
-   - Added a useEffect hook with proper cleanup of event listeners
+   - Used Plotly's built-in `
 
-3. **Consistent Cross-Component Implementation**
-
-   - Applied the same pattern to both PerformanceChart and QuantumResultsChart components
-   - Used consistent implementation patterns for maintainability
-   - Enabled the useResizeHandler prop in Plotly components
-
-4. **Controlled Resize Timing**
-   - Added small delays to handle resize calculations after DOM updates
-   - Prevented excessive resize handler calls with state-based condition checks
-
-## Consequences
-
-### Positive
-
-- **Fixed Visual Glitches** - Charts now resize properly when transitioning between fullscreen and windowed modes
-- **Maintained Performance** - No unnecessary data recalculation or filtering on resize
-- **Enhanced User Experience** - Seamless visualization experience even during window size changes
-- **Reduced Resource Usage** - No redundant processing during resize events
-- **Better Maintainability** - Clean, reusable pattern for handling chart resizing
-
-### Negative
-
-- **Slight Complexity Increase** - Additional ref and state management for resize handling
-- **Minor Implementation Overhead** - Need for resize-specific useEffect hooks
-- **Dependency on Plotly API** - Implementation relies on Plotly's internal resize handlers
-
-## Implementation Notes
-
-The implementation follows a principled approach to handling UI responsiveness:
-
-1. **Only update what needs updating** - We target only the chart rendering, not the underlying data
-2. **Use built-in capabilities** - We leverage Plotly's existing resize handlers rather than recreating functionality
-3. **Clean up after yourself** - We properly remove event listeners when components unmount
-4. **Maintain consistency** - We implement the same pattern across both chart components
-
-## Future Considerations
-
-This pattern could be extended to other visualizations in the application. If we add new chart types or visualization components, we should apply this same resize handling approach for consistency.
-
-### ADR-010: Improved Ref Handling in Visualization Components
+### ADR-017: Enhanced Export Functionality with Custom Path Selection
 
 ## Status
 
@@ -892,147 +872,111 @@ Accepted
 
 ## Context
 
-Our visualization components (PerformanceChart and QuantumResultsChart) are used throughout the application to display benchmark and quantum workload results. These components use Plotly.js for rendering charts and need to properly handle resize events, especially during fullscreen transitions and data refreshes.
-
-Previously, we were passing refs directly as a prop named `ref` to these components, which led to TypeScript errors because:
-
-1. React reserves the `ref` prop for its internal ref forwarding mechanism
-2. Direct ref props on custom components don't work without proper forwarding
-
-This was causing multiple TypeScript errors and potentially unstable behavior during chart resizing operations.
+The export functionality in our application previously defaulted to a standard documents directory, requiring users to manually navigate to their preferred location each time they exported data. This created usability issues for users who frequently export data to the same custom locations. We needed a more user-friendly approach that would allow users to select and remember their preferred export directories.
 
 ## Decision
 
-We implemented the following changes to improve ref handling in our visualization components:
+We implemented enhanced export path selection functionality with the following components:
 
-1. Modified the props interfaces for both visualization components to include a `chartRef` prop:
+1. **UI Enhancement** - Added an "Export File Path" field to the Export page:
 
-```typescript
-interface PerformanceChartProps {
-	// existing props
-	chartRef?: React.RefObject<any>;
-}
+   - Text field displaying the current selected path
+   - Directory browser button for selecting custom locations
+   - Visual integration with existing export format and filename fields
 
-interface QuantumResultsChartProps {
-	// existing props
-	chartRef?: React.RefObject<any>;
-}
-```
+2. **Backend Support** - Added IPC handlers in the main process:
 
-2. Implemented a ref fallback pattern in both components:
+   - `get-default-export-path` handler to provide initial directory (Documents/PQCBenchmark/exports)
+   - `select-export-directory` handler using Electron's dialog API to browse directories
+   - Enhanced `export-dataset` handler to use the custom path if provided
 
-```typescript
-const localPlotRef = useRef<any>(null);
-const plotRef = chartRef || localPlotRef;
-```
-
-3. Updated all component references in the VisualizationPage to use the `chartRef` prop instead of `ref`.
+3. **Data Model Update** - Extended the ExportOptions interface to support custom paths:
+   - Added optional `exportPath` property to allow custom directory specification
+   - Modified dialog handling to prioritize user-selected paths over defaults
 
 ## Consequences
 
 ### Pros
 
-- **Type Safety**: All component props are now properly typed, eliminating TypeScript errors
-- **Flexibility**: Components can work with either externally provided refs or local refs
-- **Maintainability**: The code follows React best practices for ref handling
-- **Resilience**: Chart resize functionality during fullscreen transitions and refreshes is preserved
+- **Improved User Experience** - Users can select and maintain custom export locations
+- **Workflow Efficiency** - Reduces repetitive directory navigation for frequent exporters
+- **Better Organization** - Encourages consistent file organization across multiple exports
+- **Intuitive Interface** - Directory selection follows standard platform-specific UI patterns
 
 ### Cons
 
-- **Slightly More Complex Implementation**: Components now need to handle both cases (external ref or internal ref)
-- **Additional Props**: Interface definitions are slightly larger with the additional prop
+- **Additional State Management** - Requires tracking and persisting path selection state
+- **Increased Complexity** - Added IPC handlers and dialog management
+- **Platform Considerations** - Directory paths may have different formats across operating systems
+
+## Implementation Details
+
+The implementation follows standard Electron patterns for file dialogs and maintains consistency with the existing export functionality. The path selection is visually integrated with the other export options (format, filename) to provide a cohesive user experience.
+
+The file path field is implemented as a read-only text field with a folder selection button, which aligns with standard desktop application patterns for directory selection. This approach is more intuitive than requiring users to manually type paths.
+
+### ADR-012: Enhanced Dataset Management with Drag-and-Drop Import and Deletion
+
+## Status
+
+Accepted
+
+## Context
+
+Our application needed improved dataset management capabilities to enhance user experience when working with multiple benchmark datasets. Users frequently needed to import existing datasets, and the ability to organize their dataset history by removing entries they no longer need.
+
+Two key improvements were identified:
+
+1. Robust drag-and-drop functionality for dataset import
+2. The ability to remove datasets from the history list
+
+The drag-and-drop implementation faced challenges with obtaining file paths consistently across different operating systems, particularly in Windows environments. Additionally, we needed a way for users to clean up their dataset history without affecting the actual files.
+
+## Decision
+
+We implemented the following enhancements to the dataset management system:
+
+1. **Robust Drag-and-Drop Import**:
+
+   - Enhanced file path detection using multiple fallback mechanisms
+   - Implemented temporary file storage for scenarios where direct file paths are unavailable
+   - Added custom event notification system to update the DatasetManager when drag-and-drop imports occur
+
+2. **Dataset Removal Functionality**:
+
+   - Added a delete button with trash icon for each dataset in the history list
+   - Implemented a confirmation dialog to prevent accidental removal
+   - Created backend handlers to remove datasets from history without deleting the actual files
+   - Added auto-switching to another dataset when the currently active one is removed
+
+3. **Architecture Improvements**:
+   - Created a well-defined API for dataset operations via IPC
+   - Separated UI concerns from data management operations
+   - Implemented proper TypeScript interfaces for all dataset operations
+
+## Consequences
+
+### Pros
+
+- Users can now easily import datasets via drag-and-drop, improving workflow efficiency
+- The dataset history can be kept organized by removing entries that are no longer needed
+- More robust cross-platform file handling, especially for drag-and-drop operations
+- Clear separation between removing a dataset from history and deleting the actual file
+- Improved user experience with confirmation dialogs and visual feedback
+
+### Cons
+
+- Increased complexity in the dataset management system
+- Additional API surface to maintain
+- Temporary file creation adds some overhead for drag-and-drop operations when direct file paths are unavailable
+
+## Implementation Details
+
+- Used multiple fallback methods for accessing file paths in drag-and-drop operations
+- Implemented a custom event system for inter-component communication
+- Created a dedicated IPC handler for dataset removal
+- Added clear visual indicators (trash icon) for the remove functionality
 
 ## Conclusion
 
-This architectural change improves the type safety and maintainability of our visualization components while preserving the existing functionality for chart resizing during fullscreen transitions and data refreshes. The pattern implemented follows React best practices and ensures proper TypeScript typing throughout the application.
-
-### 2024-06-10: Enhanced Visualization Components with Detailed Statistics Cards
-
-### Decision
-
-1. Enhanced the statistics visualization components to display comprehensive benchmark data:
-   - Added per-algorithm, per-security parameter, and per-operation breakdown
-   - Added detailed metrics for cryptographic operations (Keygen, Sign, Verify, Encapsulation, etc.)
-   - Included key size metrics (Public Key, Secret Key, Signature, Ciphertext)
-2. Updated the data processing pipeline to include key size information from benchmark results
-3. Implemented an interactive operation selector to allow users to view metrics for specific operations
-4. Added proper formatting for byte values with automatic unit conversion
-
-### Consequences
-
-- Positive:
-  - More comprehensive display of benchmark results
-  - Better comparability between different algorithms and operations
-  - Improved user experience with interactive operation selection
-  - Visual representation of key size metrics for better algorithm comparison
-- Negative:
-  - Increased complexity in data processing
-  - Additional CPU/memory usage for processing more detailed metrics
-
-### Status
-
-Accepted
-
-### 2024-10-29: Visualization Statistics Card Improvement
-
-### Decision
-
-1. Enhanced StatisticsCard component to support specific operation filtering
-2. Fixed display issues for Kyber, McEliece, RSA, and ECDH to show proper operation-specific data
-3. Special handling for AES algorithm:
-   - Removed Key Generation card which is not applicable for AES
-   - Created a specialized 2-column grid layout for AES cards
-   - Implemented proper horizontal arrangement to display Encryption and Decryption cards side-by-side in a single row
-4. Implemented conditional rendering based on algorithm type to provide the optimal layout
-
-### Consequences
-
-- Positive:
-  - More accurate representation of algorithm-specific operations
-  - Better use of screen space for algorithms with fewer operations
-  - Improved user understanding of algorithm performance characteristics
-  - Encryption and Decryption cards for AES now appear side-by-side in a single row for better comparison
-- Negative:
-  - Additional complexity in UI rendering logic
-  - More conditional logic depending on algorithm type
-
-### Status
-
-Implemented
-
-### ADR-006: Enhanced Batch Scheduling for Multiple Security Parameters
-
-## Status
-
-Implemented
-
-## Context
-
-Our benchmark scheduling system previously allowed users to select which algorithms to run in a batch, but limited them to choosing only one security parameter per algorithm. This limitation forced users to schedule multiple batches to test different security parameters of the same algorithm, which was inefficient and time-consuming. For comprehensive evaluation of post-quantum and classical cryptographic algorithms, users often need to run benchmarks across all available security parameters to compare performance characteristics.
-
-## Decision
-
-We have enhanced the batch scheduling interface to support multiple security parameters for each algorithm with the following implementation details:
-
-1. Modified the `BatchJobSettings` data structure to track security parameter selections using a map of boolean values instead of a single selected parameter
-2. Updated the UI to display checkboxes for each security parameter rather than a dropdown selection
-3. Added a hierarchical selection interface with an "All Parameters" checkbox to quickly select or deselect all security parameters for an algorithm
-4. Enhanced the job submission logic to create individual benchmark jobs for each selected algorithm-parameter combination
-5. Streamlined the parameter selection UI with proper indentation and visual grouping for better usability
-
-## Consequences
-
-### Pros
-
-- Users can now schedule comprehensive benchmark runs across multiple security levels in a single operation
-- More flexible benchmark configuration, allowing precise selection of which parameters to test
-- Improved UI with clear visual indication of which parameters are selected
-- More efficient data collection process for comparing performance across security levels
-- Better alignment with real-world cryptographic evaluation scenarios where multiple security levels need to be compared
-
-### Cons
-
-- Slightly increased UI complexity that may be overwhelming for new users
-- More complex state management to track multiple security parameter selections
-- Increased number of jobs in the queue when running full benchmark suites, which could lead to longer processing times
-- Additional memory usage to track the expanded selection state
+These enhancements significantly improve the user experience when working with datasets by providing more intuitive import capabilities through drag-and-drop and better organization through the ability to remove datasets from history. The system maintains a clear distinction between removing dataset entries from the application's tracking system and deleting the actual files, ensuring data safety while improving usability.

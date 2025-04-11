@@ -22,6 +22,7 @@ import {
 	ListItemButton,
 	Divider,
 	Skeleton,
+	InputAdornment,
 } from '@mui/material';
 import { Card } from '../components/ui/card';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
@@ -33,6 +34,7 @@ import SettingsIcon from '@mui/icons-material/Settings';
 import ComputerIcon from '@mui/icons-material/Computer';
 import MemoryIcon from '@mui/icons-material/Memory';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
+import FolderOpenIcon from '@mui/icons-material/FolderOpen';
 
 // Types for our export data
 interface ExportData {
@@ -57,6 +59,7 @@ const ExportPage: React.FC = () => {
 	const [selectedFormat, setSelectedFormat] = useState<string>('csv');
 	const [isExporting, setIsExporting] = useState(false);
 	const [filename, setFilename] = useState('pqc_benchmark_data');
+	const [exportPath, setExportPath] = useState<string>('');
 	const [statusMessage, setStatusMessage] = useState<{
 		type: 'success' | 'error' | 'info';
 		message: string;
@@ -83,6 +86,7 @@ const ExportPage: React.FC = () => {
 	useEffect(() => {
 		const timer = setTimeout(() => {
 			loadExportData();
+			loadDefaultExportPath();
 		}, 10);
 		return () => clearTimeout(timer);
 	}, []);
@@ -143,6 +147,35 @@ const ExportPage: React.FC = () => {
 			});
 		} finally {
 			setDataLoading(false);
+		}
+	};
+
+	// Load default export path
+	const loadDefaultExportPath = async () => {
+		try {
+			const defaultPath = await window.electron.ipcRenderer.invoke(
+				'get-default-export-path'
+			);
+			setExportPath(defaultPath || '');
+		} catch (error) {
+			console.error('Error loading default export path:', error);
+		}
+	};
+
+	const handleSelectExportPath = async () => {
+		try {
+			const result = await window.electron.ipcRenderer.invoke(
+				'select-export-directory'
+			);
+			if (result && result.success) {
+				setExportPath(result.path);
+			}
+		} catch (error) {
+			console.error('Error selecting export path:', error);
+			setStatusMessage({
+				type: 'error',
+				message: 'Failed to select export directory',
+			});
 		}
 	};
 
@@ -233,6 +266,7 @@ const ExportPage: React.FC = () => {
 					format: selectedFormat,
 					filename: filename || 'pqc_benchmark_data',
 					data: dataToExport,
+					exportPath: exportPath,
 				}
 			);
 
@@ -331,54 +365,6 @@ const ExportPage: React.FC = () => {
 					<div className="space-y-4">
 						<FormControl fullWidth variant="outlined">
 							<InputLabel
-								id="format-label"
-								sx={{
-									color: isDarkMode ? '#FFFFFF' : '#000000',
-									padding: '0 5px',
-									zIndex: 1,
-									transform: 'translate(14px, -9px) scale(0.75)',
-									'&.MuiInputLabel-shrink': {
-										transform: 'translate(14px, -9px) scale(0.75)',
-									},
-								}}
-								shrink
-							>
-								Export Format
-							</InputLabel>
-							<Select
-								labelId="format-label"
-								id="format"
-								value={selectedFormat}
-								onChange={handleFormatChange}
-								disabled={isExporting || dataLoading}
-								sx={{
-									backgroundColor: isDarkMode ? '#2a2a2a' : '#f8f8f8',
-									color: isDarkMode ? '#ffffff' : '#111111',
-									'& .MuiOutlinedInput-notchedOutline': {
-										borderColor: 'transparent',
-									},
-									'&:hover .MuiOutlinedInput-notchedOutline': {
-										borderColor: isDarkMode
-											? 'rgba(255, 255, 255, 0.6)'
-											: 'rgba(0, 0, 0, 0.5)',
-										borderWidth: '1px',
-									},
-									'&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-										borderColor: '#9747FF',
-										borderWidth: '1px',
-									},
-								}}
-							>
-								<MenuItem value="csv">CSV (Comma Separated Values)</MenuItem>
-								<MenuItem value="json">
-									JSON (JavaScript Object Notation)
-								</MenuItem>
-								<MenuItem value="pdf">PDF (Portable Document Format)</MenuItem>
-							</Select>
-						</FormControl>
-
-						<FormControl fullWidth variant="outlined">
-							<InputLabel
 								id="filename-label"
 								sx={{
 									color: isDarkMode ? '#FFFFFF' : '#000000',
@@ -406,6 +392,77 @@ const ExportPage: React.FC = () => {
 									overflow: 'visible',
 									'& .MuiInputBase-input': {
 										color: isDarkMode ? '#ffffff' : '#111111',
+									},
+									'& .MuiOutlinedInput-root': {
+										borderRadius: '8px',
+										overflow: 'hidden',
+										'& fieldset': {
+											borderColor: 'transparent',
+											borderRadius: '8px',
+										},
+									},
+									'&:hover .MuiOutlinedInput-root fieldset': {
+										borderColor: isDarkMode
+											? 'rgba(255, 255, 255, 0.6)'
+											: 'rgba(0, 0, 0, 0.5)',
+										borderWidth: '1px',
+									},
+									'& .MuiOutlinedInput-root.Mui-focused fieldset': {
+										borderColor: '#9747FF',
+										borderWidth: '1px',
+									},
+								}}
+							/>
+						</FormControl>
+
+						<FormControl fullWidth variant="outlined">
+							<InputLabel
+								id="export-path-label"
+								sx={{
+									color: isDarkMode ? '#FFFFFF' : '#000000',
+									padding: '0 5px',
+									zIndex: 1,
+									transform: 'translate(14px, -9px) scale(0.75)',
+									'&.MuiInputLabel-shrink': {
+										transform: 'translate(14px, -9px) scale(0.75)',
+									},
+								}}
+								shrink
+							>
+								Export File Path
+							</InputLabel>
+							<TextField
+								id="export-path"
+								value={exportPath}
+								placeholder="Select a directory..."
+								variant="outlined"
+								disabled={isExporting || dataLoading}
+								InputProps={{
+									readOnly: true,
+									endAdornment: (
+										<InputAdornment position="end">
+											<Button
+												onClick={handleSelectExportPath}
+												disabled={isExporting || dataLoading}
+												sx={{
+													minWidth: 'auto',
+													padding: '4px',
+													color: '#9747FF',
+												}}
+											>
+												<FolderOpenIcon />
+											</Button>
+										</InputAdornment>
+									),
+								}}
+								sx={{
+									backgroundColor: isDarkMode ? '#2a2a2a' : '#f8f8f8',
+									borderRadius: '8px',
+									overflow: 'visible',
+									'& .MuiInputBase-input': {
+										color: isDarkMode ? '#ffffff' : '#111111',
+										cursor: 'default',
+										textOverflow: 'ellipsis',
 									},
 									'& .MuiOutlinedInput-root': {
 										borderRadius: '8px',
@@ -489,7 +546,7 @@ const ExportPage: React.FC = () => {
 										<Typography
 											sx={{ color: isDarkMode ? '#FFFFFF' : '#000000' }}
 										>
-											<MemoryIcon
+											<SpeedIcon
 												fontSize="small"
 												sx={{
 													color: '#9747FF',
@@ -512,7 +569,7 @@ const ExportPage: React.FC = () => {
 										<Typography
 											sx={{ color: isDarkMode ? '#FFFFFF' : '#000000' }}
 										>
-											<AutoAwesomeIcon
+											<MemoryIcon
 												fontSize="small"
 												sx={{
 													color: '#9747FF',
@@ -559,7 +616,55 @@ const ExportPage: React.FC = () => {
 						</Box>
 					</div>
 
-					<div className="flex flex-col justify-center">
+					<div className="space-y-4">
+						<FormControl fullWidth variant="outlined">
+							<InputLabel
+								id="format-label"
+								sx={{
+									color: isDarkMode ? '#FFFFFF' : '#000000',
+									padding: '0 5px',
+									zIndex: 1,
+									transform: 'translate(14px, -9px) scale(0.75)',
+									'&.MuiInputLabel-shrink': {
+										transform: 'translate(14px, -9px) scale(0.75)',
+									},
+								}}
+								shrink
+							>
+								Export Format
+							</InputLabel>
+							<Select
+								labelId="format-label"
+								id="format"
+								value={selectedFormat}
+								onChange={handleFormatChange}
+								disabled={isExporting || dataLoading}
+								sx={{
+									backgroundColor: isDarkMode ? '#2a2a2a' : '#f8f8f8',
+									color: isDarkMode ? '#ffffff' : '#111111',
+									'& .MuiOutlinedInput-notchedOutline': {
+										borderColor: 'transparent',
+									},
+									'&:hover .MuiOutlinedInput-notchedOutline': {
+										borderColor: isDarkMode
+											? 'rgba(255, 255, 255, 0.6)'
+											: 'rgba(0, 0, 0, 0.5)',
+										borderWidth: '1px',
+									},
+									'&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+										borderColor: '#9747FF',
+										borderWidth: '1px',
+									},
+								}}
+							>
+								<MenuItem value="csv">CSV (Comma Separated Values)</MenuItem>
+								<MenuItem value="json">
+									JSON (JavaScript Object Notation)
+								</MenuItem>
+								<MenuItem value="pdf">PDF (Portable Document Format)</MenuItem>
+							</Select>
+						</FormControl>
+
 						<Button
 							variant="contained"
 							onClick={handleExport}
@@ -581,6 +686,7 @@ const ExportPage: React.FC = () => {
 								padding: '10px 20px',
 								borderRadius: '8px',
 								fontWeight: 'medium',
+								width: '100%',
 								'&:hover': {
 									backgroundColor: '#8035E0',
 								},

@@ -387,6 +387,10 @@ contextBridge.exposeInMainWorld('datasetAPI', {
 		console.log('[preload] invoking create-new-dataset');
 		return ipcRenderer.invoke('create-new-dataset');
 	},
+	removeDatasetFromHistory: (datasetPath) => {
+		console.log('[preload] invoking remove-dataset-from-history', datasetPath);
+		return ipcRenderer.invoke('remove-dataset-from-history', datasetPath);
+	},
 });
 
 console.log('[preload] Context bridge APIs exposed using IPC.');
