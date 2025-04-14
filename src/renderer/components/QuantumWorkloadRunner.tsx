@@ -54,6 +54,7 @@ interface QuantumWorkloadResult {
 		found_correct_state?: boolean;
 		// Common fields
 		execution_time_sec: number | null;
+		qpu_time_sec: number | null;
 		circuit_depth: number | null;
 		cx_gate_count: number | null;
 		total_gate_count: number | null;
@@ -96,6 +97,7 @@ export const QuantumWorkloadRunner: React.FC = () => {
 	});
 	const logsEndRef = useRef<HTMLDivElement>(null);
 	const containerRef = useRef<HTMLDivElement>(null);
+	const [currentStage, setCurrentStage] = useState<number>(0);
 
 	const theme = useTheme();
 	const isDarkMode = theme.palette.mode === 'dark';
@@ -245,6 +247,7 @@ export const QuantumWorkloadRunner: React.FC = () => {
 		try {
 			// Reset state and set which mode is running
 			setRunningMode(useHardware ? 'hardware' : 'simulation');
+			setCurrentStage(0); // Reset the stage counter
 			setWorkloadResult({
 				status: 'running',
 				logs: [],
@@ -345,6 +348,52 @@ export const QuantumWorkloadRunner: React.FC = () => {
 		}
 	};
 
+	// Stage progression effect
+	useEffect(() => {
+		let stageTimer: NodeJS.Timeout | null = null;
+		const maxStages = runningMode === 'hardware' ? 5 : 3;
+
+		if (workloadResult.status === 'running' && currentStage < maxStages - 1) {
+			// Set timer to advance stages - hardware runs take longer so use longer intervals
+			const interval = runningMode === 'hardware' ? 5000 : 3000;
+			stageTimer = setTimeout(() => {
+				setCurrentStage((prev) => prev + 1);
+			}, interval);
+		}
+
+		return () => {
+			if (stageTimer) clearTimeout(stageTimer);
+		};
+	}, [workloadResult.status, currentStage, runningMode]);
+
+	// Reset stage when workload completes or errors
+	useEffect(() => {
+		if (workloadResult.status !== 'running') {
+			setCurrentStage(0);
+		}
+	}, [workloadResult.status]);
+
+	// Get the current status message based on stage and mode
+	const getCurrentStatusMessage = () => {
+		if (runningMode === 'hardware') {
+			const hardwareStages = [
+				'Initializing hardware connection...',
+				'Connecting to IBM Quantum...',
+				'Preparing quantum circuit...',
+				'Waiting in queue for quantum hardware access...',
+				'Job running on quantum hardware...',
+			];
+			return hardwareStages[currentStage] || hardwareStages[0];
+		} else {
+			const simulationStages = [
+				'Initializing quantum simulator...',
+				'Preparing quantum circuit...',
+				'Running quantum simulation...',
+			];
+			return simulationStages[currentStage] || simulationStages[0];
+		}
+	};
+
 	// Render different result fields based on algorithm
 	const renderAlgorithmResults = () => {
 		if (!workloadResult.data) return null;
@@ -369,32 +418,6 @@ export const QuantumWorkloadRunner: React.FC = () => {
 							{workloadResult.data.input_marked_states
 								? workloadResult.data.input_marked_states.join(', ')
 								: 'None'}
-						</div>
-					</div>
-					<div className="flex justify-between items-center">
-						<div className="text-sm" style={{ color: '#999999' }}>
-							Top State Measured:
-						</div>
-						<div
-							className="text-lg font-medium"
-							style={{ color: isDarkMode ? '#FFFFFF' : '#000000' }}
-						>
-							{workloadResult.data.top_measured_state || 'N/A'}
-						</div>
-					</div>
-					<div className="flex justify-between items-center">
-						<div className="text-sm" style={{ color: '#999999' }}>
-							Found Correct State:
-						</div>
-						<div
-							className="text-lg font-medium"
-							style={{
-								color: workloadResult.data.found_correct_state
-									? '#4caf50' // green for success
-									: '#f44336', // red for failure
-							}}
-						>
-							{workloadResult.data.found_correct_state ? 'Yes' : 'No'}
 						</div>
 					</div>
 					<div className="flex justify-between items-center">
@@ -922,7 +945,9 @@ export const QuantumWorkloadRunner: React.FC = () => {
 								className="text-xl font-medium"
 								style={{ color: isDarkMode ? '#FFFFFF' : '#000000' }}
 							>
-								Simulation Result
+								{workloadResult.data?.ran_on_hardware
+									? 'Workload Result'
+									: 'Simulation Result'}
 							</h3>
 						</div>
 						{workloadResult.status === 'running' ? (
@@ -948,9 +973,34 @@ export const QuantumWorkloadRunner: React.FC = () => {
 									<div
 										className="text-lg font-medium"
 										style={{ color: isDarkMode ? '#FFFFFF' : '#000000' }}
+										title={
+											workloadResult.data?.execution_time_sec
+												? `${workloadResult.data.execution_time_sec} seconds`
+												: ''
+										}
 									>
-										{workloadResult.data?.execution_time_sec
-											? `${workloadResult.data.execution_time_sec} s`
+										{workloadResult.data?.execution_time_sec !== null &&
+										workloadResult.data?.execution_time_sec !== undefined
+											? `${workloadResult.data.execution_time_sec.toFixed(2)} s`
+											: 'N/A'}
+									</div>
+								</div>
+								<div className="flex justify-between items-center">
+									<div className="text-sm" style={{ color: '#999999' }}>
+										QPU Time:
+									</div>
+									<div
+										className="text-lg font-medium"
+										style={{ color: isDarkMode ? '#FFFFFF' : '#000000' }}
+										title={
+											workloadResult.data?.qpu_time_sec
+												? `${workloadResult.data.qpu_time_sec} seconds`
+												: ''
+										}
+									>
+										{workloadResult.data?.qpu_time_sec !== null &&
+										workloadResult.data?.qpu_time_sec !== undefined
+											? `${workloadResult.data.qpu_time_sec.toFixed(2)} s`
 											: 'N/A'}
 									</div>
 								</div>
@@ -1050,7 +1100,33 @@ export const QuantumWorkloadRunner: React.FC = () => {
 								borderRadius: '8px',
 							}}
 						>
-							{workloadResult.logs.length > 0 ? (
+							{workloadResult.status === 'running' ? (
+								<div className="p-4">
+									<div className="flex items-center mb-2">
+										<CircularProgress
+											size={16}
+											color="secondary"
+											className="mr-2"
+										/>
+										<Typography
+											variant="body2"
+											style={{ color: isDarkMode ? '#c0c0c0' : '#333333' }}
+										>
+											{getCurrentStatusMessage()}
+										</Typography>
+									</div>
+									<div
+										className="mt-4 text-center"
+										style={{ color: isDarkMode ? '#999999' : '#666666' }}
+									>
+										<Typography variant="caption">
+											{runningMode === 'hardware'
+												? 'Hardware execution may take several minutes to complete'
+												: 'Simulation is running, please wait...'}
+										</Typography>
+									</div>
+								</div>
+							) : workloadResult.logs.length > 0 ? (
 								workloadResult.logs.map((log, index) => (
 									<div key={index} className="whitespace-pre-wrap mb-1">
 										{log}
@@ -1059,7 +1135,7 @@ export const QuantumWorkloadRunner: React.FC = () => {
 							) : (
 								<div className="text-center p-4">
 									<Typography variant="body2">
-										Logs will appear here during execution
+										Logs will appear here after execution
 									</Typography>
 								</div>
 							)}

@@ -198,6 +198,16 @@ def run_circuit(qc, backend, shots):
     log_stderr("Waiting for job to complete...")
     result = job.result()[0] # Waits for completion
     log_stderr("Job finished.")
+    
+    # Get QPU time if available
+    qpu_time = None
+    try:
+        usage_data = job.usage_estimation
+        if usage_data and 'quantum_seconds' in usage_data:
+            qpu_time = usage_data['quantum_seconds']
+            log_stderr(f"QPU time: {qpu_time} seconds")
+    except Exception as e:
+        log_stderr(f"Unable to retrieve QPU time: {e}")
 
     counts = {}
     # Extract counts robustly from SamplerV2 result
@@ -224,7 +234,7 @@ def run_circuit(qc, backend, shots):
 
 
     log_stderr("Measurement counts received.")
-    return job_id, counts
+    return job_id, counts, qpu_time
 
 # --- Plotting Function ---
 def generate_plot(counts, n_control, a, N, backend_name, theme, plot_file_path):
@@ -312,6 +322,7 @@ def main():
         "a_value": a,
         "factors": None,
         "execution_time_sec": None,
+        "qpu_time_sec": None,
         "circuit_depth": None,
         "cx_gate_count": None,
         "total_gate_count": None,
@@ -375,9 +386,10 @@ def main():
         results["total_gate_count"] = gate_count
 
         # --- Run Circuit ---
-        job_id, counts = run_circuit(qc_optimized, backend, args.shots)
+        job_id, counts, qpu_time = run_circuit(qc_optimized, backend, args.shots)
         results["job_id"] = job_id
         results["raw_counts"] = counts # Include raw counts in JSON
+        results["qpu_time_sec"] = qpu_time  # Add QPU time to results
 
         # --- Plot Results ---
         plot_success = generate_plot(counts, n_control, a, N, backend.name, args.plot_theme, args.plot_file)

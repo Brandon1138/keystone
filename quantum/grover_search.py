@@ -145,6 +145,16 @@ def run_circuit(qc, backend, shots):
     result = result_list[0]
     log_stderr("Job finished.")
 
+    # Get QPU time if available
+    qpu_time = None
+    try:
+        usage_data = job.usage_estimation
+        if usage_data and 'quantum_seconds' in usage_data:
+            qpu_time = usage_data['quantum_seconds']
+            log_stderr(f"QPU time: {qpu_time} seconds")
+    except Exception as e:
+        log_stderr(f"Unable to retrieve QPU time: {e}")
+
     counts = {}
     # Extract counts robustly from SamplerV2 result
     # The default classical register name from measure_all() is 'meas'
@@ -177,7 +187,7 @@ def run_circuit(qc, backend, shots):
         log_stderr(f"Result data content: {pub_result}")
 
     log_stderr("Measurement counts received.")
-    return job_id, counts
+    return job_id, counts, qpu_time
 
 # --- Plotting Function ---
 def generate_plot(counts, num_qubits, input_marked_states, backend_name, theme, plot_file_path):
@@ -269,6 +279,7 @@ def main():
         "top_measured_count": None,
         "found_correct_state": False, # Did the top state match one of the inputs?
         "execution_time_sec": None,
+        "qpu_time_sec": None,
         "circuit_depth": None,
         "cx_gate_count": None,
         "total_gate_count": None,
@@ -351,8 +362,9 @@ def main():
         results["total_gate_count"] = gate_count
 
         # --- Run Circuit ---
-        job_id, counts = run_circuit(qc_optimized, backend, args.shots)
+        job_id, counts, qpu_time = run_circuit(qc_optimized, backend, args.shots)
         results["job_id"] = job_id
+        results["qpu_time_sec"] = qpu_time  # Add QPU time to results
         # Ensure counts keys are padded if necessary before storing/processing
         padded_counts = {k.zfill(results["num_qubits"]): v for k, v in counts.items()}
         results["raw_counts"] = padded_counts
