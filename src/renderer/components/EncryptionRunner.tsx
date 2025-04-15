@@ -612,8 +612,6 @@ export const EncryptionRunner: React.FC = () => {
 							disabled={isLoadingKeys}
 							startIcon={<VpnKeyIcon />}
 							sx={{
-								bgcolor: '#9747FF',
-								'&:hover': { bgcolor: '#8030E0' },
 								textTransform: 'uppercase',
 								fontWeight: 'bold',
 								padding: '10px 24px',
@@ -764,8 +762,6 @@ export const EncryptionRunner: React.FC = () => {
 						}
 						startIcon={<LockIcon />}
 						sx={{
-							bgcolor: '#5a67d8', // Indigo-like color
-							'&:hover': { bgcolor: '#4c51bf' },
 							textTransform: 'uppercase',
 							fontWeight: 'bold',
 							padding: '10px 24px',
@@ -833,8 +829,6 @@ export const EncryptionRunner: React.FC = () => {
 						}
 						startIcon={<LockOpenIcon />}
 						sx={{
-							bgcolor: '#38a169', // Green-like color
-							'&:hover': { bgcolor: '#2f855a' },
 							textTransform: 'uppercase',
 							fontWeight: 'bold',
 							padding: '10px 24px',

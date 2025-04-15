@@ -544,10 +544,11 @@ const JobSchedulerForm: React.FC<JobSchedulerFormProps> = ({
 				<Button
 					onClick={submitJob}
 					variant="contained"
-					sx={{
-						bgcolor: '#9747FF',
-						'&:hover': { bgcolor: '#8030E0' },
-					}}
+					sx={
+						{
+							// No custom colors - use theme
+						}
+					}
 				>
 					{schedulingEnabled ? 'Schedule' : 'Run Now'}
 				</Button>
@@ -768,11 +769,9 @@ const JobSchedulerForm: React.FC<JobSchedulerFormProps> = ({
 						onClick={applyCommonSettings}
 						disabled={!applyCommonIterations && !applyCommonRuns}
 						sx={{
-							bgcolor: '#9747FF',
-							color: '#fff',
-							'&:hover': {
-								bgcolor: '#8030E0',
-							},
+							fontWeight: 'bold',
+							px: 3,
+							py: 1,
 							'&:disabled': {
 								bgcolor: isDarkMode
 									? 'rgba(255, 255, 255, 0.12)'
@@ -781,10 +780,6 @@ const JobSchedulerForm: React.FC<JobSchedulerFormProps> = ({
 									? 'rgba(255, 255, 255, 0.3)'
 									: 'rgba(0, 0, 0, 0.26)',
 							},
-							fontWeight: 'bold',
-							px: 3,
-							py: 1,
-							boxShadow: '0 4px 8px rgba(151, 71, 255, 0.3)',
 							animation:
 								(applyCommonIterations || applyCommonRuns) && settingsModified
 									? 'pulse 2s infinite'
@@ -1034,10 +1029,11 @@ const JobSchedulerForm: React.FC<JobSchedulerFormProps> = ({
 					onClick={handleScheduleAllBenchmarks}
 					variant="contained"
 					disabled={!Object.values(selectedAlgorithms).some((val) => val)}
-					sx={{
-						bgcolor: '#9747FF',
-						'&:hover': { bgcolor: '#8030E0' },
-					}}
+					sx={
+						{
+							// No custom colors - use theme
+						}
+					}
 				>
 					{schedulingEnabled
 						? 'Schedule Selected Benchmarks'
@@ -1310,6 +1306,21 @@ const JobSchedulerForm: React.FC<JobSchedulerFormProps> = ({
 						<>
 							<Grid item xs={12} md={6}>
 								<FormControl fullWidth>
+									<InputLabel
+										id="quantum-algorithm-label"
+										sx={{
+											color: isDarkMode ? '#FFFFFF' : '#000000',
+											padding: '0 5px',
+											zIndex: 1,
+											transform: 'translate(14px, -9px) scale(0.75)',
+											'&.MuiInputLabel-shrink': {
+												transform: 'translate(14px, -9px) scale(0.75)',
+											},
+										}}
+										shrink
+									>
+										Algorithm
+									</InputLabel>
 									<Select
 										labelId="quantum-algorithm-label"
 										value={quantumAlgorithm}
@@ -1343,6 +1354,59 @@ const JobSchedulerForm: React.FC<JobSchedulerFormProps> = ({
 							</Grid>
 
 							<Grid item xs={12} md={6}>
+								<FormControl fullWidth>
+									<InputLabel
+										id="target-label"
+										sx={{
+											color: isDarkMode ? '#FFFFFF' : '#000000',
+											padding: '0 5px',
+											zIndex: 1,
+											transform: 'translate(14px, -9px) scale(0.75)',
+											'&.MuiInputLabel-shrink': {
+												transform: 'translate(14px, -9px) scale(0.75)',
+											},
+										}}
+										shrink
+									>
+										Execution Target
+									</InputLabel>
+									<Select
+										labelId="target-label"
+										value={target}
+										label="Execution Target"
+										onChange={(e: SelectChangeEvent) =>
+											setTarget(
+												e.target.value as 'simulation' | 'real_hardware'
+											)
+										}
+										required
+										sx={{
+											backgroundColor: isDarkMode ? '#2a2a2a' : '#f8f8f8',
+											color: isDarkMode ? '#ffffff' : '#111111',
+											'& .MuiOutlinedInput-notchedOutline': {
+												borderColor: 'transparent',
+											},
+											'&:hover .MuiOutlinedInput-notchedOutline': {
+												borderColor: isDarkMode
+													? 'rgba(255, 255, 255, 0.6)'
+													: 'rgba(0, 0, 0, 0.5)',
+												borderWidth: '1px',
+											},
+											'&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+												borderColor: '#9747FF',
+												borderWidth: '1px',
+											},
+										}}
+									>
+										<MenuItem value="simulation">Simulation</MenuItem>
+										<MenuItem value="real_hardware">
+											IBM Quantum Hardware
+										</MenuItem>
+									</Select>
+								</FormControl>
+							</Grid>
+
+							<Grid item xs={12} md={6}>
 								<TextField
 									fullWidth
 									type="number"
@@ -1353,6 +1417,11 @@ const JobSchedulerForm: React.FC<JobSchedulerFormProps> = ({
 									}
 									InputProps={{ inputProps: { min: 1 } }}
 									required
+									helperText={`Default shot count for ${
+										quantumAlgorithm === 'shor'
+											? "Shor's Algorithm: 4096"
+											: "Grover's Algorithm: 8196"
+									}`}
 									sx={{
 										backgroundColor: isDarkMode ? '#2a2a2a' : '#f8f8f8',
 										borderRadius: '8px',
@@ -1382,50 +1451,67 @@ const JobSchedulerForm: React.FC<JobSchedulerFormProps> = ({
 												borderWidth: '1px',
 											},
 										},
+										'& .MuiFormHelperText-root': {
+											color: isDarkMode
+												? 'rgba(255, 255, 255, 0.5)'
+												: 'rgba(0, 0, 0, 0.5)',
+										},
 									}}
 								/>
 							</Grid>
 
 							<Grid item xs={12} md={6}>
-								<FormControl fullWidth>
-									<Select
-										labelId="target-label"
-										value={target}
-										label="Target"
-										onChange={(e: SelectChangeEvent) =>
-											setTarget(
-												e.target.value as 'simulation' | 'real_hardware'
-											)
-										}
-										required
-										sx={{
-											backgroundColor: isDarkMode ? '#2a2a2a' : '#f8f8f8',
+								<TextField
+									fullWidth
+									type="number"
+									label="Number of Runs"
+									value={numberOfRuns}
+									onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+										setNumberOfRuns(parseInt(e.target.value))
+									}
+									InputProps={{ inputProps: { min: 1 } }}
+									required
+									helperText="How many times to repeat this job"
+									sx={{
+										backgroundColor: isDarkMode ? '#2a2a2a' : '#f8f8f8',
+										borderRadius: '8px',
+										'& .MuiInputBase-input': {
 											color: isDarkMode ? '#ffffff' : '#111111',
-											'& .MuiOutlinedInput-notchedOutline': {
+										},
+										'& .MuiInputLabel-root': {
+											color: isDarkMode
+												? 'rgba(255, 255, 255, 0.7)'
+												: 'rgba(0, 0, 0, 0.7)',
+											'&.Mui-focused': {
+												color: '#9747FF',
+											},
+										},
+										'& .MuiOutlinedInput-root': {
+											'& fieldset': {
 												borderColor: 'transparent',
 											},
-											'&:hover .MuiOutlinedInput-notchedOutline': {
+											'&:hover fieldset': {
 												borderColor: isDarkMode
 													? 'rgba(255, 255, 255, 0.6)'
 													: 'rgba(0, 0, 0, 0.5)',
 												borderWidth: '1px',
 											},
-											'&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+											'&.Mui-focused fieldset': {
 												borderColor: '#9747FF',
 												borderWidth: '1px',
 											},
-										}}
-									>
-										<MenuItem value="simulation">Simulation</MenuItem>
-										<MenuItem value="real_hardware">
-											Real Quantum Hardware
-										</MenuItem>
-									</Select>
-								</FormControl>
+										},
+										'& .MuiFormHelperText-root': {
+											color: isDarkMode
+												? 'rgba(255, 255, 255, 0.5)'
+												: 'rgba(0, 0, 0, 0.5)',
+										},
+									}}
+								/>
 							</Grid>
 
 							{quantumAlgorithm === 'grover' && (
-								<Grid item xs={12} md={6}>
+								<Grid item xs={12}>
 									<TextField
 										fullWidth
 										label="Marked States (e.g., 101, 010)"
@@ -1513,56 +1599,58 @@ const JobSchedulerForm: React.FC<JobSchedulerFormProps> = ({
 						</>
 					)}
 
-					{/* Common fields */}
-					<Grid item xs={12} md={6}>
-						<TextField
-							fullWidth
-							type="number"
-							label="Number of Runs"
-							value={numberOfRuns}
-							onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-								setNumberOfRuns(parseInt(e.target.value))
-							}
-							InputProps={{ inputProps: { min: 1 } }}
-							required
-							helperText="How many times to repeat this job"
-							sx={{
-								backgroundColor: isDarkMode ? '#2a2a2a' : '#f8f8f8',
-								borderRadius: '8px',
-								'& .MuiInputBase-input': {
-									color: isDarkMode ? '#ffffff' : '#111111',
-								},
-								'& .MuiInputLabel-root': {
-									color: isDarkMode
-										? 'rgba(255, 255, 255, 0.7)'
-										: 'rgba(0, 0, 0, 0.7)',
-									'&.Mui-focused': {
-										color: '#9747FF',
+					{/* Common fields - Only show for benchmark type */}
+					{jobType === 'benchmark' && (
+						<Grid item xs={12} md={6}>
+							<TextField
+								fullWidth
+								type="number"
+								label="Number of Runs"
+								value={numberOfRuns}
+								onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+									setNumberOfRuns(parseInt(e.target.value))
+								}
+								InputProps={{ inputProps: { min: 1 } }}
+								required
+								helperText="How many times to repeat this job"
+								sx={{
+									backgroundColor: isDarkMode ? '#2a2a2a' : '#f8f8f8',
+									borderRadius: '8px',
+									'& .MuiInputBase-input': {
+										color: isDarkMode ? '#ffffff' : '#111111',
 									},
-								},
-								'& .MuiOutlinedInput-root': {
-									'& fieldset': {
-										borderColor: 'transparent',
+									'& .MuiInputLabel-root': {
+										color: isDarkMode
+											? 'rgba(255, 255, 255, 0.7)'
+											: 'rgba(0, 0, 0, 0.7)',
+										'&.Mui-focused': {
+											color: '#9747FF',
+										},
 									},
-									'&:hover fieldset': {
-										borderColor: isDarkMode
-											? 'rgba(255, 255, 255, 0.6)'
+									'& .MuiOutlinedInput-root': {
+										'& fieldset': {
+											borderColor: 'transparent',
+										},
+										'&:hover fieldset': {
+											borderColor: isDarkMode
+												? 'rgba(255, 255, 255, 0.6)'
+												: 'rgba(0, 0, 0, 0.5)',
+											borderWidth: '1px',
+										},
+										'&.Mui-focused fieldset': {
+											borderColor: '#9747FF',
+											borderWidth: '1px',
+										},
+									},
+									'& .MuiFormHelperText-root': {
+										color: isDarkMode
+											? 'rgba(255, 255, 255, 0.5)'
 											: 'rgba(0, 0, 0, 0.5)',
-										borderWidth: '1px',
 									},
-									'&.Mui-focused fieldset': {
-										borderColor: '#9747FF',
-										borderWidth: '1px',
-									},
-								},
-								'& .MuiFormHelperText-root': {
-									color: isDarkMode
-										? 'rgba(255, 255, 255, 0.5)'
-										: 'rgba(0, 0, 0, 0.5)',
-								},
-							}}
-						/>
-					</Grid>
+								}}
+							/>
+						</Grid>
+					)}
 
 					{/* Submit buttons */}
 					<Grid item xs={12}>
@@ -1579,8 +1667,6 @@ const JobSchedulerForm: React.FC<JobSchedulerFormProps> = ({
 									)
 								}
 								sx={{
-									bgcolor: '#9747FF',
-									'&:hover': { bgcolor: '#8030E0' },
 									textTransform: 'uppercase',
 									fontWeight: 'bold',
 									padding: '10px 24px',

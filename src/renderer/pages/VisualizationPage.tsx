@@ -64,7 +64,7 @@ export const VisualizationPage: React.FC = () => {
 	const resizeObserverRef = useRef<ResizeObserver | null>(null);
 
 	// State for visualization controls
-	const [activeChart, setActiveChart] = useState<string>('trend');
+	const [activeChart, setActiveChart] = useState<string>('performance');
 	const [selectedAlgorithm, setSelectedAlgorithm] = useState<string>('all');
 	const [timeRange, setTimeRange] = useState<string>('all');
 	const [dataSource, setDataSource] = useState<string>('benchmarks');
@@ -688,12 +688,10 @@ export const VisualizationPage: React.FC = () => {
 								onClick={applyFilters}
 								disabled={loading}
 								sx={{
-									bgcolor: '#9747FF',
-									'&:hover': { bgcolor: '#8030E0' },
 									textTransform: 'uppercase',
 									fontWeight: 'bold',
-									padding: '10px 24px',
-									fontSize: '0.9rem',
+									padding: '10px 16px',
+									fontSize: '0.85rem',
 									borderRadius: '8px',
 								}}
 							>
@@ -1152,6 +1150,29 @@ export const VisualizationPage: React.FC = () => {
 											}
 											loading={loading}
 											height={450}
+											sortColumn={
+												currentSortOrder !== 'default'
+													? currentSortOrder.split('_').slice(1).join('_')
+													: ''
+											}
+											sortDirection={
+												currentSortOrder !== 'default'
+													? currentSortOrder.startsWith('asc_')
+														? 'asc'
+														: currentSortOrder.startsWith('desc_')
+														? 'desc'
+														: 'none'
+													: 'none'
+											}
+											onSortChange={(column, direction) => {
+												if (direction === 'none') {
+													setCurrentSortOrder('default');
+												} else {
+													setCurrentSortOrder(`${direction}_${column}`);
+												}
+												// Force resize charts after sorting
+												setTimeout(() => forceResizeCharts(), 100);
+											}}
 										/>
 									</Card>
 								) : (

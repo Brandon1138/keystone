@@ -29,6 +29,30 @@ const createAppTheme = (mode: 'light' | 'dark') =>
 					},
 				},
 			},
+			MuiSwitch: {
+				styleOverrides: {
+					switchBase: {
+						color: mode === 'dark' ? '#666666' : '#CCCCCC', // Grey color when off
+						'&.Mui-disabled': {
+							color: mode === 'dark' ? '#424242' : '#E0E0E0',
+						},
+					},
+					colorPrimary: {
+						'&.Mui-checked': {
+							color: '#3b82f6',
+						},
+					},
+					track: {
+						backgroundColor: mode === 'dark' ? '#333333' : '#E0E0E0',
+						'.Mui-checked.Mui-checked + &': {
+							backgroundColor: 'rgba(59, 130, 246, 0.5)',
+						},
+						'&.Mui-disabled': {
+							backgroundColor: mode === 'dark' ? '#424242' : '#E0E0E0',
+						},
+					},
+				},
+			},
 		},
 	});
 

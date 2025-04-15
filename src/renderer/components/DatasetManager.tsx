@@ -569,25 +569,12 @@ export const DatasetManager: React.FC = () => {
 						onClick={handleImportDataset}
 						disabled={isLoading}
 						sx={{
-							bgcolor: '#9747FF',
-							'&:hover': {
-								bgcolor: '#8030E0',
-							},
-							fontSize: '0.9rem',
-							padding: '10px 24px',
 							textTransform: 'uppercase',
 							fontWeight: 'bold',
+							padding: '8px 16px',
+							fontSize: '0.85rem',
 							borderRadius: '8px',
-							opacity: isLoading ? 0.7 : 1,
-							cursor: isLoading ? 'not-allowed' : 'pointer',
 						}}
-						startIcon={
-							isLoading ? (
-								<CircularProgress size={20} color="inherit" />
-							) : (
-								<ImportIcon />
-							)
-						}
 					>
 						IMPORT DATASET
 					</Button>
@@ -597,21 +584,17 @@ export const DatasetManager: React.FC = () => {
 						onClick={handleSaveDataset}
 						disabled={isLoading}
 						sx={{
+							borderColor: '#9747FF',
 							color: isDarkMode ? '#FFFFFF' : '#000000',
-							borderColor: isDarkMode
-								? 'rgba(255, 255, 255, 0.3)'
-								: 'rgba(0, 0, 0, 0.23)',
-							'&:hover': {
-								borderColor: '#9747FF',
-								bgcolor: 'rgba(151, 71, 255, 0.04)',
-							},
-							fontSize: '0.9rem',
-							padding: '10px 24px',
-							textTransform: 'uppercase',
 							fontWeight: 'bold',
-							borderRadius: '8px',
+							textTransform: 'uppercase',
+							'&:hover': {
+								borderColor: '#8030E0',
+								bgcolor: isDarkMode
+									? 'rgba(151, 71, 255, 0.1)'
+									: 'rgba(151, 71, 255, 0.1)',
+							},
 						}}
-						startIcon={<SaveIcon />}
 					>
 						SAVE DATASET
 					</Button>
@@ -621,21 +604,17 @@ export const DatasetManager: React.FC = () => {
 						onClick={handleCreateNewDataset}
 						disabled={isLoading}
 						sx={{
+							borderColor: '#9747FF',
 							color: isDarkMode ? '#FFFFFF' : '#000000',
-							borderColor: isDarkMode
-								? 'rgba(255, 255, 255, 0.3)'
-								: 'rgba(0, 0, 0, 0.23)',
-							'&:hover': {
-								borderColor: '#9747FF',
-								bgcolor: 'rgba(151, 71, 255, 0.04)',
-							},
-							fontSize: '0.9rem',
-							padding: '10px 24px',
-							textTransform: 'uppercase',
 							fontWeight: 'bold',
-							borderRadius: '8px',
+							textTransform: 'uppercase',
+							'&:hover': {
+								borderColor: '#8030E0',
+								bgcolor: isDarkMode
+									? 'rgba(151, 71, 255, 0.1)'
+									: 'rgba(151, 71, 255, 0.1)',
+							},
 						}}
-						startIcon={<AddIcon />}
 					>
 						NEW DATASET
 					</Button>
@@ -881,18 +860,11 @@ export const DatasetManager: React.FC = () => {
 											isLoading || currentDataset?.path === dataset.path
 										}
 										sx={{
-											bgcolor:
-												currentDataset?.path === dataset.path
-													? '#6C757D'
-													: '#9747FF',
-											'&:hover': {
-												bgcolor:
-													currentDataset?.path === dataset.path
-														? '#6C757D'
-														: '#8030E0',
-											},
-											fontSize: '0.7rem',
-											borderRadius: '6px',
+											textTransform: 'uppercase',
+											fontWeight: 'bold',
+											padding: '8px 16px',
+											fontSize: '0.85rem',
+											borderRadius: '8px',
 										}}
 									>
 										{currentDataset?.path === dataset.path
@@ -977,10 +949,11 @@ export const DatasetManager: React.FC = () => {
 						variant="contained"
 						disableElevation
 						sx={{
-							bgcolor: '#9747FF',
-							'&:hover': {
-								bgcolor: '#8030E0',
-							},
+							textTransform: 'uppercase',
+							fontWeight: 'bold',
+							padding: '8px 16px',
+							fontSize: '0.85rem',
+							borderRadius: '8px',
 						}}
 					>
 						Save & Continue
@@ -1045,10 +1018,11 @@ export const DatasetManager: React.FC = () => {
 						variant="contained"
 						disableElevation
 						sx={{
-							bgcolor: '#F44336',
-							'&:hover': {
-								bgcolor: '#D32F2F',
-							},
+							textTransform: 'uppercase',
+							fontWeight: 'bold',
+							padding: '8px 16px',
+							fontSize: '0.85rem',
+							borderRadius: '8px',
 						}}
 					>
 						Remove

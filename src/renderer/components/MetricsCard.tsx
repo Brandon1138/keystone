@@ -12,6 +12,7 @@ interface MetricsCardProps {
 	icon: React.ReactNode;
 	metrics: MetricItem[];
 	iconColor?: string;
+	animateMetrics?: boolean;
 }
 
 export const MetricsCard: React.FC<MetricsCardProps> = ({
@@ -19,6 +20,7 @@ export const MetricsCard: React.FC<MetricsCardProps> = ({
 	icon,
 	metrics,
 	iconColor = '#9747FF',
+	animateMetrics = false,
 }) => {
 	return (
 		<Card className="p-4 h-full">
@@ -34,7 +36,12 @@ export const MetricsCard: React.FC<MetricsCardProps> = ({
 
 			<div className="space-y-3">
 				{metrics.map((metric, index) => (
-					<div key={index} className="metric-update">
+					<div
+						key={index}
+						className={`metric-update ${
+							animateMetrics ? 'animate-metric' : ''
+						}`}
+					>
 						<div className="text-sm text-muted-foreground">{metric.label}</div>
 						<div className="text-lg font-medium">
 							{metric.value} {metric.unit}

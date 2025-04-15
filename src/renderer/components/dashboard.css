@@ -8,7 +8,12 @@
 }
 
 .metric-update {
-	animation: pulse 1s ease-in-out;
+	/* Only apply animation when both classes are present */
+	/* animation: fadeInUpdate 0.3s ease-in-out; */
+}
+
+.metric-update.animate-metric {
+	animation: fadeInUpdate 0.3s ease-in-out;
 }
 
 /* Progress colors */
@@ -377,10 +382,6 @@
 		opacity: 1;
 		transform: scale(1);
 	}
-}
-
-.metric-update {
-	animation: fadeInUpdate 0.3s ease-in-out;
 }
 
 /* Custom styles for the speedometer colors based on progress */

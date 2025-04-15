@@ -41,7 +41,7 @@ const createAppTheme = (mode: 'light' | 'dark') =>
 		palette: {
 			mode: mode,
 			primary: {
-				main: '#3b82f6', // blue-500, matching our primary in Tailwind
+				main: '#3b82f6', // blue-500, keeping this for toggles and switches
 			},
 			background: {
 				default: mode === 'dark' ? '#212121' : '#FAFAFA',
@@ -56,6 +56,57 @@ const createAppTheme = (mode: 'light' | 'dark') =>
 				styleOverrides: {
 					root: {
 						textTransform: 'none', // shadcn style uses lowercase
+					},
+					// Style for contained buttons (the primary ones)
+					contained: {
+						background: 'linear-gradient(to right, #9747FF, #7847FF)',
+						transition: 'all 0.3s ease',
+						boxShadow: '0 4px 6px rgba(151, 71, 255, 0.2)',
+						'&:hover': {
+							background: 'linear-gradient(to right, #8030E0, #6030E0)',
+							boxShadow: '0 5px 15px rgba(151, 71, 255, 0.4)',
+							transform: 'translateY(-1px)',
+						},
+					},
+					// Preserve default styles for secondary buttons and outlined buttons
+					containedSecondary: {
+						background: undefined, // Use default MUI style
+						'&:hover': {
+							background: undefined, // Use default MUI style
+							boxShadow: undefined,
+							transform: undefined,
+						},
+					},
+					outlined: {
+						// No changes to outlined buttons
+					},
+					text: {
+						// No changes to text buttons
+					},
+				},
+			},
+			// Ensure toggles and switches (MuiSwitch) keep the blue color
+			MuiSwitch: {
+				styleOverrides: {
+					switchBase: {
+						color: mode === 'dark' ? '#666666' : '#CCCCCC', // Grey color when off
+						'&.Mui-disabled': {
+							color: mode === 'dark' ? '#424242' : '#E0E0E0',
+						},
+					},
+					colorPrimary: {
+						'&.Mui-checked': {
+							color: '#3b82f6',
+						},
+					},
+					track: {
+						backgroundColor: mode === 'dark' ? '#333333' : '#E0E0E0',
+						'.Mui-checked.Mui-checked + &': {
+							backgroundColor: 'rgba(59, 130, 246, 0.5)',
+						},
+						'&.Mui-disabled': {
+							backgroundColor: mode === 'dark' ? '#424242' : '#E0E0E0',
+						},
 					},
 				},
 			},
@@ -258,7 +309,7 @@ const App: React.FC = () => {
 
 							{/* Footer */}
 							<footer className="mt-8 text-center text-sm text-gray-500">
-								<p>Keystone - Version 1.0.0</p>
+								<p>Keystone - Version 1.0.0-rc</p>
 								<p>
 									Running on Electron<span id="electron-version"></span>, Node
 									<span id="node-version"></span>, and Chromium

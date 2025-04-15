@@ -57,31 +57,39 @@ export const CodexPage: React.FC = () => {
 						},
 						{
 							title: 'CRYSTALS-Kyber (ML-KEM)',
-							url: 'https://csrc.nist.gov/pubs/fips/203/ipd',
-							description: 'NIST FIPS 203 (Initial Public Draft) for ML-KEM',
+							url: 'https://csrc.nist.gov/pubs/fips/203/final',
+							description:
+								'NIST FIPS 203 (Final) for Module-Lattice-Based Key-Encapsulation Mechanism Standard',
 						},
 						{
 							title: 'CRYSTALS-Dilithium (ML-DSA)',
-							url: 'https://csrc.nist.gov/pubs/fips/204/ipd',
-							description: 'NIST FIPS 204 (Initial Public Draft) for ML-DSA',
-						},
-						{
-							title: 'SPHINCS+ (ML-DSA-HSS)',
-							url: 'https://csrc.nist.gov/pubs/fips/205/ipd',
+							url: 'https://csrc.nist.gov/pubs/fips/204/final',
 							description:
-								'NIST FIPS 205 (Initial Public Draft) for ML-DSA-HSS',
+								'NIST FIPS 204 (Final) for Module-Lattice-Based Digital Signature Standard',
 						},
 						{
-							title: 'FALCON (ML-DSA-FO)',
+							title: 'SPHINCS+ (SLH-DSA)',
+							url: 'https://csrc.nist.gov/pubs/fips/205/final',
+							description:
+								'NIST FIPS 205 (Final) for Stateless Hash-Based Digital Signature Standard',
+						},
+						{
+							title: 'FALCON',
 							url: 'https://falcon-sign.info/',
 							description:
 								'Fast-Fourier Lattice-Based Compact Signatures over NTRU',
 						},
 						{
-							title: 'NIST PQC Standardization Process Round 3 Report',
-							url: 'https://csrc.nist.gov/publications/detail/nistir/8413/final',
+							title: 'Classic McEliece',
+							url: 'https://classic.mceliece.org/index.html',
 							description:
-								'Official report on Round 3 of the NIST PQC Standardization Process',
+								'Code-based public-key cryptosystem based on the McEliece cryptosystem',
+						},
+						{
+							title: 'NIST PQC Round 4 Submissions',
+							url: 'https://csrc.nist.gov/projects/post-quantum-cryptography/round-4-submissions',
+							description:
+								'Submissions for Round 4 of the NIST PQC Standardization Process',
 						},
 					],
 				},
@@ -272,6 +280,17 @@ export const CodexPage: React.FC = () => {
 			title: 'Foundational Knowledge & Research',
 			icon: <LibraryBooksIcon style={{ color: '#9747FF' }} />,
 			subsections: [
+				{
+					title: 'Interactive Learning',
+					links: [
+						{
+							title: 'The Qubit Game',
+							url: 'https://quantumai.google/education/thequbitgame',
+							description:
+								'Learn quantum computing concepts through an interactive game by Google',
+						},
+					],
+				},
 				{
 					title: 'Quantum Threats & Algorithms',
 					links: [

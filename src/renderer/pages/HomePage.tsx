@@ -178,19 +178,12 @@ export const HomePage: React.FC = () => {
 							disableElevation
 							size="small"
 							sx={{
-								bgcolor: 'rgba(151, 71, 255, 0.8)',
-								'&:hover': {
-									bgcolor: 'rgba(151, 71, 255, 0.9)',
-									boxShadow: '0 0 15px rgba(151, 71, 255, 0.4)',
-								},
-								backdropFilter: 'blur(4px)',
 								fontSize: '0.8rem',
 								padding: '6px 16px',
 								textTransform: 'uppercase',
 								fontWeight: 'bold',
 								letterSpacing: '0.5px',
 								borderRadius: '8px',
-								transition: 'all 0.3s ease',
 							}}
 						>
 							GET STARTED

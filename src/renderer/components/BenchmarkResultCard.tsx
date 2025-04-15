@@ -20,11 +20,13 @@ import {
 interface BenchmarkResultCardProps {
 	benchmark: BenchmarkResult;
 	compact?: boolean;
+	justCompleted?: boolean;
 }
 
 export const BenchmarkResultCard: React.FC<BenchmarkResultCardProps> = ({
 	benchmark,
 	compact = false,
+	justCompleted = false,
 }) => {
 	const algorithmInfo = getAlgorithmInfo(benchmark.algorithm);
 	const categoryColor = getCategoryColorClass(algorithmInfo.category);
@@ -105,7 +107,12 @@ export const BenchmarkResultCard: React.FC<BenchmarkResultCardProps> = ({
 				</div>
 				<div className="space-y-3">
 					{Object.entries(metrics).map(([key, value]) => (
-						<div key={key} className="metric-update">
+						<div
+							key={key}
+							className={`metric-update ${
+								justCompleted ? 'animate-metric' : ''
+							}`}
+						>
 							<div className="text-sm" style={{ color: '#999999' }}>
 								{formatMetricName(key)}
 							</div>
@@ -167,6 +174,7 @@ export const BenchmarkResultCard: React.FC<BenchmarkResultCardProps> = ({
 						<Speedometer
 							value={100}
 							isRunning={false}
+							justCompleted={justCompleted}
 							label={displayName}
 							algorithm={benchmark.algorithm}
 							securityParam={benchmark.securityParam}

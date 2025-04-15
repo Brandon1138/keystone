@@ -19,11 +19,14 @@ import {
 	RadioGroup,
 	FormControlLabel,
 	Radio,
+	Button,
 } from '@mui/material';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import FullscreenIcon from '@mui/icons-material/Fullscreen';
 import FullscreenExitIcon from '@mui/icons-material/FullscreenExit';
-import ColorLensIcon from '@mui/icons-material/ColorLens';
+import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
+import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
+import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import {
 	ProcessedBenchmarkData,
 	OperationMetrics,
@@ -32,12 +35,16 @@ import {
 // Define types for color highlight options
 type TimeHighlightOption = 'average' | 'min' | 'max';
 type MemoryHighlightOption = 'peak' | 'average';
+type SortDirection = 'asc' | 'desc' | 'none';
 
 interface BenchmarkDataTableProps {
 	data: ProcessedBenchmarkData[];
 	metric: 'avg_ms' | 'ops_per_sec' | 'mem_peak_kb';
 	loading?: boolean;
 	height?: number;
+	sortColumn?: string;
+	sortDirection?: SortDirection;
+	onSortChange?: (column: string, direction: SortDirection) => void;
 }
 
 // Labels and descriptions for the metrics
@@ -115,6 +122,9 @@ const BenchmarkDataTable: React.FC<BenchmarkDataTableProps> = ({
 	metric,
 	loading = false,
 	height = 400,
+	sortColumn = '',
+	sortDirection = 'none',
+	onSortChange = () => {},
 }) => {
 	const theme = useTheme();
 	const isDarkMode = theme.palette.mode === 'dark';
@@ -125,7 +135,6 @@ const BenchmarkDataTable: React.FC<BenchmarkDataTableProps> = ({
 		useState<TimeHighlightOption>('average');
 	const [memoryHighlight, setMemoryHighlight] =
 		useState<MemoryHighlightOption>('peak');
-	const [showColorOptions, setShowColorOptions] = useState<boolean>(false);
 
 	// Get additional columns based on the selected metric
 	const additionalColumns = getAdditionalColumns(metric);
@@ -192,16 +201,41 @@ const BenchmarkDataTable: React.FC<BenchmarkDataTableProps> = ({
 			return row;
 		});
 
-		// Sort by algorithm name and variant
-		processedData.sort((a, b) => {
+		// Apply sorting if enabled
+		let sorted = [...processedData];
+
+		if (sortColumn && sortDirection !== 'none') {
+			sorted.sort((a, b) => {
+				// If sorting by algorithm or variant
+				if (sortColumn === 'algorithm' || sortColumn === 'variant') {
+					const aValue = a[sortColumn] || '';
+					const bValue = b[sortColumn] || '';
+					const compareResult = aValue.localeCompare(bValue);
+					return sortDirection === 'asc' ? compareResult : -compareResult;
+				}
+
+				// If sorting by operation metrics
+				const aValue =
+					a[sortColumn] === null ? Number.NEGATIVE_INFINITY : a[sortColumn];
+				const bValue =
+					b[sortColumn] === null ? Number.NEGATIVE_INFINITY : b[sortColumn];
+				const compareResult = aValue - bValue;
+				return sortDirection === 'asc' ? compareResult : -compareResult;
+			});
+
+			return { tableData: sorted, operations: sortedOperations };
+		}
+
+		// Default sorting by algorithm name and variant when no column sort is active
+		sorted.sort((a, b) => {
 			if (a.algorithm !== b.algorithm) {
 				return a.algorithm.localeCompare(b.algorithm);
 			}
 			return a.variant.localeCompare(b.variant);
 		});
 
-		return { tableData: processedData, operations: sortedOperations };
-	}, [data, metric, additionalColumns]);
+		return { tableData: sorted, operations: sortedOperations };
+	}, [data, metric, additionalColumns, sortColumn, sortDirection]);
 
 	// Get the appropriate metric to highlight based on user selection
 	const getMetricToHighlight = (
@@ -302,250 +336,329 @@ const BenchmarkDataTable: React.FC<BenchmarkDataTableProps> = ({
 		setMemoryHighlight(event.target.value as MemoryHighlightOption);
 	};
 
-	const toggleColorOptions = () => {
-		setShowColorOptions(!showColorOptions);
+	// Handle column header click for sorting
+	const handleHeaderClick = (column: string) => {
+		let newDirection: SortDirection = 'asc';
+
+		// If already sorting by this column, toggle direction
+		if (column === sortColumn) {
+			if (sortDirection === 'asc') {
+				newDirection = 'desc';
+			} else if (sortDirection === 'desc') {
+				newDirection = 'none'; // Third click resets
+			}
+		}
+
+		onSortChange(column, newDirection);
 	};
 
-	// Define a function to render table headers and body that can be reused
-	const renderTableContent = (): React.ReactNode => (
-		<>
-			<TableHead>
-				<TableRow>
-					<TableCell
-						sx={{
-							fontWeight: 'bold',
-							bgcolor: isDarkMode ? '#1a1a1a' : '#f5f5f5',
-							color: isDarkMode ? '#fff' : '#000',
-						}}
-					>
-						Algorithm
-					</TableCell>
-					<TableCell
-						sx={{
-							fontWeight: 'bold',
-							bgcolor: isDarkMode ? '#1a1a1a' : '#f5f5f5',
-							color: isDarkMode ? '#fff' : '#000',
-						}}
-					>
-						Variant
-					</TableCell>
-					{operations.map((op) => (
-						<React.Fragment key={op}>
-							{/* Main metric column */}
-							<TableCell
-								align="right"
-								sx={{
-									fontWeight: 'bold',
-									bgcolor: isDarkMode ? '#1a1a1a' : '#f5f5f5',
-									color: isDarkMode ? '#fff' : '#000',
-								}}
-							>
-								<Tooltip
-									title={`${operationDisplayNames[op] || op}: ${
-										metricLabels[metric]
-									}`}
-									arrow
-								>
-									<span>{operationDisplayNames[op] || op}</span>
-								</Tooltip>
-							</TableCell>
-
-							{/* Additional columns for this operation */}
-							{additionalColumns.map((addCol) => (
-								<TableCell
-									key={`${op}_${addCol}`}
-									align="right"
-									sx={{
-										fontWeight: 'bold',
-										bgcolor: isDarkMode ? '#1a1a1a' : '#f5f5f5',
-										color: isDarkMode ? '#fff' : '#000',
-									}}
-								>
-									<Tooltip title={getAdditionalColumnDescription(addCol)} arrow>
-										<span>{getAdditionalColumnLabel(addCol)}</span>
-									</Tooltip>
-								</TableCell>
-							))}
-						</React.Fragment>
-					))}
-				</TableRow>
-			</TableHead>
-			<TableBody>
-				{tableData.map((row) => (
-					<TableRow key={row.id} hover>
-						<TableCell
-							component="th"
-							scope="row"
-							sx={{
-								color: '#9747FF',
-								fontWeight: 'medium',
-								whiteSpace: 'nowrap',
-							}}
-						>
-							{row.algorithm}
-						</TableCell>
-						<TableCell sx={{ whiteSpace: 'nowrap' }}>{row.variant}</TableCell>
-						{operations.map((op) => (
-							<React.Fragment key={`${row.id}-${op}`}>
-								{/* Main metric value */}
-								<TableCell
-									align="right"
-									sx={{
-										backgroundColor: (() => {
-											if (row[op] === null) return 'transparent';
-
-											// Determine which metric to use for color highlighting
-											const metricToHighlight = getMetricToHighlight(
-												op,
-												metric,
-												row
-											);
-
-											// If this is the highlighted column, apply color
-											if (
-												(metric === 'avg_ms' && timeHighlight === 'average') ||
-												(metric === 'mem_peak_kb' &&
-													memoryHighlight === 'peak') ||
-												metric === 'ops_per_sec'
-											) {
-												return getCellBackgroundColor(row[op], op, op);
-											}
-											return 'transparent';
-										})(),
-										whiteSpace: 'nowrap',
-									}}
-								>
-									{row[op] !== null && row[op] !== undefined
-										? formatNumber(row[op])
-										: '—'}
-								</TableCell>
-
-								{/* Additional metric values */}
-								{additionalColumns.map((addCol) => {
-									const columnKey = `${op}_${addCol}`;
-									// Determine if this column should be highlighted
-									const shouldHighlight =
-										(metric === 'avg_ms' &&
-											((addCol === 'min_ms' && timeHighlight === 'min') ||
-												(addCol === 'max_ms' && timeHighlight === 'max'))) ||
-										(metric === 'mem_peak_kb' &&
-											addCol === 'mem_avg_kb' &&
-											memoryHighlight === 'average');
-
-									return (
-										<TableCell
-											key={`${row.id}-${columnKey}`}
-											align="right"
-											sx={{
-												backgroundColor:
-													shouldHighlight && row[columnKey] !== null
-														? getCellBackgroundColor(
-																row[columnKey],
-																op,
-																columnKey
-														  )
-														: 'transparent',
-												whiteSpace: 'nowrap',
-											}}
-										>
-											{row[columnKey] !== null && row[columnKey] !== undefined
-												? formatNumber(row[columnKey])
-												: '—'}
-										</TableCell>
-									);
-								})}
-							</React.Fragment>
-						))}
-					</TableRow>
-				))}
-			</TableBody>
-		</>
-	);
+	// Reset sorting to default
+	const handleResetSort = () => {
+		onSortChange('', 'none');
+	};
 
 	// Render the color highlighting controls
 	const renderColorControls = () => {
-		if (!showColorOptions) return null;
-
-		return (
-			<Box
-				sx={{
-					mt: 2,
-					mb: 2,
-					p: 2,
-					bgcolor: isDarkMode ? 'rgba(0,0,0,0.1)' : 'rgba(0,0,0,0.05)',
-					borderRadius: '8px',
-				}}
-			>
-				{metric === 'avg_ms' && (
-					<FormControl component="fieldset" sx={{ mb: 1 }}>
-						<FormLabel
-							component="legend"
-							sx={{ fontSize: '0.9rem', color: isDarkMode ? '#ccc' : '#555' }}
-						>
-							Highlight Time Values
-						</FormLabel>
-						<RadioGroup
-							row
-							aria-label="time-highlight"
-							name="time-highlight"
-							value={timeHighlight}
-							onChange={handleTimeHighlightChange}
-						>
-							<FormControlLabel
-								value="average"
-								control={<Radio size="small" sx={{ color: '#E91E63' }} />}
-								label="Average"
-								sx={{ '& .MuiFormControlLabel-label': { fontSize: '0.9rem' } }}
-							/>
-							<FormControlLabel
-								value="min"
-								control={<Radio size="small" sx={{ color: '#E91E63' }} />}
-								label="Min"
-								sx={{ '& .MuiFormControlLabel-label': { fontSize: '0.9rem' } }}
-							/>
-							<FormControlLabel
-								value="max"
-								control={<Radio size="small" sx={{ color: '#E91E63' }} />}
-								label="Max"
-								sx={{ '& .MuiFormControlLabel-label': { fontSize: '0.9rem' } }}
-							/>
-						</RadioGroup>
-					</FormControl>
-				)}
-
-				{metric === 'mem_peak_kb' && (
-					<FormControl component="fieldset">
-						<FormLabel
-							component="legend"
-							sx={{ fontSize: '0.9rem', color: isDarkMode ? '#ccc' : '#555' }}
-						>
-							Highlight Memory Values
-						</FormLabel>
-						<RadioGroup
-							row
-							aria-label="memory-highlight"
-							name="memory-highlight"
-							value={memoryHighlight}
-							onChange={handleMemoryHighlightChange}
-						>
-							<FormControlLabel
-								value="peak"
-								control={<Radio size="small" sx={{ color: '#E91E63' }} />}
-								label="Peak"
-								sx={{ '& .MuiFormControlLabel-label': { fontSize: '0.9rem' } }}
-							/>
-							<FormControlLabel
-								value="average"
-								control={<Radio size="small" sx={{ color: '#E91E63' }} />}
-								label="Average"
-								sx={{ '& .MuiFormControlLabel-label': { fontSize: '0.9rem' } }}
-							/>
-						</RadioGroup>
-					</FormControl>
-				)}
-			</Box>
-		);
+		return null; // Return null instead of the controls box
 	};
+
+	// Render the table with headers and body
+	const renderTable = () => (
+		<Table
+			stickyHeader
+			aria-label="benchmark data table"
+			size="small"
+			sx={{
+				'.MuiTableCell-root': {
+					borderBottom: isDarkMode
+						? '1px solid rgba(255, 255, 255, 0.1)'
+						: '1px solid rgba(0, 0, 0, 0.1)',
+				},
+				minWidth: operations.length > 3 ? 900 : 600, // Ensure minimum width for many columns
+				tableLayout: 'fixed', // Fixed table layout to prevent column width inconsistencies
+			}}
+		>
+			<TableHead>
+				<TableRow>
+					{/* Algorithm Column Header */}
+					<TableCell
+						sx={{
+							backgroundColor: isDarkMode ? '#333333' : '#f5f5f5',
+							color: isDarkMode ? '#FFFFFF' : '#000000',
+							fontWeight: 'bold',
+							cursor: 'pointer',
+							userSelect: 'none',
+							position: 'sticky',
+							left: 0,
+							zIndex: 3,
+							width: '150px',
+							padding: '10px 16px',
+							borderRight: isDarkMode
+								? '1px solid rgba(255, 255, 255, 0.05)'
+								: '1px solid rgba(0, 0, 0, 0.05)',
+						}}
+						onClick={() => handleHeaderClick('algorithm')}
+					>
+						<Box sx={{ display: 'flex', alignItems: 'center' }}>
+							Algorithm
+							{sortColumn === 'algorithm' &&
+								sortDirection !== 'none' &&
+								(sortDirection === 'asc' ? (
+									<ArrowUpwardIcon fontSize="small" sx={{ ml: 0.5 }} />
+								) : (
+									<ArrowDownwardIcon fontSize="small" sx={{ ml: 0.5 }} />
+								))}
+						</Box>
+					</TableCell>
+
+					{/* Variant Column Header */}
+					<TableCell
+						sx={{
+							backgroundColor: isDarkMode ? '#333333' : '#f5f5f5',
+							color: isDarkMode ? '#FFFFFF' : '#000000',
+							fontWeight: 'bold',
+							cursor: 'pointer',
+							userSelect: 'none',
+							position: 'sticky',
+							left: 0,
+							zIndex: 3,
+							width: '100px',
+							padding: '10px 16px',
+							borderRight: isDarkMode
+								? '1px solid rgba(255, 255, 255, 0.05)'
+								: '1px solid rgba(0, 0, 0, 0.05)',
+						}}
+						onClick={() => handleHeaderClick('variant')}
+					>
+						<Box sx={{ display: 'flex', alignItems: 'center' }}>
+							Variant
+							{sortColumn === 'variant' &&
+								sortDirection !== 'none' &&
+								(sortDirection === 'asc' ? (
+									<ArrowUpwardIcon fontSize="small" sx={{ ml: 0.5 }} />
+								) : (
+									<ArrowDownwardIcon fontSize="small" sx={{ ml: 0.5 }} />
+								))}
+						</Box>
+					</TableCell>
+
+					{/* Operation Column Headers */}
+					{operations.map((operation) => (
+						<TableCell
+							key={operation}
+							sx={{
+								backgroundColor: isDarkMode ? '#333333' : '#f5f5f5',
+								color: isDarkMode ? '#FFFFFF' : '#000000',
+								fontWeight: 'bold',
+								cursor: 'pointer',
+								userSelect: 'none',
+								padding: '10px 16px',
+								width: `${Math.floor(100 / operations.length)}%`,
+								minWidth: '120px',
+								borderRight: isDarkMode
+									? '1px solid rgba(255, 255, 255, 0.05)'
+									: '1px solid rgba(0, 0, 0, 0.05)',
+							}}
+							onClick={() => handleHeaderClick(operation)}
+						>
+							<Box sx={{ display: 'flex', alignItems: 'center' }}>
+								{operation.charAt(0).toUpperCase() + operation.slice(1)}
+								{sortColumn === operation &&
+									sortDirection !== 'none' &&
+									(sortDirection === 'asc' ? (
+										<ArrowUpwardIcon fontSize="small" sx={{ ml: 0.5 }} />
+									) : (
+										<ArrowDownwardIcon fontSize="small" sx={{ ml: 0.5 }} />
+									))}
+							</Box>
+
+							{/* Additional metrics displayed below main label for this operation */}
+							{additionalColumns.map((additionalColumn) => {
+								const columnKey = `${operation}_${additionalColumn}`;
+								return (
+									<Box
+										key={columnKey}
+										sx={{
+											fontSize: '0.7rem',
+											color: isDarkMode
+												? 'rgba(255, 255, 255, 0.7)'
+												: 'rgba(0, 0, 0, 0.7)',
+											display: 'flex',
+											alignItems: 'center',
+											cursor: 'pointer',
+											mt: 0.5,
+										}}
+										onClick={(e) => {
+											e.stopPropagation(); // Stop propagation to parent cell click
+											handleHeaderClick(columnKey);
+										}}
+									>
+										{getAdditionalColumnLabel(additionalColumn)}
+										{sortColumn === columnKey &&
+											sortDirection !== 'none' &&
+											(sortDirection === 'asc' ? (
+												<ArrowUpwardIcon
+													fontSize="small"
+													sx={{ ml: 0.5, fontSize: '0.8rem' }}
+												/>
+											) : (
+												<ArrowDownwardIcon
+													fontSize="small"
+													sx={{ ml: 0.5, fontSize: '0.8rem' }}
+												/>
+											))}
+									</Box>
+								);
+							})}
+						</TableCell>
+					))}
+				</TableRow>
+			</TableHead>
+
+			<TableBody>
+				{loading ? (
+					// Skeleton loading state
+					Array.from(new Array(5)).map((_, index) => (
+						<TableRow key={index}>
+							<TableCell>
+								<Skeleton variant="text" width="80%" />
+							</TableCell>
+							<TableCell>
+								<Skeleton variant="text" width="60%" />
+							</TableCell>
+							{operations.map((op, i) => (
+								<TableCell key={i}>
+									<Skeleton variant="text" width="70%" />
+									{additionalColumns.map((_, j) => (
+										<Box key={j} sx={{ mt: 1 }}>
+											<Skeleton variant="text" width="40%" height={15} />
+										</Box>
+									))}
+								</TableCell>
+							))}
+						</TableRow>
+					))
+				) : tableData.length === 0 ? (
+					// No data state
+					<TableRow>
+						<TableCell
+							colSpan={2 + operations.length}
+							align="center"
+							sx={{ py: 3 }}
+						>
+							<Typography variant="body1" color="textSecondary">
+								No data available for the selected filters.
+							</Typography>
+						</TableCell>
+					</TableRow>
+				) : (
+					// Actual data rows
+					tableData.map((row) => (
+						<TableRow
+							key={row.id}
+							sx={{
+								'&:hover': {
+									backgroundColor: isDarkMode
+										? 'rgba(255, 255, 255, 0.05)'
+										: 'rgba(0, 0, 0, 0.05)',
+								},
+							}}
+						>
+							<TableCell
+								sx={{
+									color: isDarkMode ? '#FFFFFF' : '#000000',
+									fontWeight: 'medium',
+									position: 'sticky',
+									left: 0,
+									backgroundColor: isDarkMode ? '#212121' : '#E9E9E9',
+									zIndex: 2,
+									padding: '8px 16px',
+									borderRight: isDarkMode
+										? '1px solid rgba(255, 255, 255, 0.05)'
+										: '1px solid rgba(0, 0, 0, 0.05)',
+								}}
+							>
+								{row.algorithm}
+							</TableCell>
+							<TableCell
+								sx={{
+									color: isDarkMode ? '#FFFFFF' : '#000000',
+									fontStyle: 'italic',
+									padding: '8px 16px',
+									borderRight: isDarkMode
+										? '1px solid rgba(255, 255, 255, 0.05)'
+										: '1px solid rgba(0, 0, 0, 0.05)',
+								}}
+							>
+								{row.variant}
+							</TableCell>
+							{operations.map((operation) => {
+								const { value, metricKey } = getMetricToHighlight(
+									operation,
+									metric,
+									row
+								);
+								const backgroundColor =
+									value !== null
+										? getCellBackgroundColor(value, operation, metricKey)
+										: 'transparent';
+
+								return (
+									<TableCell
+										key={operation}
+										sx={{
+											color: isDarkMode ? '#FFFFFF' : '#000000',
+											backgroundColor,
+											transition: 'background-color 0.3s',
+											padding: '8px 16px',
+											borderRight: isDarkMode
+												? '1px solid rgba(255, 255, 255, 0.05)'
+												: '1px solid rgba(0, 0, 0, 0.05)',
+										}}
+									>
+										{row[operation] !== null ? (
+											formatNumber(row[operation])
+										) : (
+											<Typography
+												variant="body2"
+												color="textSecondary"
+												sx={{ fontStyle: 'italic' }}
+											>
+												N/A
+											</Typography>
+										)}
+
+										{/* Additional metrics for this operation */}
+										{additionalColumns.map((additionalColumn) => {
+											const columnKey = `${operation}_${additionalColumn}`;
+											return (
+												<Box
+													key={columnKey}
+													sx={{
+														fontSize: '0.7rem',
+														color: isDarkMode
+															? 'rgba(255, 255, 255, 0.6)'
+															: 'rgba(0, 0, 0, 0.6)',
+														mt: 0.5,
+													}}
+												>
+													{row[columnKey] !== null
+														? `${getAdditionalColumnLabel(
+																additionalColumn
+														  )}: ${formatNumber(row[columnKey])}`
+														: ''}
+												</Box>
+											);
+										})}
+									</TableCell>
+								);
+							})}
+						</TableRow>
+					))
+				)}
+			</TableBody>
+		</Table>
+	);
 
 	if (loading) {
 		return (
@@ -610,9 +723,11 @@ const BenchmarkDataTable: React.FC<BenchmarkDataTableProps> = ({
 						borderRadius: 2,
 						display: 'flex',
 						flexDirection: 'column',
+						overflow: 'hidden', // Prevent modal overflow
 					}}
 				>
-					<div className="flex justify-between items-center mb-3">
+					{/* Modal Header */}
+					<Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
 						<Typography id="table-modal-title" variant="h6" component="h2">
 							{metricLabels[metric]}
 							<Tooltip title={metricDescriptions[metric]} arrow>
@@ -626,104 +741,159 @@ const BenchmarkDataTable: React.FC<BenchmarkDataTableProps> = ({
 								/>
 							</Tooltip>
 						</Typography>
-						<Box sx={{ display: 'flex', alignItems: 'center' }}>
-							<Tooltip title="Toggle Color Highlighting Options">
-								<IconButton
-									onClick={toggleColorOptions}
+
+						<Box sx={{ display: 'flex', gap: 1 }}>
+							{/* Reset Sort Button - only show if sorting is active */}
+							{sortColumn && sortDirection !== 'none' && (
+								<Button
 									size="small"
-									sx={{ mr: 1 }}
+									startIcon={<RestartAltIcon />}
+									onClick={handleResetSort}
+									variant="outlined"
+									sx={{
+										borderColor: '#9747FF',
+										color: isDarkMode ? '#FFFFFF' : '#000000',
+										'&:hover': {
+											borderColor: '#8030E0',
+											bgcolor: isDarkMode
+												? 'rgba(151, 71, 255, 0.1)'
+												: 'rgba(151, 71, 255, 0.1)',
+										},
+									}}
 								>
-									<ColorLensIcon />
-								</IconButton>
-							</Tooltip>
-							<IconButton onClick={() => setTableFullscreen(false)}>
-								<FullscreenExitIcon />
+									Reset Sort
+								</Button>
+							)}
+
+							<IconButton
+								onClick={() => setTableFullscreen(false)}
+								size="small"
+								sx={{
+									color: isDarkMode ? '#FFFFFF' : '#000000',
+									border: '1px solid',
+									borderColor: isDarkMode
+										? 'rgba(255, 255, 255, 0.2)'
+										: 'rgba(0, 0, 0, 0.2)',
+								}}
+							>
+								<FullscreenExitIcon fontSize="small" />
 							</IconButton>
 						</Box>
-					</div>
+					</Box>
 
 					{/* Color controls in fullscreen mode */}
-					{renderColorControls()}
+					{/* renderColorControls() - removed */}
 
-					{/* Table in fullscreen mode */}
+					{/* Table container with overflow handling */}
 					<TableContainer
 						component={Paper}
+						elevation={0}
 						sx={{
 							flex: 1,
 							overflow: 'auto',
-							bgcolor: isDarkMode
-								? 'rgba(33,33,33,0.9)'
-								: 'rgba(255,255,255,0.9)',
-							'& .MuiTableCell-root': {
-								borderBottom: `1px solid ${
-									isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'
-								}`,
-							},
+							backgroundColor: 'transparent',
+							borderRadius: '8px',
 						}}
 					>
-						<Table stickyHeader>{renderTableContent()}</Table>
+						{renderTable()}
 					</TableContainer>
 				</Box>
 			</Modal>
 
-			{/* Modified header with color options and fullscreen buttons */}
-			<Box
-				sx={{
-					mb: 2,
-					display: 'flex',
-					alignItems: 'center',
-					justifyContent: 'space-between',
-				}}
-			>
-				<Box sx={{ display: 'flex', alignItems: 'center' }}>
-					<Typography variant="subtitle1">{metricLabels[metric]}</Typography>
-					<Tooltip title={metricDescriptions[metric]} arrow>
-						<InfoOutlinedIcon
-							fontSize="small"
+			{/* Normal view container */}
+			<Box sx={{ width: '100%' }}>
+				{/* Action Bar */}
+				<Box
+					sx={{
+						display: 'flex',
+						justifyContent: 'space-between',
+						alignItems: 'center',
+						mb: 2,
+					}}
+				>
+					{/* Title and info */}
+					<Box sx={{ display: 'flex', alignItems: 'center' }}>
+						<Typography
+							variant="h6"
+							component="h3"
 							sx={{
-								verticalAlign: 'middle',
-								ml: 0.5,
-								color: isDarkMode ? '#aaa' : '#666',
+								fontWeight: 'medium',
+								color: isDarkMode ? '#FFFFFF' : '#000000',
 							}}
-						/>
-					</Tooltip>
-				</Box>
-				<Box>
-					<Tooltip title="Toggle Color Highlighting Options">
-						<IconButton
-							onClick={toggleColorOptions}
-							size="small"
-							sx={{ mr: 1 }}
 						>
-							<ColorLensIcon />
-						</IconButton>
-					</Tooltip>
-					<Tooltip title="View Fullscreen">
-						<IconButton onClick={() => setTableFullscreen(true)} size="small">
-							<FullscreenIcon />
-						</IconButton>
-					</Tooltip>
+							{metricLabels[metric]}
+						</Typography>
+						<Tooltip title={metricDescriptions[metric]} placement="top">
+							<InfoOutlinedIcon
+								sx={{
+									ml: 1,
+									color: isDarkMode
+										? 'rgba(255, 255, 255, 0.7)'
+										: 'rgba(0, 0, 0, 0.7)',
+								}}
+							/>
+						</Tooltip>
+					</Box>
+
+					{/* Action buttons */}
+					<Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+						{/* Reset Sort Button - only show if sorting is active */}
+						{sortColumn && sortDirection !== 'none' && (
+							<Button
+								size="small"
+								startIcon={<RestartAltIcon />}
+								onClick={handleResetSort}
+								variant="outlined"
+								sx={{
+									borderColor: '#9747FF',
+									color: isDarkMode ? '#FFFFFF' : '#000000',
+									'&:hover': {
+										borderColor: '#8030E0',
+										bgcolor: isDarkMode
+											? 'rgba(151, 71, 255, 0.1)'
+											: 'rgba(151, 71, 255, 0.1)',
+									},
+								}}
+							>
+								Reset Sort
+							</Button>
+						)}
+
+						<Tooltip title="View Fullscreen">
+							<IconButton
+								onClick={() => setTableFullscreen(true)}
+								size="small"
+								sx={{
+									color: isDarkMode ? '#FFFFFF' : '#000000',
+									border: '1px solid',
+									borderColor: isDarkMode
+										? 'rgba(255, 255, 255, 0.2)'
+										: 'rgba(0, 0, 0, 0.2)',
+								}}
+							>
+								<FullscreenIcon fontSize="small" />
+							</IconButton>
+						</Tooltip>
+					</Box>
 				</Box>
+
+				{/* Color controls - now always visible */}
+				{/* renderColorControls() - removed */}
+
+				{/* Table container */}
+				<TableContainer
+					component={Paper}
+					elevation={0}
+					sx={{
+						maxHeight: height,
+						backgroundColor: 'transparent',
+						borderRadius: '8px',
+						overflow: 'auto',
+					}}
+				>
+					{renderTable()}
+				</TableContainer>
 			</Box>
-
-			{/* Color controls in regular mode */}
-			{renderColorControls()}
-
-			{/* Regular table */}
-			<TableContainer
-				component={Paper}
-				sx={{
-					maxHeight: height,
-					bgcolor: isDarkMode ? 'rgba(33,33,33,0.9)' : 'rgba(255,255,255,0.9)',
-					'& .MuiTableCell-root': {
-						borderBottom: `1px solid ${
-							isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'
-						}`,
-					},
-				}}
-			>
-				<Table stickyHeader>{renderTableContent()}</Table>
-			</TableContainer>
 		</Box>
 	);
 };

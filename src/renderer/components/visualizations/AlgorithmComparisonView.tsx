@@ -710,6 +710,12 @@ const AlgorithmComparisonView = ({
 				color: isDarkMode ? '#ffffff' : '#333333',
 			},
 		},
+		modebar: {
+			orientation: 'v' as 'v',
+			bgcolor: isDarkMode ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.7)',
+			color: isDarkMode ? '#fff' : '#333',
+			activecolor: '#9747FF',
+		},
 		annotations: normalizeData
 			? [
 					{
@@ -737,10 +743,12 @@ const AlgorithmComparisonView = ({
 	const plotConfig = {
 		responsive: true,
 		displayModeBar: true,
-		modeBarButtonsToRemove: ['lasso2d', 'select2d'] as (
-			| 'lasso2d'
-			| 'select2d'
-		)[],
+		modeBarButtonsToRemove: [
+			'select2d',
+			'lasso2d',
+			'autoScale2d',
+			'resetScale2d',
+		] as ('select2d' | 'lasso2d' | 'autoScale2d' | 'resetScale2d')[],
 		displaylogo: false,
 		toImageButtonOptions: {
 			filename: 'algorithm_comparison',

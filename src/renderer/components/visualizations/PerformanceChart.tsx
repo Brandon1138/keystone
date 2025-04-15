@@ -564,10 +564,12 @@ const PerformanceChart = ({
 	// Handle toggling operation visibility
 	const handleOperationToggle = (operation: string) => {
 		if (onOperationsChange) {
-			const newOperations = {
-				...selectedOperations,
-				[operation]: !selectedOperations[operation],
-			};
+			// Create a new object with all operations set to false
+			const newOperations = Object.fromEntries(
+				allOperations.map((op) => [op, false])
+			);
+			// Set only the clicked operation to true
+			newOperations[operation] = true;
 			onOperationsChange(newOperations);
 		}
 	};
@@ -797,7 +799,7 @@ const PerformanceChart = ({
 										key={operation}
 										control={
 											<Checkbox
-												checked={selectedOperations[operation] !== false}
+												checked={selectedOperations[operation] === true}
 												size="small"
 												sx={{
 													color: operationColors[operation] || '#9747FF',

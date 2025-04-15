@@ -44,6 +44,7 @@ export const BenchmarkRunner: React.FC = () => {
 		useState<BenchmarkResult | null>(null);
 	const [isRunning, setIsRunning] = useState(false);
 	const [benchmarkId, setBenchmarkId] = useState<string | null>(null);
+	const [justCompleted, setJustCompleted] = useState(false);
 
 	// State for tracking current metrics
 	const [currentPhase, setCurrentPhase] = useState<string>('Ready');
@@ -63,6 +64,7 @@ export const BenchmarkRunner: React.FC = () => {
 		const algorithm = event.target.value;
 		setSelectedAlgorithm(algorithm);
 		setSelectedParam(SECURITY_PARAMS[algorithm][0]);
+		setJustCompleted(false);
 
 		// Set default iterations based on algorithm type
 		if (['kyber', 'aes'].includes(algorithm)) {
@@ -76,6 +78,7 @@ export const BenchmarkRunner: React.FC = () => {
 
 	const handleParamChange = (event: SelectChangeEvent) => {
 		setSelectedParam(event.target.value);
+		setJustCompleted(false);
 	};
 
 	const handleIterationsChange = (
@@ -89,6 +92,7 @@ export const BenchmarkRunner: React.FC = () => {
 
 	const runBenchmark = async () => {
 		setIsRunning(true);
+		setJustCompleted(false);
 		setCurrentBenchmark(null); // Clear previous results
 
 		// Reset metrics
@@ -129,6 +133,7 @@ export const BenchmarkRunner: React.FC = () => {
 			}
 		} finally {
 			setIsRunning(false);
+			setJustCompleted(true);
 			setCurrentPhase('Completed');
 			setProgress(100);
 		}
@@ -142,6 +147,7 @@ export const BenchmarkRunner: React.FC = () => {
 				console.error('Failed to stop benchmark:', error);
 			} finally {
 				setIsRunning(false);
+				setJustCompleted(true);
 				setCurrentPhase('Stopped');
 			}
 		}
@@ -194,6 +200,17 @@ export const BenchmarkRunner: React.FC = () => {
 			);
 		};
 	}, [isRunning]);
+
+	// Reset justCompleted after a delay
+	useEffect(() => {
+		if (justCompleted) {
+			const timer = setTimeout(() => {
+				setJustCompleted(false);
+			}, 3000); // Reset after 3 seconds (after animation completes)
+
+			return () => clearTimeout(timer);
+		}
+	}, [justCompleted]);
 
 	// Get algorithm display name
 	const algorithmInfo = getAlgorithmInfo(selectedAlgorithm);
@@ -394,10 +411,6 @@ export const BenchmarkRunner: React.FC = () => {
 						onClick={runBenchmark}
 						disabled={isRunning}
 						sx={{
-							bgcolor: '#9747FF',
-							'&:hover': {
-								bgcolor: '#8030E0',
-							},
 							fontSize: '0.9rem',
 							padding: '10px 24px',
 							textTransform: 'uppercase',
@@ -467,7 +480,9 @@ export const BenchmarkRunner: React.FC = () => {
 							</h3>
 						</div>
 						<div className="space-y-3">
-							<div className="metric-update">
+							<div
+								className={`metric-update ${isRunning ? 'animate-metric' : ''}`}
+							>
 								<div className="text-sm" style={{ color: '#999999' }}>
 									Average Execution Time
 								</div>
@@ -478,7 +493,9 @@ export const BenchmarkRunner: React.FC = () => {
 									{performanceMetrics.avgTime} ms
 								</div>
 							</div>
-							<div className="metric-update">
+							<div
+								className={`metric-update ${isRunning ? 'animate-metric' : ''}`}
+							>
 								<div className="text-sm" style={{ color: '#999999' }}>
 									Minimum Execution Time
 								</div>
@@ -489,7 +506,9 @@ export const BenchmarkRunner: React.FC = () => {
 									{performanceMetrics.minTime} ms
 								</div>
 							</div>
-							<div className="metric-update">
+							<div
+								className={`metric-update ${isRunning ? 'animate-metric' : ''}`}
+							>
 								<div className="text-sm" style={{ color: '#999999' }}>
 									Maximum Execution Time
 								</div>
@@ -512,6 +531,7 @@ export const BenchmarkRunner: React.FC = () => {
 						<Speedometer
 							value={progress}
 							isRunning={isRunning}
+							justCompleted={justCompleted}
 							label={currentPhase}
 							algorithm={isRunning ? algorithmDisplayName : undefined}
 							securityParam={isRunning ? selectedParam : undefined}
@@ -534,7 +554,9 @@ export const BenchmarkRunner: React.FC = () => {
 							</h3>
 						</div>
 						<div className="space-y-3">
-							<div className="metric-update">
+							<div
+								className={`metric-update ${isRunning ? 'animate-metric' : ''}`}
+							>
 								<div className="text-sm" style={{ color: '#999999' }}>
 									Current Throughput
 								</div>
@@ -545,7 +567,9 @@ export const BenchmarkRunner: React.FC = () => {
 									{systemMetrics.throughput} ops/sec
 								</div>
 							</div>
-							<div className="metric-update">
+							<div
+								className={`metric-update ${isRunning ? 'animate-metric' : ''}`}
+							>
 								<div className="text-sm" style={{ color: '#999999' }}>
 									Average Memory Usage
 								</div>
@@ -556,7 +580,9 @@ export const BenchmarkRunner: React.FC = () => {
 									{systemMetrics.avgMemory} KB
 								</div>
 							</div>
-							<div className="metric-update">
+							<div
+								className={`metric-update ${isRunning ? 'animate-metric' : ''}`}
+							>
 								<div className="text-sm" style={{ color: '#999999' }}>
 									Peak Memory Usage
 								</div>
@@ -575,7 +601,10 @@ export const BenchmarkRunner: React.FC = () => {
 			{/* Results Dashboard (when completed) */}
 			{currentBenchmark && !isRunning && (
 				<div className="mt-5">
-					<BenchmarkResultCard benchmark={currentBenchmark} />
+					<BenchmarkResultCard
+						benchmark={currentBenchmark}
+						justCompleted={justCompleted}
+					/>
 				</div>
 			)}
 		</div>

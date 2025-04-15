@@ -224,7 +224,188 @@ const ExportPage: React.FC = () => {
 			  )
 			: [];
 
+		// Create comprehensive dataset that matches the benchmarkDataTable display
+		const comprehensiveData: any[] = [];
+
+		// Process each run and create one or more entries in the comprehensive dataset
+		selectedRuns.forEach((run) => {
+			if (run.runType === 'PQC_Classical') {
+				// Find all matching details for this run (there might be multiple variants)
+				const details = filteredPqcDetails.filter((d) => d.runId === run.runId);
+
+				if (details && details.length > 0) {
+					// For each variant/detail, create a separate entry in the comprehensive dataset
+					details.forEach((detail) => {
+						// Base run data
+						const result: any = {
+							runId: run.runId,
+							timestamp: run.timestamp,
+							runType: run.runType,
+							status: run.status,
+							iterations: run.iterations,
+						};
+
+						// Add algorithm information
+						result.mainAlgorithm = detail.mainAlgorithm;
+						result.variant = detail.variant;
+
+						// Only add algorithm if it's different from mainAlgorithm
+						if (
+							run.algorithm &&
+							(!detail.mainAlgorithm || run.algorithm !== detail.mainAlgorithm)
+						) {
+							result.algorithm = run.algorithm;
+						}
+
+						// Only add securityParam if it's different from variant
+						if (
+							run.securityParam &&
+							(!detail.variant || run.securityParam !== detail.variant)
+						) {
+							result.securityParam = run.securityParam;
+						}
+
+						// Add key_size and curve if available
+						if (detail.key_size) {
+							result.key_size = detail.key_size;
+						}
+
+						if (detail.curve) {
+							result.curve = detail.curve;
+						}
+
+						// Add size-related fields directly at the root level
+						if (detail.sizes) {
+							if (detail.sizes.public_key_bytes) {
+								result.publicKeySize = detail.sizes.public_key_bytes;
+							}
+							if (detail.sizes.secret_key_bytes) {
+								result.secretKeySize = detail.sizes.secret_key_bytes;
+							}
+							if (detail.sizes.signature_bytes) {
+								result.signatureSize = detail.sizes.signature_bytes;
+							}
+							if (detail.sizes.shared_secret_bytes) {
+								result.sharedSecretSize = detail.sizes.shared_secret_bytes;
+							}
+							if (detail.sizes.ciphertext_bytes) {
+								result.ciphertextSize = detail.sizes.ciphertext_bytes;
+							}
+							if (detail.sizes.key_bytes) {
+								result.keySize = detail.sizes.key_bytes;
+							}
+							if (detail.sizes.iv_bytes) {
+								result.ivSize = detail.sizes.iv_bytes;
+							}
+						}
+
+						// Add all operation metrics - will be properly flattened by export service
+						if (detail.keygen) {
+							result.keygen = { ...detail.keygen };
+						}
+
+						if (detail.sign) {
+							result.sign = { ...detail.sign };
+						}
+
+						if (detail.verify) {
+							result.verify = { ...detail.verify };
+						}
+
+						if (detail.encaps) {
+							result.encaps = { ...detail.encaps };
+						}
+
+						if (detail.decaps) {
+							result.decaps = { ...detail.decaps };
+						}
+
+						if (detail.encryption) {
+							result.encryption = { ...detail.encryption };
+						}
+
+						if (detail.decryption) {
+							result.decryption = { ...detail.decryption };
+						}
+
+						if (detail.shared_secret) {
+							result.shared_secret = { ...detail.shared_secret };
+						}
+
+						// Add this result to the comprehensive dataset
+						comprehensiveData.push(result);
+					});
+				} else {
+					// If no details are found, still add the basic run
+					const result: any = {
+						runId: run.runId,
+						timestamp: run.timestamp,
+						runType: run.runType,
+						status: run.status,
+						algorithm: run.algorithm,
+						securityParam: run.securityParam,
+						iterations: run.iterations,
+					};
+					comprehensiveData.push(result);
+				}
+			} else if (
+				run.runType === 'Quantum_Shor' ||
+				run.runType === 'Quantum_Grover'
+			) {
+				// Base run data for quantum algorithms
+				const result: any = {
+					runId: run.runId,
+					timestamp: run.timestamp,
+					runType: run.runType,
+					status: run.status,
+					algorithm: run.algorithm,
+					securityParam: run.securityParam,
+					iterations: run.iterations,
+				};
+
+				// Find matching details for this quantum run
+				const details = filteredQuantumResults.find(
+					(d) => d.runId === run.runId
+				);
+
+				if (details) {
+					// Add all quantum-specific fields
+					result.executionTime = details.execution_time_sec;
+					result.circuitDepth = details.circuit_depth;
+					result.cxGateCount = details.cx_gate_count;
+					result.totalGateCount = details.total_gate_count;
+					result.backendUsed = details.backend_used;
+					result.jobId = details.job_id;
+					result.shots = details.shots;
+					result.ranOnHardware = details.ran_on_hardware;
+					result.plotFilePath = details.plot_file_path;
+					result.rawCounts = details.raw_counts;
+
+					// Shor-specific fields
+					if (run.runType === 'Quantum_Shor') {
+						result.nValue = details.n_value;
+						result.aValue = details.a_value;
+						result.factors = details.factors;
+					}
+
+					// Grover-specific fields
+					if (run.runType === 'Quantum_Grover') {
+						result.inputMarkedStates = details.input_marked_states;
+						result.topMeasuredState = details.top_measured_state;
+						result.topMeasuredCount = details.top_measured_count;
+						result.foundCorrectState = details.found_correct_state;
+						result.numQubits = details.num_qubits;
+					}
+				}
+
+				// Add to the comprehensive dataset
+				comprehensiveData.push(result);
+			}
+		});
+
+		// Return both the raw data and the comprehensive format for different export needs
 		return {
+			comprehensiveData: comprehensiveData,
 			runs: selectedRuns,
 			pqcClassicalDetails: filteredPqcDetails,
 			quantumResults: filteredQuantumResults,
@@ -267,14 +448,26 @@ const ExportPage: React.FC = () => {
 					filename: filename || 'pqc_benchmark_data',
 					data: dataToExport,
 					exportPath: exportPath,
+					// Flag to use comprehensive data format for CSV exports
+					useComprehensiveFormat: true,
 				}
 			);
 
 			if (result.success) {
-				setStatusMessage({
-					type: 'success',
-					message: `Data successfully exported to ${result.path}`,
-				});
+				// If there are additional files created during export
+				if (result.additionalFiles && result.additionalFiles.length > 0) {
+					setStatusMessage({
+						type: 'success',
+						message:
+							result.message ||
+							`Data successfully exported to ${result.path} and ${result.additionalFiles.length} additional files.`,
+					});
+				} else {
+					setStatusMessage({
+						type: 'success',
+						message: `Data successfully exported to ${result.path}`,
+					});
+				}
 			} else {
 				setStatusMessage({
 					type: 'error',
