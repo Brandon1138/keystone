@@ -786,30 +786,88 @@ export class JobSchedulerService {
 							logs.push('WARNING: Plot file was not generated.');
 						}
 
-						// Create result object
-						const result = {
-							status: code === 0 ? 'success' : 'error',
-							exitCode: code,
-							data: resultData,
-							logs: logs,
-							plotFilePath: plotExists ? plotFilePath : null,
-							jsonFilePath: jsonFilePath,
-							input_marked_states: [markedStates],
-						};
+						// For Grover's algorithm, we need to ensure certain fields are set properly for confidence calculation
+						const isGroverAlgorithm = runId.includes('Quantum_Grover');
+						if (isGroverAlgorithm) {
+							// Parse the marked states array
+							const markedStatesArray = markedStates
+								.split(',')
+								.map((s) => s.trim());
 
-						// Store result in database if successful
-						if (result.status === 'success') {
-							await lowdbService.insertQuantumResult(runId, result);
-							await lowdbService.updateRunStatus(runId, 'completed');
+							// Ensure the data has found_correct_state property for confidence calculation
+							let foundCorrectState = false;
+
+							// If we have raw counts, try to determine if we found a correct state
+							if (resultData.raw_counts) {
+								// Check if any marked state has a significant count
+								for (const state of markedStatesArray) {
+									if (
+										resultData.raw_counts[state] &&
+										resultData.raw_counts[state] > 0
+									) {
+										foundCorrectState = true;
+										break;
+									}
+								}
+							}
+
+							// Create result object with all required fields
+							const result = {
+								status: code === 0 ? 'success' : 'error',
+								exitCode: code,
+								data: {
+									...resultData,
+									input_marked_states: markedStatesArray,
+									found_correct_state: foundCorrectState,
+									top_measured_state: resultData.top_measured_state || '',
+									top_measured_count: resultData.top_measured_count || 0,
+								},
+								logs: logs,
+								plotFilePath: plotExists ? plotFilePath : null,
+								jsonFilePath: jsonFilePath,
+								// Also set at root level for backward compatibility
+								input_marked_states: markedStatesArray,
+								found_correct_state: foundCorrectState,
+							};
+
+							// Store result in database if successful
+							if (result.status === 'success') {
+								await lowdbService.insertQuantumResult(runId, result);
+								await lowdbService.updateRunStatus(runId, 'completed');
+							} else {
+								await lowdbService.updateRunStatus(
+									runId,
+									'failed',
+									'Quantum execution failed with non-zero exit code'
+								);
+							}
+
+							resolve(result);
 						} else {
-							await lowdbService.updateRunStatus(
-								runId,
-								'failed',
-								'Quantum execution failed with non-zero exit code'
-							);
-						}
+							// Create result object for Shor's algorithm (unchanged)
+							const result = {
+								status: code === 0 ? 'success' : 'error',
+								exitCode: code,
+								data: resultData,
+								logs: logs,
+								plotFilePath: plotExists ? plotFilePath : null,
+								jsonFilePath: jsonFilePath,
+							};
 
-						resolve(result);
+							// Store result in database if successful
+							if (result.status === 'success') {
+								await lowdbService.insertQuantumResult(runId, result);
+								await lowdbService.updateRunStatus(runId, 'completed');
+							} else {
+								await lowdbService.updateRunStatus(
+									runId,
+									'failed',
+									'Quantum execution failed with non-zero exit code'
+								);
+							}
+
+							resolve(result);
+						}
 					} catch (err: any) {
 						console.error(
 							'[JobSchedulerService] Error parsing result JSON:',
