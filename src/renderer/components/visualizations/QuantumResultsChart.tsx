@@ -17,6 +17,7 @@ import {
 	InputLabel,
 	ToggleButton,
 	ToggleButtonGroup,
+	Chip,
 } from '@mui/material';
 import InfoOutlined from '@mui/icons-material/InfoOutlined';
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
@@ -25,20 +26,23 @@ import SortIcon from '@mui/icons-material/Sort';
 import BarChartIcon from '@mui/icons-material/BarChart';
 import ScatterPlotIcon from '@mui/icons-material/ScatterPlot';
 import ShowChartIcon from '@mui/icons-material/ShowChart';
+import StorageIcon from '@mui/icons-material/Storage';
+import MemoryIcon from '@mui/icons-material/Memory';
 import { SelectChangeEvent } from '@mui/material';
+import { ModeBarDefaultButtons, Config } from 'plotly.js';
 
 // Conditional logging helper
 const log = process.env.NODE_ENV === 'development' ? console.log : () => {};
 
 interface QuantumResultsChartProps {
 	data: ProcessedQuantumData[];
-	chartType?: 'histogram' | 'bars' | 'scatter';
+	chartType?: 'bars' | 'scatter';
 	metricType?:
-		| 'execution_time_sec'
+		| 'qpu_time_sec'
 		| 'circuit_depth'
-		| 'cx_gate_count'
 		| 'total_gate_count'
-		| 'success_rate';
+		| 'success_rate'
+		| 'confidence';
 	title?: string;
 	height?: number;
 	loading?: boolean;
@@ -46,28 +50,28 @@ interface QuantumResultsChartProps {
 	onSortOrderChange?: (sortOrder: string) => void;
 	onMetricTypeChange?: (
 		metricType:
-			| 'execution_time_sec'
+			| 'qpu_time_sec'
 			| 'circuit_depth'
-			| 'cx_gate_count'
 			| 'total_gate_count'
 			| 'success_rate'
+			| 'confidence'
 	) => void;
 	chartRef?: React.RefObject<any>;
 }
 
 // Define valid metric types for TypeScript
 type MetricType =
-	| 'execution_time_sec'
+	| 'qpu_time_sec'
 	| 'circuit_depth'
-	| 'cx_gate_count'
 	| 'total_gate_count'
-	| 'success_rate';
-type ChartType = 'histogram' | 'bars' | 'scatter';
+	| 'success_rate'
+	| 'confidence';
+type ChartType = 'bars' | 'scatter';
 
 const QuantumResultsChart = ({
 	data,
 	chartType = 'bars',
-	metricType = 'execution_time_sec',
+	metricType = 'qpu_time_sec',
 	title = 'Quantum Algorithm Performance',
 	height = 400,
 	loading = false,
@@ -83,35 +87,34 @@ const QuantumResultsChart = ({
 	const [selectedChartType, setSelectedChartType] =
 		useState<ChartType>(chartType);
 	const [selectedMetric, setSelectedMetric] = useState<MetricType>(metricType);
+	const [selectedBackend, setSelectedBackend] = useState<string>('all');
 	const localPlotRef = useRef<any>(null);
 	const plotRef = chartRef || localPlotRef;
 	const [chartWidth, setChartWidth] = useState<number>(0);
 
 	const metricLabels = {
-		execution_time_sec: 'Execution Time (seconds)',
+		qpu_time_sec: 'QPU Time (seconds)',
 		circuit_depth: 'Circuit Depth',
-		cx_gate_count: 'CX Gate Count',
 		total_gate_count: 'Total Gate Count',
 		success_rate: 'Success Rate (%)',
+		confidence: 'Confidence (%)',
 	};
 
 	// Descriptions for each metric and chart type
 	const metricDescriptions = {
-		execution_time_sec:
-			'Total runtime in seconds for the quantum algorithm. Lower values indicate more efficient execution.',
+		qpu_time_sec:
+			'Actual QPU time in seconds for the algorithm. Lower values indicate more efficient execution.',
 		circuit_depth:
 			'Maximum number of sequential operations in the quantum circuit. Lower depths generally indicate faster execution times on real quantum hardware.',
-		cx_gate_count:
-			'Number of CNOT (controlled-NOT) gates used. CNOTs are error-prone on real hardware, so fewer is better.',
 		total_gate_count:
 			'Total number of quantum gates in the circuit. Fewer gates generally means less opportunity for errors.',
 		success_rate:
 			'Percentage of runs where the algorithm produced the correct answer. Higher is better.',
+		confidence:
+			'Ratio of correct measurement outcomes to total shots; higher is better.',
 	};
 
 	const chartDescriptions = {
-		histogram:
-			'Shows the distribution of quantum states measured after algorithm execution. Taller bars indicate states that were measured more frequently.',
 		bars: 'Compares the selected metric across different quantum algorithms. Use this to identify which algorithms perform better for specific metrics.',
 		scatter:
 			'Plots the relationship between circuit depth and the selected metric. Helps identify how complexity affects performance.',
@@ -147,6 +150,31 @@ const QuantumResultsChart = ({
 			}, 100); // Small delay to let the DOM settle
 		};
 
+		// Add a more complete redraw function for severe resize cases
+		const forceCompleteRedraw = () => {
+			if (!plotRef.current) return;
+
+			// First try standard resize
+			if (plotRef.current.handleResize) {
+				plotRef.current.handleResize();
+			}
+
+			// For more severe cases, force a more complete redraw
+			setTimeout(() => {
+				if (plotRef.current && plotRef.current.el) {
+					// Force Plotly to completely recalculate layout
+					if (typeof window !== 'undefined' && window.Plotly) {
+						window.Plotly.relayout(plotRef.current.el, {
+							'xaxis.autorange': true,
+							'yaxis.autorange': true,
+						});
+					} else if (plotRef.current.resizeHandler) {
+						plotRef.current.resizeHandler();
+					}
+				}
+			}, 200);
+		};
+
 		// Add event listeners
 		window.addEventListener('resize', handleResize);
 		document.addEventListener('fullscreenchange', handleFullscreenChange);
@@ -154,12 +182,16 @@ const QuantumResultsChart = ({
 		document.addEventListener('mozfullscreenchange', handleFullscreenChange); // For Firefox
 		document.addEventListener('MSFullscreenChange', handleFullscreenChange); // For IE/Edge
 
+		// Add dedicated listeners for severe size changes
+		window.addEventListener('resize', forceCompleteRedraw);
+
 		// Call once to initialize
 		setTimeout(handleResize, 0);
 
 		// Clean up
 		return () => {
 			window.removeEventListener('resize', handleResize);
+			window.removeEventListener('resize', forceCompleteRedraw);
 			document.removeEventListener('fullscreenchange', handleFullscreenChange);
 			document.removeEventListener(
 				'webkitfullscreenchange',
@@ -174,7 +206,7 @@ const QuantumResultsChart = ({
 				handleFullscreenChange
 			);
 		};
-	}, [height]);
+	}, [height, chartWidth]);
 
 	useEffect(() => {
 		log(
@@ -190,73 +222,40 @@ const QuantumResultsChart = ({
 		try {
 			let plotlyData: any[] = [];
 
-			// For histogram of raw_counts
-			if (selectedChartType === 'histogram') {
-				// Find results with raw_counts
-				const validData = data.filter(
-					(d) =>
-						d.raw_counts !== null && Object.keys(d.raw_counts || {}).length > 0
-				);
-				log(`Found ${validData.length} results with raw counts for histogram`);
+			// Filter by backend type if not 'all'
+			let filteredData = [...data];
+			if (selectedBackend !== 'all') {
+				filteredData = data.filter((item) => {
+					const isSimulator =
+						item.backend_used?.toLowerCase().includes('simulator') ||
+						item.backend_used?.toLowerCase().includes('sim') ||
+						item.backend_used === 'aer_simulator';
 
-				if (validData.length === 0) {
+					if (selectedBackend === 'simulator') {
+						return isSimulator;
+					} else {
+						return !isSimulator; // hardware
+					}
+				});
+
+				log(`Filtered to ${filteredData.length} ${selectedBackend} results`);
+
+				if (filteredData.length === 0) {
 					setErrorMessage(
-						'No measurement data available for histogram. Run quantum workloads first.'
+						`No ${selectedBackend} data available. Run quantum workloads on ${selectedBackend} backend.`
 					);
 					return;
 				}
-
-				// Sort by date and get most recent
-				const sortedData = [...validData].sort(
-					(a, b) =>
-						new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-				);
-
-				const latestResult = sortedData[0];
-				log(`Using result from ${latestResult.timestamp} for histogram`);
-
-				if (
-					!latestResult.raw_counts ||
-					Object.keys(latestResult.raw_counts).length === 0
-				) {
-					setErrorMessage('No measurement counts in the result data');
-					return;
-				}
-
-				// Extract states and counts
-				const states = Object.keys(latestResult.raw_counts);
-				const counts = Object.values(latestResult.raw_counts);
-
-				plotlyData = [
-					{
-						x: states,
-						y: counts,
-						type: 'bar',
-						marker: {
-							color: '#9747FF',
-							opacity: 0.8,
-							line: {
-								color: isDarkMode ? '#333' : '#fff',
-								width: 1,
-							},
-						},
-						text: counts.map((c) => c.toString()),
-						textposition: 'auto',
-						hoverinfo: 'x+y',
-						name: `${
-							latestResult.algorithm
-						} - Run ID: ${latestResult.runId.substring(0, 8)}`,
-					},
-				];
 			}
+
 			// For bar charts of different metrics
-			else if (selectedChartType === 'bars') {
+			if (selectedChartType === 'bars') {
 				// Group data by algorithm
 				const algoData: { [key: string]: number[] } = {};
 
 				log(`Processing bar chart for metric: ${selectedMetric}`);
 
-				data.forEach((item) => {
+				filteredData.forEach((item) => {
 					if (!item) return;
 
 					const algorithm = item.algorithm || 'Unknown';
@@ -273,6 +272,11 @@ const QuantumResultsChart = ({
 						item.success_rate !== undefined
 					) {
 						metricValue = item.success_rate * 100; // Convert to percentage
+					} else if (
+						selectedMetric === 'confidence' &&
+						item.confidence !== undefined
+					) {
+						metricValue = item.confidence * 100; // Convert to percentage
 					} else {
 						// Type assertion to access dynamic property with type safety
 						const metricVal = item[selectedMetric];
@@ -358,7 +362,7 @@ const QuantumResultsChart = ({
 				// Group by algorithm for different colors/symbols
 				const groupedData: { [key: string]: ProcessedQuantumData[] } = {};
 
-				data.forEach((item) => {
+				filteredData.forEach((item) => {
 					const algorithm = item.algorithm;
 					if (!groupedData[algorithm]) {
 						groupedData[algorithm] = [];
@@ -379,11 +383,9 @@ const QuantumResultsChart = ({
 
 				// Create a scatter plot for each algorithm group
 				Object.entries(groupedData).forEach(([algorithm, items], idx) => {
-					// Default to execution_time_sec vs circuit_depth
+					// Default to qpu_time_sec vs circuit_depth
 					const xMetric: MetricType =
-						selectedMetric === 'success_rate'
-							? 'execution_time_sec'
-							: selectedMetric;
+						selectedMetric === 'success_rate' ? 'qpu_time_sec' : selectedMetric;
 					const yMetric: MetricType = 'circuit_depth';
 
 					// Filter items with valid x and y values
@@ -394,7 +396,7 @@ const QuantumResultsChart = ({
 					if (validItems.length === 0) return;
 
 					const xValues = validItems.map((item) =>
-						xMetric === 'execution_time_sec' && item.success_rate !== undefined
+						xMetric === 'qpu_time_sec' && item.success_rate !== undefined
 							? item.success_rate * 100
 							: (item[xMetric] as number)
 					);
@@ -432,7 +434,14 @@ const QuantumResultsChart = ({
 			);
 			setPlotData([]);
 		}
-	}, [data, selectedChartType, selectedMetric, isDarkMode, sortOrder]);
+	}, [
+		data,
+		selectedChartType,
+		selectedMetric,
+		isDarkMode,
+		sortOrder,
+		selectedBackend,
+	]);
 
 	// Handle chart type change
 	const handleChartTypeChange = (
@@ -441,12 +450,15 @@ const QuantumResultsChart = ({
 	) => {
 		if (
 			newChartType !== null &&
-			(newChartType === 'histogram' ||
-				newChartType === 'bars' ||
-				newChartType === 'scatter')
+			(newChartType === 'bars' || newChartType === 'scatter')
 		) {
-			setSelectedChartType(newChartType);
+			setSelectedChartType(newChartType as ChartType);
 		}
+	};
+
+	// Handle backend type change
+	const handleBackendChange = (event: SelectChangeEvent) => {
+		setSelectedBackend(event.target.value);
 	};
 
 	// Handle sort order change
@@ -459,10 +471,9 @@ const QuantumResultsChart = ({
 	// Handle metric type change
 	const handleMetricChange = (event: SelectChangeEvent) => {
 		const value = event.target.value as MetricType;
+		setSelectedMetric(value);
 		if (onMetricTypeChange) {
 			onMetricTypeChange(value);
-		} else {
-			setSelectedMetric(value);
 		}
 	};
 
@@ -485,41 +496,46 @@ const QuantumResultsChart = ({
 			bordercolor: isDarkMode ? '#444' : '#ddd',
 			borderwidth: 1,
 		},
+		modebar: {
+			orientation: 'v' as 'v',
+			bgcolor: isDarkMode ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.7)',
+			color: isDarkMode ? '#fff' : '#333',
+			activecolor: '#9747FF',
+		},
 	};
 
 	// Add specific layout properties based on chart type
-	if (selectedChartType === 'histogram') {
-		layout = {
-			...layout,
-			xaxis: {
-				title: 'Measured State',
-				tickangle: -45,
-				gridcolor: isDarkMode
-					? 'rgba(255, 255, 255, 0.1)'
-					: 'rgba(0, 0, 0, 0.1)',
-			},
-			yaxis: {
-				title: 'Count',
-				gridcolor: isDarkMode
-					? 'rgba(255, 255, 255, 0.1)'
-					: 'rgba(0, 0, 0, 0.1)',
-				autorange: true,
-				rangemode: 'tozero' as const,
-			},
-		};
-	} else if (selectedChartType === 'bars') {
+	if (selectedChartType === 'bars') {
 		layout = {
 			...layout,
 			barmode: 'group' as const,
 			xaxis: {
-				title: 'Algorithm',
+				title: {
+					text: 'Quantum Algorithm',
+					font: {
+						size: 14,
+						color: isDarkMode ? '#fff' : '#333',
+						family: 'Arial, sans-serif',
+						weight: 600,
+					},
+					standoff: 15,
+				},
 				tickangle: -45,
 				gridcolor: isDarkMode
 					? 'rgba(255, 255, 255, 0.1)'
 					: 'rgba(0, 0, 0, 0.1)',
 			},
 			yaxis: {
-				title: metricLabels[selectedMetric],
+				title: {
+					text: metricLabels[selectedMetric],
+					font: {
+						size: 14,
+						color: isDarkMode ? '#fff' : '#333',
+						family: 'Arial, sans-serif',
+						weight: 600,
+					},
+					standoff: 15,
+				},
 				gridcolor: isDarkMode
 					? 'rgba(255, 255, 255, 0.1)'
 					: 'rgba(0, 0, 0, 0.1)',
@@ -532,20 +548,38 @@ const QuantumResultsChart = ({
 		// Determine the x-axis metric title based on metricType
 		const xAxisTitle =
 			selectedMetric === 'success_rate'
-				? metricLabels['execution_time_sec']
+				? metricLabels['qpu_time_sec']
 				: metricLabels[selectedMetric];
 
 		layout = {
 			...layout,
 			xaxis: {
-				title: xAxisTitle,
+				title: {
+					text: xAxisTitle,
+					font: {
+						size: 14,
+						color: isDarkMode ? '#fff' : '#333',
+						family: 'Arial, sans-serif',
+						weight: 600,
+					},
+					standoff: 15,
+				},
 				gridcolor: isDarkMode
 					? 'rgba(255, 255, 255, 0.1)'
 					: 'rgba(0, 0, 0, 0.1)',
 				autorange: true,
 			},
 			yaxis: {
-				title: metricLabels['circuit_depth'],
+				title: {
+					text: metricLabels['circuit_depth'],
+					font: {
+						size: 14,
+						color: isDarkMode ? '#fff' : '#333',
+						family: 'Arial, sans-serif',
+						weight: 600,
+					},
+					standoff: 15,
+				},
 				gridcolor: isDarkMode
 					? 'rgba(255, 255, 255, 0.1)'
 					: 'rgba(0, 0, 0, 0.1)',
@@ -555,13 +589,21 @@ const QuantumResultsChart = ({
 		};
 	}
 
-	const config = {
+	const config: Partial<Config> = {
 		responsive: true,
 		displayModeBar: true,
-		modeBarButtonsToRemove: ['lasso2d', 'select2d'] as (
-			| 'lasso2d'
-			| 'select2d'
-		)[],
+		modeBarButtonsToRemove: [
+			'lasso2d',
+			'select2d',
+			'autoScale2d',
+			'resetScale2d',
+		],
+		displaylogo: false,
+		toImageButtonOptions: {
+			filename: 'quantum_performance_chart',
+			width: 1200,
+			height: 800,
+		},
 	};
 
 	if (loading) {
@@ -622,207 +664,302 @@ const QuantumResultsChart = ({
 
 	return (
 		<>
-			<Paper
-				elevation={0}
-				sx={{
-					backgroundColor: isDarkMode ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.03)',
-					p: 1.5,
-					mb: 2,
-					borderRadius: '8px',
-					border: isDarkMode ? '1px solid #444' : '1px solid #ddd',
-				}}
-			>
-				<Typography variant="body2" color="text.secondary">
-					<strong>What this shows:</strong>{' '}
-					{chartDescriptions[selectedChartType]}{' '}
-					{selectedChartType !== 'histogram' && (
-						<>
-							<strong>Metric:</strong> {metricDescriptions[selectedMetric]}{' '}
-						</>
-					)}
-					<Tooltip
-						title={`Quantum computing metrics require different interpretation than classical ones. For accurate comparison, ensure algorithms were run with similar parameters and shots.`}
-						arrow
-					>
+			{/* Control panel - updated to a more modern layout */}
+			<div className="mb-4 flex justify-between items-center">
+				<Typography
+					variant="subtitle1"
+					gutterBottom
+					sx={{ color: theme.palette.text.primary }}
+				>
+					{title}
+					<Tooltip title={metricDescriptions[selectedMetric]} arrow>
 						<InfoOutlined
-							sx={{ fontSize: '0.9rem', verticalAlign: 'middle' }}
+							fontSize="small"
+							sx={{
+								verticalAlign: 'middle',
+								ml: 0.5,
+								color: isDarkMode ? '#aaa' : '#666',
+							}}
 						/>
 					</Tooltip>
 				</Typography>
-			</Paper>
 
-			{/* Control panel */}
-			<Grid container spacing={2} sx={{ mb: 2 }}>
-				{/* Chart type selector */}
-				<Grid item xs={12} sm={4}>
-					<Card
-						variant="outlined"
-						sx={{
+				{/* Sort Order Control - Keep in top right */}
+				<FormControl
+					size="small"
+					sx={{
+						width: '200px',
+						'.MuiOutlinedInput-root': {
 							borderRadius: '8px',
-							backgroundColor: isDarkMode
-								? 'rgba(0,0,0,0.3)'
-								: 'rgba(255,255,255,0.7)',
-							border: isDarkMode ? '1px solid #444' : '1px solid #ddd',
-							height: '100%',
-						}}
+							bgcolor: isDarkMode
+								? 'rgba(33,33,33,0.9)'
+								: 'rgba(255,255,255,0.9)',
+						},
+					}}
+				>
+					<InputLabel
+						id="sort-order-label"
+						sx={{ color: isDarkMode ? '#ddd' : '#333' }}
 					>
-						<CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-							<Typography variant="subtitle2" gutterBottom>
-								Chart Type
-							</Typography>
-							<ToggleButtonGroup
-								value={selectedChartType}
-								exclusive
-								onChange={handleChartTypeChange}
-								aria-label="chart type"
-								size="small"
-								fullWidth
-							>
-								<ToggleButton value="bars" aria-label="bar chart">
-									<div
-										style={{
-											display: 'flex',
-											alignItems: 'center',
-											gap: '8px',
-										}}
-									>
-										<BarChartIcon fontSize="small" />
-										<Typography variant="body2">Bars</Typography>
-									</div>
-								</ToggleButton>
-								<ToggleButton value="histogram" aria-label="histogram">
-									<div
-										style={{
-											display: 'flex',
-											alignItems: 'center',
-											gap: '8px',
-										}}
-									>
-										<ShowChartIcon fontSize="small" />
-										<Typography variant="body2">Histogram</Typography>
-									</div>
-								</ToggleButton>
-								<ToggleButton value="scatter" aria-label="scatter plot">
-									<div
-										style={{
-											display: 'flex',
-											alignItems: 'center',
-											gap: '8px',
-										}}
-									>
-										<ScatterPlotIcon fontSize="small" />
-										<Typography variant="body2">Scatter</Typography>
-									</div>
-								</ToggleButton>
-							</ToggleButtonGroup>
-						</CardContent>
-					</Card>
-				</Grid>
+						Sort Order
+					</InputLabel>
+					<Select
+						labelId="sort-order-label"
+						id="sort-order"
+						value={sortOrder}
+						label="Sort Order"
+						onChange={handleSortChange}
+						sx={{ color: isDarkMode ? 'white' : 'black' }}
+					>
+						<MenuItem value="default">Default Order</MenuItem>
+						<MenuItem value="asc">
+							<Box sx={{ display: 'flex', alignItems: 'center' }}>
+								<ArrowUpwardIcon fontSize="small" sx={{ mr: 0.5 }} />
+								<span>Low to High</span>
+							</Box>
+						</MenuItem>
+						<MenuItem value="desc">
+							<Box sx={{ display: 'flex', alignItems: 'center' }}>
+								<ArrowDownwardIcon fontSize="small" sx={{ mr: 0.5 }} />
+								<span>High to Low</span>
+							</Box>
+						</MenuItem>
+					</Select>
+				</FormControl>
+			</div>
+
+			{/* Horizontal Controls layout */}
+			<div className="flex flex-wrap gap-4 mb-4">
+				{/* Chart type selector */}
+				<Card
+					className={`
+						relative
+						z-10
+						p-2
+						transition-all
+						duration-300
+						shadow-md
+						${isDarkMode ? 'bg-[#121212]/80' : 'bg-[#FAFAFA]'}
+						hover:shadow-xl
+						hover:bg-white/30 dark:hover:bg-[#212121]/40
+						group
+						flex-1
+						min-w-[150px]
+						rounded-xl
+					`}
+				>
+					<CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
+						<Typography variant="subtitle2" gutterBottom>
+							Chart Type
+						</Typography>
+						<ToggleButtonGroup
+							value={selectedChartType}
+							exclusive
+							onChange={handleChartTypeChange}
+							aria-label="chart type"
+							size="small"
+							fullWidth
+						>
+							<ToggleButton value="bars" aria-label="bar chart">
+								<div
+									style={{
+										display: 'flex',
+										alignItems: 'center',
+										gap: '8px',
+									}}
+								>
+									<BarChartIcon fontSize="small" />
+									<Typography variant="body2">Bars</Typography>
+								</div>
+							</ToggleButton>
+							<ToggleButton value="scatter" aria-label="scatter plot">
+								<div
+									style={{
+										display: 'flex',
+										alignItems: 'center',
+										gap: '8px',
+									}}
+								>
+									<ScatterPlotIcon fontSize="small" />
+									<Typography variant="body2">Scatter</Typography>
+								</div>
+							</ToggleButton>
+						</ToggleButtonGroup>
+					</CardContent>
+				</Card>
 
 				{/* Metric selector */}
-				<Grid item xs={12} sm={4}>
-					<Card
-						variant="outlined"
-						sx={{
-							borderRadius: '8px',
-							backgroundColor: isDarkMode
-								? 'rgba(0,0,0,0.3)'
-								: 'rgba(255,255,255,0.7)',
-							border: isDarkMode ? '1px solid #444' : '1px solid #ddd',
-							height: '100%',
-						}}
-					>
-						<CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-							<Typography variant="subtitle2" gutterBottom>
-								Metric
-							</Typography>
-							<FormControl fullWidth size="small">
-								<Select
-									value={selectedMetric}
-									onChange={handleMetricChange}
-									displayEmpty
-									variant="outlined"
-									disabled={selectedChartType === 'histogram'}
-								>
-									<MenuItem value="execution_time_sec">Execution Time</MenuItem>
-									<MenuItem value="circuit_depth">Circuit Depth</MenuItem>
-									<MenuItem value="cx_gate_count">CX Gate Count</MenuItem>
-									<MenuItem value="total_gate_count">Total Gate Count</MenuItem>
-									<MenuItem value="success_rate">Success Rate</MenuItem>
-								</Select>
-							</FormControl>
-						</CardContent>
-					</Card>
-				</Grid>
-
-				{/* Sorting options */}
-				<Grid item xs={12} sm={4}>
-					<Card
-						variant="outlined"
-						sx={{
-							borderRadius: '8px',
-							backgroundColor: isDarkMode
-								? 'rgba(0,0,0,0.3)'
-								: 'rgba(255,255,255,0.7)',
-							border: isDarkMode ? '1px solid #444' : '1px solid #ddd',
-							height: '100%',
-						}}
-					>
-						<CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-							<Typography
-								variant="subtitle2"
-								gutterBottom
-								sx={{ display: 'flex', alignItems: 'center' }}
+				<Card
+					className={`
+						relative
+						z-10
+						p-2
+						transition-all
+						duration-300
+						shadow-md
+						${isDarkMode ? 'bg-[#121212]/80' : 'bg-[#FAFAFA]'}
+						hover:shadow-xl
+						hover:bg-white/30 dark:hover:bg-[#212121]/40
+						group
+						flex-1
+						min-w-[150px]
+						rounded-xl
+					`}
+				>
+					<CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
+						<Typography variant="subtitle2" gutterBottom>
+							Metric
+						</Typography>
+						<FormControl fullWidth size="small">
+							<Select
+								value={selectedMetric}
+								onChange={handleMetricChange}
+								displayEmpty
+								variant="outlined"
 							>
-								<SortIcon sx={{ mr: 1, fontSize: '1rem' }} /> Sort Order
-							</Typography>
-							<FormControl fullWidth size="small">
-								<Select
-									value={sortOrder}
-									onChange={handleSortChange}
-									displayEmpty
-									variant="outlined"
-									disabled={selectedChartType !== 'bars'}
-								>
-									<MenuItem value="default">Default Order</MenuItem>
-									<MenuItem value="asc">
-										<div
-											style={{
-												display: 'flex',
-												alignItems: 'center',
-												gap: '8px',
-											}}
-										>
-											<ArrowUpwardIcon fontSize="small" />
-											<span>Low to High</span>
-										</div>
-									</MenuItem>
-									<MenuItem value="desc">
-										<div
-											style={{
-												display: 'flex',
-												alignItems: 'center',
-												gap: '8px',
-											}}
-										>
-											<ArrowDownwardIcon fontSize="small" />
-											<span>High to Low</span>
-										</div>
-									</MenuItem>
-								</Select>
-							</FormControl>
-						</CardContent>
-					</Card>
-				</Grid>
-			</Grid>
+								<MenuItem value="qpu_time_sec">QPU Time</MenuItem>
+								<MenuItem value="circuit_depth">Circuit Depth</MenuItem>
+								<MenuItem value="total_gate_count">Total Gate Count</MenuItem>
+								<MenuItem value="success_rate">Success Rate</MenuItem>
+								<MenuItem value="confidence">Confidence</MenuItem>
+							</Select>
+						</FormControl>
+					</CardContent>
+				</Card>
+
+				{/* Backend selector */}
+				<Card
+					className={`
+						relative
+						z-10
+						p-2
+						transition-all
+						duration-300
+						shadow-md
+						${isDarkMode ? 'bg-[#121212]/80' : 'bg-[#FAFAFA]'}
+						hover:shadow-xl
+						hover:bg-white/30 dark:hover:bg-[#212121]/40
+						group
+						flex-1
+						min-w-[150px]
+						rounded-xl
+					`}
+				>
+					<CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
+						<Typography
+							variant="subtitle2"
+							gutterBottom
+							sx={{ display: 'flex', alignItems: 'center' }}
+						>
+							Backend Type
+						</Typography>
+						<FormControl fullWidth size="small">
+							<Select
+								value={selectedBackend}
+								onChange={handleBackendChange}
+								displayEmpty
+								variant="outlined"
+							>
+								<MenuItem value="all">
+									<div
+										style={{
+											display: 'flex',
+											alignItems: 'center',
+											gap: '8px',
+										}}
+									>
+										<span>All Backends</span>
+									</div>
+								</MenuItem>
+								<MenuItem value="simulator">
+									<div
+										style={{
+											display: 'flex',
+											alignItems: 'center',
+											gap: '8px',
+										}}
+									>
+										<StorageIcon
+											fontSize="small"
+											sx={{ color: theme.palette.info.main }}
+										/>
+										<span>Simulators</span>
+									</div>
+								</MenuItem>
+								<MenuItem value="hardware">
+									<div
+										style={{
+											display: 'flex',
+											alignItems: 'center',
+											gap: '8px',
+										}}
+									>
+										<MemoryIcon
+											fontSize="small"
+											sx={{ color: theme.palette.success.main }}
+										/>
+										<span>Hardware</span>
+									</div>
+								</MenuItem>
+							</Select>
+						</FormControl>
+					</CardContent>
+				</Card>
+			</div>
+
+			{/* Add backends info if filtering */}
+			{selectedBackend !== 'all' && (
+				<Box sx={{ mb: 2, display: 'flex', gap: 1, alignItems: 'center' }}>
+					<Typography variant="body2" color="text.secondary">
+						Showing only:
+					</Typography>
+					<Chip
+						icon={
+							selectedBackend === 'simulator' ? <StorageIcon /> : <MemoryIcon />
+						}
+						label={
+							selectedBackend === 'simulator'
+								? 'Simulator Results'
+								: 'Hardware Results'
+						}
+						color={selectedBackend === 'simulator' ? 'info' : 'success'}
+						size="small"
+						variant="outlined"
+					/>
+				</Box>
+			)}
 
 			<Plot
 				ref={plotRef}
 				data={plotData}
-				layout={layout}
+				layout={{
+					...layout,
+					autosize: true,
+					responsive: true,
+				}}
 				config={config}
 				style={{ width: '100%', height: 'auto' }}
 				useResizeHandler={true}
+				onInitialized={(figure) => {
+					// When the plot is first initialized, make sure it's correctly sized
+					if (plotRef.current && plotRef.current.el) {
+						setTimeout(() => {
+							if (plotRef.current && plotRef.current.handleResize) {
+								plotRef.current.handleResize();
+							}
+						}, 50);
+					}
+				}}
+				onUpdate={(figure) => {
+					// After each update, ensure the plot is properly sized
+					if (plotRef.current && plotRef.current.el) {
+						setTimeout(() => {
+							if (plotRef.current && plotRef.current.handleResize) {
+								plotRef.current.handleResize();
+							}
+						}, 50);
+					}
+				}}
 			/>
 		</>
 	);

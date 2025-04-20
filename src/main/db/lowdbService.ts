@@ -35,6 +35,14 @@ export interface QuantumResult {
 	plot_file_path: string | null;
 	error_message: string | null;
 	raw_counts: { [key: string]: number } | null;
+	qpu_time_sec?: number | null;
+
+	// Noise and error metrics
+	gate_error?: number | null;
+	readout_error?: number | null;
+	t1_time?: number | null;
+	t2_time?: number | null;
+	quantum_volume?: number | null;
 
 	// Shor-specific fields
 	n_value?: number;
@@ -345,6 +353,18 @@ class LowDBService {
 	 */
 	async insertQuantumResult(runId: string, resultData: any): Promise<string> {
 		await this.ensureLoaded();
+
+		// Debug log to check for noise metrics
+		if (resultData) {
+			console.log('Inserting quantum result with data:', {
+				runId,
+				gate_error: resultData.gate_error,
+				readout_error: resultData.readout_error,
+				t1_time: resultData.t1_time,
+				t2_time: resultData.t2_time,
+				quantum_volume: resultData.quantum_volume,
+			});
+		}
 
 		const resultId = nanoid();
 		const newResult: QuantumResult = {

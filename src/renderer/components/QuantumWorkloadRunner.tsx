@@ -149,7 +149,7 @@ export const QuantumWorkloadRunner: React.FC = () => {
 	// Update shots when algorithm changes
 	const handleAlgorithmChange = (value: string) => {
 		setAlgorithm(value);
-		setShots(value === 'shors' ? '4096' : '8196');
+		setShots(value === 'shors' ? '4096' : '8192');
 		// Ensure nValue is always set to default '15' for Shor's algorithm
 		if (value === 'shors') {
 			setNValue('15');

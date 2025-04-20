@@ -25,6 +25,7 @@ import {
 	SelectChangeEvent,
 	Chip,
 	Alert,
+	Card,
 } from '@mui/material';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
@@ -1021,15 +1022,20 @@ const AlgorithmComparisonView = ({
 					<Grid container spacing={2} sx={{ mt: 2 }}>
 						{/* Available Algorithms Selection */}
 						<Grid item xs={12} md={6}>
-							<Paper
-								elevation={3}
-								sx={{
-									p: 2,
-									bgcolor: isDarkMode
-										? 'rgba(33,33,33,0.9)'
-										: 'rgba(255,255,255,0.9)',
-									borderRadius: '8px',
-								}}
+							<Card
+								className={`
+									relative
+									z-10
+									p-4
+									transition-all
+									duration-300
+									shadow-md
+									${isDarkMode ? 'bg-[#121212]/80' : 'bg-[#FAFAFA]'}
+									hover:shadow-xl
+									hover:bg-white/30 dark:hover:bg-[#212121]/40
+									group
+									rounded-xl
+								`}
 							>
 								<Typography
 									variant="subtitle2"
@@ -1077,20 +1083,25 @@ const AlgorithmComparisonView = ({
 										))}
 									</FormGroup>
 								</Box>
-							</Paper>
+							</Card>
 						</Grid>
 
 						{/* Operations Selection */}
 						<Grid item xs={12} md={6}>
-							<Paper
-								elevation={3}
-								sx={{
-									p: 2,
-									bgcolor: isDarkMode
-										? 'rgba(33,33,33,0.9)'
-										: 'rgba(255,255,255,0.9)',
-									borderRadius: '8px',
-								}}
+							<Card
+								className={`
+									relative
+									z-10
+									p-4
+									transition-all
+									duration-300
+									shadow-md
+									${isDarkMode ? 'bg-[#121212]/80' : 'bg-[#FAFAFA]'}
+									hover:shadow-xl
+									hover:bg-white/30 dark:hover:bg-[#212121]/40
+									group
+									rounded-xl
+								`}
 							>
 								<Typography
 									variant="subtitle2"
@@ -1134,7 +1145,7 @@ const AlgorithmComparisonView = ({
 										))}
 									</FormGroup>
 								</Box>
-							</Paper>
+							</Card>
 						</Grid>
 					</Grid>
 				</>

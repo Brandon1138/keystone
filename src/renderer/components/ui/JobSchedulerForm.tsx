@@ -73,7 +73,7 @@ const getDefaultIterations = (algorithm: string): number => {
 
 // Default shot counts for quantum algorithms
 const DEFAULT_SHOR_SHOTS = 4096;
-const DEFAULT_GROVER_SHOTS = 8196;
+const DEFAULT_GROVER_SHOTS = 8192;
 
 // Interface for batch job settings
 interface BatchJobSettings {
@@ -1420,7 +1420,7 @@ const JobSchedulerForm: React.FC<JobSchedulerFormProps> = ({
 									helperText={`Default shot count for ${
 										quantumAlgorithm === 'shor'
 											? "Shor's Algorithm: 4096"
-											: "Grover's Algorithm: 8196"
+											: "Grover's Algorithm: 8192"
 									}`}
 									sx={{
 										backgroundColor: isDarkMode ? '#2a2a2a' : '#f8f8f8',

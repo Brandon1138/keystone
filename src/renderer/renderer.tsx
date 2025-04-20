@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import './styles.css';
+import './styles/viridis.css'; // Import Viridis color palette
 import App from './App';
 
 // Create dark and light MUI themes that complement our Tailwind config

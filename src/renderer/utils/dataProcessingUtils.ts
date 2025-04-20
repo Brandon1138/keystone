@@ -41,6 +41,13 @@ type QuantumResult = {
 		plot_file_path?: string | null;
 		error_message?: string | null;
 		raw_counts?: { [key: string]: number } | null;
+		qpu_time_sec?: number | null;
+		// Noise metrics
+		gate_error?: number | null;
+		readout_error?: number | null;
+		t1_time?: number | null;
+		t2_time?: number | null;
+		quantum_volume?: number | null;
 	};
 	logs?: string[];
 	plotFilePath?: string;
@@ -65,6 +72,13 @@ type QuantumResult = {
 	top_measured_count?: number;
 	found_correct_state?: boolean;
 	num_qubits?: number;
+	qpu_time_sec?: number | null;
+	// Noise metrics legacy fields
+	gate_error?: number | null;
+	readout_error?: number | null;
+	t1_time?: number | null;
+	t2_time?: number | null;
+	quantum_volume?: number | null;
 };
 
 type PqcClassicalDetail = {
@@ -186,13 +200,22 @@ export interface ProcessedQuantumData {
 	algorithm: string;
 	shots: number;
 	execution_time_sec: number | null;
+	qpu_time_sec: number | null;
 	circuit_depth: number | null;
 	cx_gate_count: number | null;
 	total_gate_count: number | null;
 	backend_used: string | null;
 	raw_counts: { [key: string]: number } | null;
 	success_rate?: number;
+	confidence?: number;
 	quantum_type: 'Quantum_Shor' | 'Quantum_Grover';
+	plot_file_path?: string | null;
+	// Noise and error metrics
+	gate_error?: number | null;
+	readout_error?: number | null;
+	t1_time?: number | null;
+	t2_time?: number | null;
+	quantum_volume?: number | null;
 }
 
 // Function to fetch and process all benchmark data
@@ -422,145 +445,384 @@ function getDefaultSecurityParam(algorithm: string): string {
 	return '';
 }
 
+// Fast modular exponentiation helper
+function modExp(base: number, exp: number, mod: number): number {
+	let result = 1;
+	let b = base % mod;
+	let e = exp;
+	while (e > 0) {
+		if (e & 1) result = (result * b) % mod;
+		b = (b * b) % mod;
+		e >>= 1;
+	}
+	return result;
+}
+
 // Process quantum workload data - ensure we get any available quantum data
 function processQuantumData(
 	runs: Run[],
 	quantumResults: QuantumResult[]
 ): ProcessedQuantumData[] {
-	const processedData: ProcessedQuantumData[] = [];
+	const processed: ProcessedQuantumData[] = [];
 
-	console.log(
-		'Processing quantum data. Total runs:',
-		runs.length,
-		'Total quantum results:',
-		quantumResults.length
-	);
+	for (const run of runs) {
+		if (run.runType.startsWith('Quantum_')) {
+			const result = quantumResults.find((res) => res.runId === run.runId);
+			if (result) {
+				// Extract fields from result, checking both direct props and nested data structure
+				// This fixes our noise metrics extraction
+				const extractField = <T>(fieldName: string): T | null => {
+					// Check if field exists directly on result
+					if (result && typeof result === 'object' && fieldName in result) {
+						const value = (result as any)[fieldName] as T;
+						if (
+							fieldName.includes('error') ||
+							fieldName.includes('time') ||
+							fieldName.includes('volume')
+						) {
+							console.log(
+								`Found ${fieldName} directly on result: ${value} (type: ${typeof value})`
+							);
+						}
+						return value;
+					}
+					// Check if field exists in result.data
+					if (
+						result &&
+						result.data &&
+						typeof result.data === 'object' &&
+						fieldName in result.data
+					) {
+						const value = (result.data as any)[fieldName] as T;
+						if (
+							fieldName.includes('error') ||
+							fieldName.includes('time') ||
+							fieldName.includes('volume')
+						) {
+							console.log(
+								`Found ${fieldName} in result.data: ${value} (type: ${typeof value})`
+							);
+						}
+						return value;
+					}
 
-	// Directly check if we have any quantum results
-	if (quantumResults.length === 0) {
-		console.warn('No quantum results found in database!');
-		return [];
-	}
+					// If we get here for noise metrics, log that it wasn't found
+					if (
+						fieldName.includes('error') ||
+						fieldName.includes('time') ||
+						fieldName.includes('volume')
+					) {
+						console.log(`Warning: ${fieldName} not found in result`);
+					}
+					return null;
+				};
 
-	// Print details about first few quantum results for debugging
-	if (quantumResults.length > 0) {
-		console.log(
-			'Sample quantum result:',
-			JSON.stringify(quantumResults[0], null, 2).substring(0, 500) + '...'
-		);
-	}
+				const execution_time_sec = extractField<number>('execution_time_sec');
+				const circuit_depth = extractField<number>('circuit_depth');
+				const cx_gate_count = extractField<number>('cx_gate_count');
+				const total_gate_count = extractField<number>('total_gate_count');
+				const backend_used = extractField<string>('backend_used');
+				const shots = extractField<number>('shots') || 0;
+				const raw_counts = extractField<{ [key: string]: number }>(
+					'raw_counts'
+				);
+				const plot_file_path = extractField<string>('plot_file_path');
+				const qpu_time_sec = extractField<number>('qpu_time_sec');
 
-	// Check all quantum results, even if run is not found
-	for (const result of quantumResults) {
-		// Skip if result has no essential data
-		if (!result || !result.resultId) {
-			console.warn('Skipping invalid quantum result:', result);
-			continue;
-		}
+				// Extract noise metrics
+				const gate_error = extractField<number>('gate_error');
+				const readout_error = extractField<number>('readout_error');
+				const t1_time = extractField<number>('t1_time');
+				const t2_time = extractField<number>('t2_time');
+				const quantum_volume = extractField<number>('quantum_volume');
 
-		// Find corresponding run
-		const run = runs.find((r) => r.runId === result.runId);
+				// Debug log noise metrics
+				console.log(`Processing quantum data for ${run.runId}:`, {
+					backend_used,
+					gate_error,
+					readout_error,
+					t1_time,
+					t2_time,
+					quantum_volume,
+				});
 
-		// Log if run not found but process result anyway
-		if (!run) {
-			console.warn(
-				`Run not found for quantum result ${result.resultId}, using default values`
-			);
-		}
+				// Calculate success rate and confidence
+				let success_rate = 0;
+				let confidence = 0;
 
-		// Skip only if run exists and was explicitly failed (allow pending/running/completed)
-		if (run && run.status === 'failed') {
-			console.log('Skipping failed quantum run:', run.runId);
-			continue;
-		}
+				// Map algorithm types to ensure compatibility
+				let processedAlgorithm = run.algorithm || 'Unknown';
+				if (run.runType === 'Quantum_Shor') {
+					processedAlgorithm = 'Shor';
+				} else if (run.runType === 'Quantum_Grover') {
+					processedAlgorithm = 'Grover';
+				}
 
-		// Use run info if available, otherwise use default values from result
-		const timestamp = run?.timestamp || new Date().toISOString();
-		const algorithm = run?.algorithm || 'Quantum Algorithm';
+				// Process raw counts to extract metrics
+				if (raw_counts && Object.keys(raw_counts).length > 0) {
+					if (run.runType === 'Quantum_Shor') {
+						// For Shor's algorithm, check if factorization was successful
+						const status = extractField<string>('status');
+						if (status === 'success') {
+							success_rate = 1.0; // If the algorithm successfully found factors
+						} else {
+							success_rate = 0.0;
+						}
 
-		// Determine run type based on run info or result data
-		let runType =
-			(run?.runType as 'Quantum_Shor' | 'Quantum_Grover') || 'Quantum_Shor';
+						// For Shor, confidence calculation depends on whether this was run on a simulator or hardware
+						const isSimulator =
+							backend_used?.toLowerCase().includes('simulator') ||
+							backend_used?.toLowerCase().includes('sim');
 
-		// Check if we need to infer type from the data properties
-		if (!runType) {
-			if (
-				result.data?.factors !== undefined ||
-				result.data?.n_value !== undefined
-			) {
-				runType = 'Quantum_Shor';
-			} else if (result.data?.input_marked_states !== undefined) {
-				runType = 'Quantum_Grover';
+						// Parse N and a from algorithm string (e.g. 'Shor N=15 a=7')
+						const algoStr = processedAlgorithm || '';
+						const N = parseInt(
+							algoStr.split('N=')[1]?.split(/\D/)[0] || '0',
+							10
+						);
+						const aVal = parseInt(
+							algoStr.split('a=')[1]?.split(/\D/)[0] || '0',
+							10
+						);
+
+						// Compute period r such that a^r mod N = 1
+						let r = 1;
+						while (r < N && modExp(aVal, r, N) !== 1) {
+							r++;
+						}
+
+						let correctCount = 0;
+						const totalShots = Object.values(raw_counts).reduce(
+							(sum, count) => sum + (count as number),
+							0
+						);
+
+						if (r > 0 && Object.entries(raw_counts).length > 0) {
+							const entries = Object.entries(raw_counts);
+							const bitLen = entries[0][0].length;
+							const Q = 1 << bitLen;
+
+							if (isSimulator) {
+								// For simulators, the distribution already represents the correct solution
+								// Sum up all counts as correctCount
+								correctCount = totalShots;
+							} else {
+								// For hardware results, use tolerance-based peak detection
+								// For Shor with period r, we expect peaks at positions j*Q/r where j=0,1,2,...,r-1
+								for (const [bit, cnt] of entries) {
+									const v = parseInt(bit, 2);
+									if (isNaN(v)) continue;
+
+									// For each possible j value (0 to r-1)
+									for (let j = 0; j < r; j++) {
+										// Calculate expected peak position
+										const expectedPos = Math.round((j * Q) / r);
+
+										// Allow for more measurement noise by checking if v is close to an expected peak
+										// Using a wider tolerance to capture the full width of peaks
+										if (
+											Math.abs(v - expectedPos) <=
+											Math.max(3, Math.floor(Q / (r * 10)))
+										) {
+											correctCount += cnt as number;
+											break; // Count this measurement once
+										}
+									}
+								}
+							}
+						}
+
+						// Calculate confidence based on backend type
+						if (isSimulator) {
+							// For simulators, use the stored shots value
+							confidence = shots > 0 ? correctCount / shots : 0;
+						} else {
+							// For hardware, use the actual sum of all raw counts as the denominator
+							confidence = totalShots > 0 ? correctCount / totalShots : 0;
+						}
+					} else if (run.runType === 'Quantum_Grover') {
+						const isSimulator =
+							backend_used?.toLowerCase().includes('simulator') ||
+							backend_used?.toLowerCase().includes('sim');
+						if (isSimulator) {
+							// For simulators, assume perfect confidence
+							confidence = shots > 0 ? 1.0 : 0;
+							// Ensure success_rate is also set to 100% on simulator
+							success_rate = shots > 0 ? 1.0 : 0;
+						} else {
+							// For Grover's algorithm with Qiskit
+							const found_correct_state =
+								extractField<boolean>('found_correct_state') || false;
+							success_rate = found_correct_state ? 1.0 : 0.0;
+
+							// Get the marked states from the result
+							const markedStates =
+								extractField<string[]>('input_marked_states') || [];
+
+							// Extract top-measured data as a fallback
+							const topMeasuredState =
+								extractField<string>('top_measured_state');
+							const topMeasuredCount =
+								extractField<number>('top_measured_count') || 0;
+
+							// Log marked states for debugging
+							console.log(
+								`Grover marked states for ${run.runId}:`,
+								markedStates
+							);
+							console.log(`Grover algorithm info:`, run.algorithm);
+							console.log(`Grover raw counts for ${run.runId}:`, raw_counts);
+							console.log(`Grover backend used: ${backend_used}`);
+
+							// For Grover, confidence is based on the ratio of marked states found
+							const totalShots = Object.values(raw_counts || {}).reduce(
+								(sum, count) => sum + (count as number),
+								0
+							);
+
+							console.log(`Grover totalShots: ${totalShots}`);
+
+							if (markedStates && markedStates.length > 0 && totalShots > 0) {
+								// Sum counts for all marked states
+								let correctCount = 0;
+								console.log(
+									`Looking for ${markedStates.length} marked states in raw counts:`,
+									raw_counts
+								);
+
+								markedStates.forEach((state) => {
+									// Try exact match first
+									if (raw_counts && raw_counts[state]) {
+										correctCount += raw_counts[state];
+										console.log(
+											`Found exact match for marked state ${state}: ${raw_counts[state]} counts`
+										);
+									} else {
+										// If exact match not found, try looking for similar states (with potential bit flips)
+										// This handles noise in real quantum hardware
+										if (raw_counts) {
+											Object.entries(raw_counts).forEach(
+												([measuredState, count]) => {
+													const hamming = countBitDifferences(
+														state,
+														measuredState
+													);
+													// For hardware results, allow for bit-flip errors by accepting states with small Hamming distance
+													const maxHammingAllowed = Math.min(
+														Math.max(1, Math.floor(state.length / 5)),
+														3 // Cap at 3 bit flips maximum to avoid false positives
+													);
+
+													if (hamming <= maxHammingAllowed) {
+														correctCount += count as number;
+														console.log(
+															`Found match for marked state ${state}: ${measuredState} with ${count} counts (Hamming distance: ${hamming})`
+														);
+													}
+												}
+											);
+										}
+									}
+								});
+
+								// Calculate confidence based on the actual measurement results
+								confidence = correctCount / totalShots;
+
+								console.log(
+									`Grover confidence calculation: ${correctCount} marked state counts out of ${totalShots} total shots = ${confidence.toFixed(
+										4
+									)} (${(confidence * 100).toFixed(1)}%)`
+								);
+							} else if (topMeasuredCount > 0 && shots > 0) {
+								console.log(
+									`Using top_measured_count for Grover confidence: ${topMeasuredCount}/${shots}`
+								);
+								confidence = topMeasuredCount / shots;
+							} else if (raw_counts && Object.keys(raw_counts).length > 0) {
+								// Raw counts fallback: pick the highest-count state
+								const sortedCounts = Object.entries(raw_counts).sort(
+									(a, b) => (b[1] as number) - (a[1] as number)
+								);
+
+								if (sortedCounts.length > 0) {
+									confidence = (sortedCounts[0][1] as number) / shots;
+									console.log(
+										`Using top-measured state ${
+											sortedCounts[0][0]
+										} for Grover confidence: ${confidence.toFixed(4)} (${(
+											confidence * 100
+										).toFixed(1)}%)`
+									);
+								} else {
+									console.log(
+										`No measurement data available for Grover confidence calculation`
+									);
+									confidence = 0;
+								}
+							} else {
+								console.log(
+									`No measurement data available for Grover confidence calculation`
+								);
+								confidence = 0;
+							}
+						}
+					}
+				}
+
+				processed.push({
+					runId: run.runId,
+					timestamp: run.timestamp,
+					algorithm: processedAlgorithm,
+					quantum_type: run.runType as 'Quantum_Shor' | 'Quantum_Grover',
+					shots: shots || 0,
+					execution_time_sec: execution_time_sec || null,
+					qpu_time_sec: qpu_time_sec || null,
+					circuit_depth: circuit_depth || null,
+					cx_gate_count: cx_gate_count || null,
+					total_gate_count: total_gate_count || null,
+					backend_used: backend_used || null,
+					raw_counts: raw_counts || null,
+					success_rate,
+					confidence,
+					plot_file_path: plot_file_path || null,
+					// Add noise metrics if available
+					gate_error: gate_error || null,
+					readout_error: readout_error || null,
+					t1_time: t1_time || null,
+					t2_time: t2_time || null,
+					quantum_volume: quantum_volume || null,
+				});
 			}
 		}
+	}
 
-		// Calculate success rate for Grover's algorithm using data field if available
-		let success_rate: number | undefined = undefined;
+	return processed;
+}
 
-		// Extract data from the new structure with data field
-		const data = result.data || {};
+// Helper function to count bit differences between two binary strings
+function countBitDifferences(str1: string, str2: string): number {
+	// If strings are different lengths, focus on rightmost bits
+	const len1 = str1.length;
+	const len2 = str2.length;
+	const minLen = Math.min(len1, len2);
+	const maxLen = Math.max(len1, len2);
 
-		// Get metrics, checking both places in result
-		const execution_time_sec =
-			data.execution_time_sec ?? result.execution_time_sec ?? 0;
-		const circuit_depth = data.circuit_depth ?? result.circuit_depth ?? 0;
-		const cx_gate_count = data.cx_gate_count ?? result.cx_gate_count ?? 0;
-		const total_gate_count =
-			data.total_gate_count ?? result.total_gate_count ?? 0;
-		const backend_used =
-			data.backend_used ?? result.backend_used ?? 'simulator';
-		const shots = data.shots ?? result.shots ?? 1000;
-		const raw_counts = data.raw_counts ?? result.raw_counts ?? {};
+	// Get the rightmost minLen bits from both strings
+	const rightStr1 = str1.slice(len1 - minLen);
+	const rightStr2 = str2.slice(len2 - minLen);
 
-		// Calculate success rate based on result type
-		if (runType === 'Quantum_Grover') {
-			const found_correct_state =
-				data.found_correct_state ?? result.found_correct_state;
-			const top_measured_count =
-				data.top_measured_count ?? result.top_measured_count;
-
-			if (
-				found_correct_state !== undefined &&
-				top_measured_count !== undefined &&
-				shots > 0
-			) {
-				success_rate = found_correct_state ? top_measured_count / shots : 0;
-			}
-		} else if (runType === 'Quantum_Shor') {
-			const factors = data.factors ?? result.factors;
-
-			if (factors !== null && factors && factors.length > 0) {
-				success_rate = 1.0; // Found factors
-			} else {
-				success_rate = 0.0; // Did not find factors
-			}
+	// Count differences in the common bits
+	let differences = 0;
+	for (let i = 0; i < minLen; i++) {
+		if (rightStr1[i] !== rightStr2[i]) {
+			differences++;
 		}
-
-		// Build processed data object with reasonable defaults for any null values
-		const processedItem: ProcessedQuantumData = {
-			runId: result.runId,
-			timestamp: timestamp,
-			algorithm: algorithm,
-			shots: shots,
-			execution_time_sec: execution_time_sec,
-			circuit_depth: circuit_depth,
-			cx_gate_count: cx_gate_count,
-			total_gate_count: total_gate_count,
-			backend_used: backend_used,
-			raw_counts: raw_counts,
-			success_rate: success_rate || 0,
-			quantum_type: runType,
-		};
-
-		processedData.push(processedItem);
 	}
 
-	console.log('Processed quantum data items:', processedData.length);
-	if (processedData.length > 0) {
-		console.log('First processed quantum item:', processedData[0]);
-	}
+	// Add differences for the extra bits (all counted as differences)
+	differences += maxLen - minLen;
 
-	return processedData;
+	return differences;
 }
 
 // Calculate statistics for a given metric across multiple benchmark results

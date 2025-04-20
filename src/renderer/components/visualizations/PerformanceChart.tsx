@@ -97,9 +97,9 @@ const PerformanceChart = ({
 	const initialRenderRef = useRef<boolean>(true);
 
 	const metricLabels = {
-		avg_ms: 'Average Time (ms)',
-		ops_per_sec: 'Operations Per Second',
-		mem_peak_kb: 'Peak Memory Usage (KB)',
+		avg_ms: 'ms',
+		ops_per_sec: 'Operations',
+		mem_peak_kb: 'KB',
 	};
 
 	const metricDescriptions = {
@@ -473,19 +473,20 @@ const PerformanceChart = ({
 			},
 		},
 		yaxis: {
-			title: metricLabels[metricType],
-			titlefont: {
-				size: 12,
-				color: isDarkMode ? '#ffffff' : '#333333',
-			},
-			tickfont: {
-				size: 10,
-				color: isDarkMode ? '#bbbbbb' : '#333333',
+			title: {
+				text: metricLabels[metricType],
+				font: {
+					size: 14,
+					color: isDarkMode ? '#fff' : '#333',
+					family: 'Arial, sans-serif',
+					weight: 600,
+				},
+				standoff: 15,
 			},
 			gridcolor: isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
-			zerolinecolor: isDarkMode
-				? 'rgba(255, 255, 255, 0.2)'
-				: 'rgba(0, 0, 0, 0.2)',
+			autorange: true,
+			rangemode: 'tozero' as const,
+			fixedrange: false,
 		},
 		margin: {
 			l: 60,
@@ -520,13 +521,31 @@ const PerformanceChart = ({
 		bargap: 0.25, // Space between different algorithm groups
 		bargroupgap: 0.1, // Space between bars within the same algorithm group
 		xaxis: {
-			title: 'Algorithm',
+			title: {
+				text: 'Algorithm Implementation',
+				font: {
+					size: 14,
+					color: isDarkMode ? '#fff' : '#333',
+					family: 'Arial, sans-serif',
+					weight: 600,
+				},
+				standoff: 15,
+			},
 			tickangle: -45,
 			automargin: true, // Add automargin to ensure labels fit
 			gridcolor: isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
 		},
 		yaxis: {
-			title: '', // Removed metric label from y-axis
+			title: {
+				text: metricLabels[metricType],
+				font: {
+					size: 14,
+					color: isDarkMode ? '#fff' : '#333',
+					family: 'Arial, sans-serif',
+					weight: 600,
+				},
+				standoff: 15,
+			},
 			gridcolor: isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
 			autorange: true,
 			rangemode: 'tozero' as const,
@@ -772,17 +791,22 @@ const PerformanceChart = ({
 					{/* Horizontal Controls below the chart */}
 					<div className="flex flex-wrap gap-4 mt-3">
 						{/* Operations Filter */}
-						<Paper
-							elevation={3}
-							sx={{
-								p: 2,
-								bgcolor: isDarkMode
-									? 'rgba(33,33,33,0.9)'
-									: 'rgba(255,255,255,0.9)',
-								borderRadius: '8px',
-								flex: 1,
-								minWidth: '250px',
-							}}
+						<Card
+							className={`
+								relative
+								z-10
+								p-4
+								transition-all
+								duration-300
+								shadow-md
+								${isDarkMode ? 'bg-[#121212]/80' : 'bg-[#FAFAFA]'}
+								hover:shadow-xl
+								hover:bg-white/30 dark:hover:bg-[#212121]/40
+								group
+								flex-1
+								min-w-[250px]
+								rounded-xl
+							`}
 						>
 							<Typography
 								variant="subtitle2"
@@ -822,20 +846,25 @@ const PerformanceChart = ({
 									/>
 								))}
 							</FormGroup>
-						</Paper>
+						</Card>
 
 						{/* Algorithm Filter */}
-						<Paper
-							elevation={3}
-							sx={{
-								p: 2,
-								bgcolor: isDarkMode
-									? 'rgba(33,33,33,0.9)'
-									: 'rgba(255,255,255,0.9)',
-								borderRadius: '8px',
-								flex: 1,
-								minWidth: '250px',
-							}}
+						<Card
+							className={`
+								relative
+								z-10
+								p-4
+								transition-all
+								duration-300
+								shadow-md
+								${isDarkMode ? 'bg-[#121212]/80' : 'bg-[#FAFAFA]'}
+								hover:shadow-xl
+								hover:bg-white/30 dark:hover:bg-[#212121]/40
+								group
+								flex-1
+								min-w-[250px]
+								rounded-xl
+							`}
 						>
 							<Typography
 								variant="subtitle2"
@@ -880,7 +909,7 @@ const PerformanceChart = ({
 									/>
 								))}
 							</FormGroup>
-						</Paper>
+						</Card>
 					</div>
 				</>
 			)}

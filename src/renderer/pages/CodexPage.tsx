@@ -24,6 +24,7 @@ import {
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { Card } from '../components/ui/card';
+import CodexTabSelector from '../components/visualizations/CodexTabSelector';
 
 /**
  * Codex Knowledge Base Component
@@ -547,152 +548,10 @@ export const CodexPage: React.FC = () => {
 					</p>
 
 					{/* Section selector */}
-					<div className="flex flex-wrap gap-2 mt-2">
-						<Button
-							variant={
-								activeSection === 'standardization' ? 'contained' : 'outlined'
-							}
-							onClick={() => setActiveSection('standardization')}
-							sx={{
-								bgcolor:
-									activeSection === 'standardization'
-										? '#9747FF'
-										: 'transparent',
-								borderColor: '#9747FF',
-								color:
-									activeSection === 'standardization'
-										? '#FFFFFF'
-										: isDarkMode
-										? '#FFFFFF'
-										: '#000000',
-								'&:hover': {
-									bgcolor:
-										activeSection === 'standardization'
-											? '#8030E0'
-											: isDarkMode
-											? 'rgba(151, 71, 255, 0.1)'
-											: 'rgba(151, 71, 255, 0.1)',
-									borderColor: '#9747FF',
-								},
-								fontSize: '0.85rem',
-								padding: '8px 16px',
-								textTransform: 'uppercase',
-								fontWeight: 'bold',
-								borderRadius: '8px',
-								height: '40px',
-								display: 'flex',
-								alignItems: 'center',
-							}}
-							startIcon={<SettingsIcon />}
-						>
-							Standards
-						</Button>
-						<Button
-							variant={activeSection === 'libraries' ? 'contained' : 'outlined'}
-							onClick={() => setActiveSection('libraries')}
-							sx={{
-								bgcolor:
-									activeSection === 'libraries' ? '#9747FF' : 'transparent',
-								borderColor: '#9747FF',
-								color:
-									activeSection === 'libraries'
-										? '#FFFFFF'
-										: isDarkMode
-										? '#FFFFFF'
-										: '#000000',
-								'&:hover': {
-									bgcolor:
-										activeSection === 'libraries'
-											? '#8030E0'
-											: isDarkMode
-											? 'rgba(151, 71, 255, 0.1)'
-											: 'rgba(151, 71, 255, 0.1)',
-									borderColor: '#9747FF',
-								},
-								fontSize: '0.85rem',
-								padding: '8px 16px',
-								textTransform: 'uppercase',
-								fontWeight: 'bold',
-								borderRadius: '8px',
-								height: '40px',
-								display: 'flex',
-								alignItems: 'center',
-							}}
-							startIcon={<CodeIcon />}
-						>
-							Libraries
-						</Button>
-						<Button
-							variant={activeSection === 'quantum' ? 'contained' : 'outlined'}
-							onClick={() => setActiveSection('quantum')}
-							sx={{
-								bgcolor:
-									activeSection === 'quantum' ? '#9747FF' : 'transparent',
-								borderColor: '#9747FF',
-								color:
-									activeSection === 'quantum'
-										? '#FFFFFF'
-										: isDarkMode
-										? '#FFFFFF'
-										: '#000000',
-								'&:hover': {
-									bgcolor:
-										activeSection === 'quantum'
-											? '#8030E0'
-											: isDarkMode
-											? 'rgba(151, 71, 255, 0.1)'
-											: 'rgba(151, 71, 255, 0.1)',
-									borderColor: '#9747FF',
-								},
-								fontSize: '0.85rem',
-								padding: '8px 16px',
-								textTransform: 'uppercase',
-								fontWeight: 'bold',
-								borderRadius: '8px',
-								height: '40px',
-								display: 'flex',
-								alignItems: 'center',
-							}}
-							startIcon={<SchoolIcon />}
-						>
-							Frameworks
-						</Button>
-						<Button
-							variant={activeSection === 'knowledge' ? 'contained' : 'outlined'}
-							onClick={() => setActiveSection('knowledge')}
-							sx={{
-								bgcolor:
-									activeSection === 'knowledge' ? '#9747FF' : 'transparent',
-								borderColor: '#9747FF',
-								color:
-									activeSection === 'knowledge'
-										? '#FFFFFF'
-										: isDarkMode
-										? '#FFFFFF'
-										: '#000000',
-								'&:hover': {
-									bgcolor:
-										activeSection === 'knowledge'
-											? '#8030E0'
-											: isDarkMode
-											? 'rgba(151, 71, 255, 0.1)'
-											: 'rgba(151, 71, 255, 0.1)',
-									borderColor: '#9747FF',
-								},
-								fontSize: '0.85rem',
-								padding: '8px 16px',
-								textTransform: 'uppercase',
-								fontWeight: 'bold',
-								borderRadius: '8px',
-								height: '40px',
-								display: 'flex',
-								alignItems: 'center',
-							}}
-							startIcon={<LibraryBooksIcon />}
-						>
-							Knowledge
-						</Button>
-					</div>
+					<CodexTabSelector
+						activeSection={activeSection}
+						onChange={setActiveSection}
+					/>
 				</Card>
 
 				{/* Content Section */}

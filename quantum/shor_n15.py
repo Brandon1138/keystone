@@ -160,6 +160,83 @@ def process_measurement(bitstr, t, a, N):
         log_stderr(traceback.format_exc())
         return None, None
 
+# --- Get Backend Noise Properties ---
+def get_backend_noise_metrics(backend):
+    """Retrieve noise and error metrics from the backend if available."""
+    log_stderr("\nRetrieving backend noise metrics...")
+    metrics = {
+        "gate_error": None,
+        "readout_error": None,
+        "t1_time": None,
+        "t2_time": None,
+        "quantum_volume": None
+    }
+    
+    try:
+        # Check if this is a hardware backend with properties
+        if hasattr(backend, 'properties') and backend.properties():
+            props = backend.properties()
+            
+            # Average gate error (focusing on CX gates as they're typically most error-prone)
+            cx_gate_errors = []
+            for gate_data in props.gates:
+                if gate_data.gate == 'cx':
+                    if hasattr(gate_data, 'parameters'):
+                        for param in gate_data.parameters:
+                            if param.name == 'gate_error':
+                                cx_gate_errors.append(param.value)
+            
+            if cx_gate_errors:
+                metrics["gate_error"] = sum(cx_gate_errors) / len(cx_gate_errors) * 100  # Convert to percentage
+                log_stderr(f"Average CX gate error: {metrics['gate_error']:.4f}%")
+            
+            # Average readout error
+            readout_errors = []
+            for qubit in range(props.n_qubits):
+                qubit_props = props.qubit_properties(qubit)
+                if qubit_props:
+                    for prop in qubit_props:
+                        if prop.name == 'readout_error':
+                            readout_errors.append(prop.value)
+            
+            if readout_errors:
+                metrics["readout_error"] = sum(readout_errors) / len(readout_errors) * 100  # Convert to percentage
+                log_stderr(f"Average readout error: {metrics['readout_error']:.4f}%")
+            
+            # Average T1 and T2 times
+            t1_times = []
+            t2_times = []
+            for qubit in range(props.n_qubits):
+                qubit_props = props.qubit_properties(qubit)
+                if qubit_props:
+                    t1 = next((prop.value for prop in qubit_props if prop.name == 'T1'), None)
+                    t2 = next((prop.value for prop in qubit_props if prop.name == 'T2'), None)
+                    
+                    if t1 is not None:
+                        t1_times.append(t1 * 1e6)  # Convert to microseconds
+                    if t2 is not None:
+                        t2_times.append(t2 * 1e6)  # Convert to microseconds
+            
+            if t1_times:
+                metrics["t1_time"] = sum(t1_times) / len(t1_times)
+                log_stderr(f"Average T1 time: {metrics['t1_time']:.2f} μs")
+            
+            if t2_times:
+                metrics["t2_time"] = sum(t2_times) / len(t2_times)
+                log_stderr(f"Average T2 time: {metrics['t2_time']:.2f} μs")
+        
+        # Try to get quantum volume from backend configuration
+        if hasattr(backend, 'configuration'):
+            config = backend.configuration()
+            if hasattr(config, 'quantum_volume'):
+                metrics["quantum_volume"] = config.quantum_volume
+                log_stderr(f"Quantum Volume: {metrics['quantum_volume']}")
+    
+    except Exception as e:
+        log_stderr(f"Error retrieving backend noise metrics: {e}")
+        log_stderr(traceback.format_exc())
+    
+    return metrics
 
 # --- Circuit Optimisation (returns metrics) ---
 def optimize_circuit(qc, backend):
@@ -333,6 +410,12 @@ def main():
         "plot_file_path": None,
         "error_message": None,
         "raw_counts": None,
+        # Add noise metrics to results
+        "gate_error": None,
+        "readout_error": None,
+        "t1_time": None,
+        "t2_time": None,
+        "quantum_volume": None,
     }
     start_time = time.time()
 
@@ -375,6 +458,15 @@ def main():
                  raise RuntimeError(results["error_message"])
 
         results["backend_used"] = backend.name
+
+        # --- Get Backend Noise Metrics (if hardware) ---
+        if args.run_on_hardware:
+            noise_metrics = get_backend_noise_metrics(backend)
+            results["gate_error"] = noise_metrics["gate_error"]
+            results["readout_error"] = noise_metrics["readout_error"]
+            results["t1_time"] = noise_metrics["t1_time"]
+            results["t2_time"] = noise_metrics["t2_time"]
+            results["quantum_volume"] = noise_metrics["quantum_volume"]
 
         # --- Build Circuit ---
         qc = build_shor_circuit_n15(n_control, n_work, a)

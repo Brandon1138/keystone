@@ -16,6 +16,7 @@ import {
 	Grid,
 	InputLabel,
 	CircularProgress,
+	Paper,
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import { Card } from '../components/ui/card';
@@ -26,6 +27,8 @@ import TimelineIcon from '@mui/icons-material/Timeline';
 import CompareIcon from '@mui/icons-material/Compare';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import RefreshIcon from '@mui/icons-material/Refresh';
+import ScienceIcon from '@mui/icons-material/Science';
+import TuneIcon from '@mui/icons-material/Tune';
 
 // Import visualization components
 import PerformanceChart from '../components/visualizations/PerformanceChart';
@@ -35,6 +38,12 @@ import QuantumStatsCard from '../components/visualizations/QuantumStatsCard';
 import AlgorithmComparisonCard from '../components/visualizations/AlgorithmComparisonCard';
 import AlgorithmComparisonView from '../components/visualizations/AlgorithmComparisonView';
 import BenchmarkDataTable from '../components/visualizations/BenchmarkDataTable';
+import QuantumRunDetailsTable from '../components/visualizations/QuantumRunDetailsTable';
+import QuantumRunDetailsDialog from '../components/visualizations/QuantumRunDetailsDialog';
+import QuantumAlgorithmSelector from '../components/visualizations/QuantumAlgorithmSelector';
+import EnhancedCircuitDepthCard from '../components/visualizations/EnhancedCircuitDepthCard';
+import ChartTypeSelector from '../components/visualizations/ChartTypeSelector';
+import { NoiseAndErrorView } from '../components/visualizations/NoiseAndErrorView';
 
 // Import data utils and event bus
 import {
@@ -99,12 +108,16 @@ export const VisualizationPage: React.FC = () => {
 	}>({});
 	const [currentSortOrder, setCurrentSortOrder] = useState<string>('default');
 	const [currentMetricType, setCurrentMetricType] = useState<
-		| 'execution_time_sec'
+		| 'qpu_time_sec'
 		| 'circuit_depth'
-		| 'cx_gate_count'
 		| 'total_gate_count'
 		| 'success_rate'
-	>('execution_time_sec');
+		| 'confidence'
+	>('qpu_time_sec');
+
+	// Add these new state variables in the component, near the other state variables
+	const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
+	const [detailsDialogOpen, setDetailsDialogOpen] = useState<boolean>(false);
 
 	// Track component mount status for cleanup
 	useEffect(() => {
@@ -439,16 +452,22 @@ export const VisualizationPage: React.FC = () => {
 	const handleMetricTypeChange = useCallback(
 		(
 			metricType:
-				| 'execution_time_sec'
+				| 'qpu_time_sec'
 				| 'circuit_depth'
-				| 'cx_gate_count'
 				| 'total_gate_count'
 				| 'success_rate'
+				| 'confidence'
 		) => {
 			setCurrentMetricType(metricType);
 		},
 		[]
 	);
+
+	// Add this function to handle opening the details dialog
+	const handleViewQuantumRunDetails = useCallback((runId: string) => {
+		setSelectedRunId(runId);
+		setDetailsDialogOpen(true);
+	}, []);
 
 	return (
 		<div className="container relative z-10 px-6 py-4">
@@ -499,7 +518,7 @@ export const VisualizationPage: React.FC = () => {
 
 					{/* Controls Grid */}
 					<Grid container spacing={3} alignItems="center">
-						<Grid item xs={12} sm={3}>
+						<Grid item xs={12} sm={4}>
 							<FormControl fullWidth>
 								<InputLabel
 									id="data-source-label"
@@ -545,7 +564,7 @@ export const VisualizationPage: React.FC = () => {
 								</Select>
 							</FormControl>
 						</Grid>
-						<Grid item xs={12} sm={3}>
+						<Grid item xs={12} sm={4}>
 							<FormControl fullWidth>
 								<InputLabel
 									id="algorithm-label"
@@ -632,7 +651,7 @@ export const VisualizationPage: React.FC = () => {
 								</Select>
 							</FormControl>
 						</Grid>
-						<Grid item xs={12} sm={3}>
+						<Grid item xs={12} sm={4}>
 							<FormControl fullWidth>
 								<InputLabel
 									id="time-range-label"
@@ -680,149 +699,14 @@ export const VisualizationPage: React.FC = () => {
 								</Select>
 							</FormControl>
 						</Grid>
-						<Grid item xs={12} sm={3}>
-							<Button
-								variant="contained"
-								fullWidth
-								startIcon={<FilterListIcon />}
-								onClick={applyFilters}
-								disabled={loading}
-								sx={{
-									textTransform: 'uppercase',
-									fontWeight: 'bold',
-									padding: '10px 16px',
-									fontSize: '0.85rem',
-									borderRadius: '8px',
-								}}
-							>
-								{loading ? (
-									<Box sx={{ display: 'flex', alignItems: 'center' }}>
-										<CircularProgress
-											size={24}
-											color="inherit"
-											sx={{ mr: 1 }}
-										/>
-										Applying
-									</Box>
-								) : (
-									'Apply Filters'
-								)}
-							</Button>
-						</Grid>
 					</Grid>
 
-					{/* Chart Type Buttons */}
-					<Box mt={4} sx={{ display: 'flex', gap: 2 }}>
-						<Button
-							variant={activeChart === 'performance' ? 'contained' : 'outlined'}
-							startIcon={<AssessmentIcon />}
-							onClick={() => handleChartChange('performance')}
-							sx={{
-								bgcolor:
-									activeChart === 'performance' ? '#9747FF' : 'transparent',
-								borderColor: '#9747FF',
-								color:
-									activeChart === 'performance'
-										? '#FFFFFF'
-										: isDarkMode
-										? '#FFFFFF'
-										: '#000000',
-								'&:hover': {
-									bgcolor:
-										activeChart === 'performance'
-											? '#8030E0'
-											: isDarkMode
-											? 'rgba(151, 71, 255, 0.1)'
-											: 'rgba(151, 71, 255, 0.1)',
-								},
-								fontWeight: 'medium',
-								borderRadius: '8px',
-							}}
-						>
-							Average Time
-						</Button>
-						<Button
-							variant={activeChart === 'bar' ? 'contained' : 'outlined'}
-							startIcon={<BarChartIcon />}
-							onClick={() => handleChartChange('bar')}
-							sx={{
-								bgcolor: activeChart === 'bar' ? '#9747FF' : 'transparent',
-								borderColor: '#9747FF',
-								color:
-									activeChart === 'bar'
-										? '#FFFFFF'
-										: isDarkMode
-										? '#FFFFFF'
-										: '#000000',
-								'&:hover': {
-									bgcolor:
-										activeChart === 'bar'
-											? '#8030E0'
-											: isDarkMode
-											? 'rgba(151, 71, 255, 0.1)'
-											: 'rgba(151, 71, 255, 0.1)',
-								},
-								fontWeight: 'medium',
-								borderRadius: '8px',
-							}}
-						>
-							Operations/Sec
-						</Button>
-						<Button
-							variant={activeChart === 'trend' ? 'contained' : 'outlined'}
-							startIcon={<TimelineIcon />}
-							onClick={() => handleChartChange('trend')}
-							sx={{
-								bgcolor: activeChart === 'trend' ? '#9747FF' : 'transparent',
-								borderColor: '#9747FF',
-								color:
-									activeChart === 'trend'
-										? '#FFFFFF'
-										: isDarkMode
-										? '#FFFFFF'
-										: '#000000',
-								'&:hover': {
-									bgcolor:
-										activeChart === 'trend'
-											? '#8030E0'
-											: isDarkMode
-											? 'rgba(151, 71, 255, 0.1)'
-											: 'rgba(151, 71, 255, 0.1)',
-								},
-								fontWeight: 'medium',
-								borderRadius: '8px',
-							}}
-						>
-							Memory Usage
-						</Button>
-						<Button
-							variant={activeChart === 'compare' ? 'contained' : 'outlined'}
-							startIcon={<CompareIcon />}
-							onClick={() => handleChartChange('compare')}
-							sx={{
-								bgcolor: activeChart === 'compare' ? '#9747FF' : 'transparent',
-								borderColor: '#9747FF',
-								color:
-									activeChart === 'compare'
-										? '#FFFFFF'
-										: isDarkMode
-										? '#FFFFFF'
-										: '#000000',
-								'&:hover': {
-									bgcolor:
-										activeChart === 'compare'
-											? '#8030E0'
-											: isDarkMode
-											? 'rgba(151, 71, 255, 0.1)'
-											: 'rgba(151, 71, 255, 0.1)',
-								},
-								fontWeight: 'medium',
-								borderRadius: '8px',
-							}}
-						>
-							Compare
-						</Button>
-					</Box>
+					{/* Chart Type Selector */}
+					<ChartTypeSelector
+						activeChart={activeChart}
+						onChange={handleChartChange}
+						mode={dataSource as 'benchmark' | 'quantum'}
+					/>
 				</Card>
 
 				{/* Main Chart with refs */}
@@ -893,11 +777,9 @@ export const VisualizationPage: React.FC = () => {
 											metricType="avg_ms"
 											loading={loading}
 											title="Average Time"
-											// Pass saved selections
 											selectedOperations={selectedOperations}
 											selectedAlgorithms={selectedAlgorithmFilters}
 											sortOrder={currentSortOrder}
-											// Pass callbacks to update parent state
 											onOperationsChange={handleOperationsChange}
 											onAlgorithmsChange={handleAlgorithmFiltersChange}
 											onSortOrderChange={handleSortOrderChange}
@@ -910,11 +792,9 @@ export const VisualizationPage: React.FC = () => {
 											metricType="ops_per_sec"
 											title="Operations Per Second"
 											loading={loading}
-											// Pass saved selections
 											selectedOperations={selectedOperations}
 											selectedAlgorithms={selectedAlgorithmFilters}
 											sortOrder={currentSortOrder}
-											// Pass callbacks to update parent state
 											onOperationsChange={handleOperationsChange}
 											onAlgorithmsChange={handleAlgorithmFiltersChange}
 											onSortOrderChange={handleSortOrderChange}
@@ -927,11 +807,9 @@ export const VisualizationPage: React.FC = () => {
 											metricType="mem_peak_kb"
 											title="Peak Memory Usage"
 											loading={loading}
-											// Pass saved selections
 											selectedOperations={selectedOperations}
 											selectedAlgorithms={selectedAlgorithmFilters}
 											sortOrder={currentSortOrder}
-											// Pass callbacks to update parent state
 											onOperationsChange={handleOperationsChange}
 											onAlgorithmsChange={handleAlgorithmFiltersChange}
 											onSortOrderChange={handleSortOrderChange}
@@ -949,11 +827,26 @@ export const VisualizationPage: React.FC = () => {
 								</>
 							) : dataSource === 'quantum' ? (
 								<>
+									{/* Add Quantum Algorithm Selector */}
+									<QuantumAlgorithmSelector
+										selectedAlgorithm={selectedAlgorithm}
+										onAlgorithmChange={(algorithm) => {
+											log(`Selected quantum algorithm: ${algorithm}`);
+											setSelectedAlgorithm(algorithm);
+										}}
+									/>
+
 									{activeChart === 'performance' && (
 										<QuantumResultsChart
 											data={filteredQuantumData}
 											chartType="bars"
-											metricType={currentMetricType}
+											metricType={
+												currentMetricType as
+													| 'qpu_time_sec'
+													| 'circuit_depth'
+													| 'total_gate_count'
+													| 'success_rate'
+											}
 											loading={loading}
 											sortOrder={currentSortOrder}
 											onSortOrderChange={handleSortOrderChange}
@@ -962,29 +855,18 @@ export const VisualizationPage: React.FC = () => {
 										/>
 									)}
 									{activeChart === 'bar' && (
-										<QuantumResultsChart
+										<EnhancedCircuitDepthCard
 											data={filteredQuantumData}
-											chartType="bars"
-											metricType={currentMetricType}
-											title="Circuit Depth Comparison"
 											loading={loading}
-											sortOrder={currentSortOrder}
-											onSortOrderChange={handleSortOrderChange}
-											onMetricTypeChange={handleMetricTypeChange}
 											chartRef={quantumChartRef}
+											onViewDetails={handleViewQuantumRunDetails}
 										/>
 									)}
 									{activeChart === 'trend' && (
-										<QuantumResultsChart
+										<NoiseAndErrorView
 											data={filteredQuantumData}
-											chartType="histogram"
-											title="Quantum Measurement Distribution"
 											loading={loading}
-											sortOrder={currentSortOrder}
-											onSortOrderChange={handleSortOrderChange}
-											onMetricTypeChange={handleMetricTypeChange}
-											metricType={currentMetricType}
-											chartRef={quantumChartRef}
+											height={600}
 										/>
 									)}
 									{activeChart === 'compare' && (
@@ -996,13 +878,42 @@ export const VisualizationPage: React.FC = () => {
 											sortOrder={currentSortOrder}
 											onSortOrderChange={handleSortOrderChange}
 											onMetricTypeChange={handleMetricTypeChange}
-											metricType={currentMetricType}
+											metricType={
+												currentMetricType as
+													| 'qpu_time_sec'
+													| 'circuit_depth'
+													| 'total_gate_count'
+													| 'success_rate'
+											}
 											chartRef={quantumChartRef}
 										/>
 									)}
+
+									{/* Add Quantum Run Details Table */}
+									<Box sx={{ mt: 4 }}>
+										<Typography
+											variant="h6"
+											gutterBottom
+											sx={{
+												color: isDarkMode ? '#FFFFFF' : '#000000',
+												display: 'flex',
+												alignItems: 'center',
+												gap: 1,
+											}}
+										>
+											<ScienceIcon sx={{ color: '#9747FF' }} />
+											Quantum Workload History
+										</Typography>
+										<QuantumRunDetailsTable
+											data={filteredQuantumData}
+											loading={loading}
+											height={350}
+											onViewDetails={handleViewQuantumRunDetails}
+										/>
+									</Box>
 								</>
 							) : (
-								// Placeholder for encryption data (not implemented yet)
+								// Placeholders for encryption data
 								<div
 									className="border border-gray-300 dark:border-gray-700 rounded-lg p-4 h-96 flex items-center justify-center"
 									style={{
@@ -1491,13 +1402,13 @@ export const VisualizationPage: React.FC = () => {
 						>
 							<QuantumStatsCard
 								data={filteredQuantumData}
-								title="Runtime Analysis"
-								titleIcon="Timer"
+								title="Noise & Error Profile"
+								titleIcon="Warning"
 								algorithm={
 									selectedAlgorithm !== 'all' ? selectedAlgorithm : undefined
 								}
 								loading={loading}
-								metricType="runtime"
+								metricType="noise"
 							/>
 						</Card>
 					</div>
@@ -1605,6 +1516,14 @@ export const VisualizationPage: React.FC = () => {
 					</div>
 				)}
 			</div>
+
+			{/* Details Dialog */}
+			<QuantumRunDetailsDialog
+				open={detailsDialogOpen}
+				onClose={() => setDetailsDialogOpen(false)}
+				runId={selectedRunId}
+				data={filteredQuantumData}
+			/>
 		</div>
 	);
 };

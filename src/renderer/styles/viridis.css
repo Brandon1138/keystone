@@ -1,0 +1,123 @@
+/* Viridis color palette CSS variables */
+:root {
+	/* Main Viridis Palette Colors */
+	--viridis-0: rgb(68, 1, 84);
+	--viridis-1: rgb(72, 35, 116);
+	--viridis-2: rgb(64, 67, 135);
+	--viridis-3: rgb(52, 94, 141);
+	--viridis-4: rgb(41, 120, 142);
+	--viridis-5: rgb(32, 144, 140);
+	--viridis-6: rgb(34, 167, 132);
+	--viridis-7: rgb(68, 190, 112);
+	--viridis-8: rgb(121, 209, 81);
+	--viridis-9: rgb(189, 222, 38);
+	--viridis-10: rgb(253, 231, 37);
+
+	/* Viridis with transparency (for backgrounds, overlays) */
+	--viridis-0-10: rgba(68, 1, 84, 0.1);
+	--viridis-0-20: rgba(68, 1, 84, 0.2);
+	--viridis-0-50: rgba(68, 1, 84, 0.5);
+
+	--viridis-5-10: rgba(32, 144, 140, 0.1);
+	--viridis-5-20: rgba(32, 144, 140, 0.2);
+	--viridis-5-50: rgba(32, 144, 140, 0.5);
+
+	--viridis-10-10: rgba(253, 231, 37, 0.1);
+	--viridis-10-20: rgba(253, 231, 37, 0.2);
+	--viridis-10-50: rgba(253, 231, 37, 0.5);
+
+	/* Color scale for linear gradients */
+	--viridis-gradient: linear-gradient(
+		to right,
+		rgb(68, 1, 84),
+		rgb(72, 35, 116),
+		rgb(64, 67, 135),
+		rgb(52, 94, 141),
+		rgb(41, 120, 142),
+		rgb(32, 144, 140),
+		rgb(34, 167, 132),
+		rgb(68, 190, 112),
+		rgb(121, 209, 81),
+		rgb(189, 222, 38),
+		rgb(253, 231, 37)
+	);
+
+	/* Dark text color for accessibility on light background */
+	--viridis-text-dark: rgb(68, 1, 84);
+
+	/* Light text color for accessibility on dark background */
+	--viridis-text-light: rgb(253, 231, 37);
+}
+
+/* Utility classes for quick use */
+.viridis-gradient-bg {
+	background: var(--viridis-gradient);
+}
+
+.viridis-text-0 {
+	color: var(--viridis-0);
+}
+.viridis-text-1 {
+	color: var(--viridis-1);
+}
+.viridis-text-2 {
+	color: var(--viridis-2);
+}
+.viridis-text-3 {
+	color: var(--viridis-3);
+}
+.viridis-text-4 {
+	color: var(--viridis-4);
+}
+.viridis-text-5 {
+	color: var(--viridis-5);
+}
+.viridis-text-6 {
+	color: var(--viridis-6);
+}
+.viridis-text-7 {
+	color: var(--viridis-7);
+}
+.viridis-text-8 {
+	color: var(--viridis-8);
+}
+.viridis-text-9 {
+	color: var(--viridis-9);
+}
+.viridis-text-10 {
+	color: var(--viridis-10);
+}
+
+.viridis-bg-0 {
+	background-color: var(--viridis-0);
+}
+.viridis-bg-1 {
+	background-color: var(--viridis-1);
+}
+.viridis-bg-2 {
+	background-color: var(--viridis-2);
+}
+.viridis-bg-3 {
+	background-color: var(--viridis-3);
+}
+.viridis-bg-4 {
+	background-color: var(--viridis-4);
+}
+.viridis-bg-5 {
+	background-color: var(--viridis-5);
+}
+.viridis-bg-6 {
+	background-color: var(--viridis-6);
+}
+.viridis-bg-7 {
+	background-color: var(--viridis-7);
+}
+.viridis-bg-8 {
+	background-color: var(--viridis-8);
+}
+.viridis-bg-9 {
+	background-color: var(--viridis-9);
+}
+.viridis-bg-10 {
+	background-color: var(--viridis-10);
+}
