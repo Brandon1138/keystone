@@ -50,6 +50,7 @@ import ScienceIcon from '@mui/icons-material/Science';
 import PlayArrowAllIcon from '@mui/icons-material/PlaylistPlay';
 import CloseIcon from '@mui/icons-material/Close';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
+import { useQuantumHardware } from '../../context/QuantumHardwareContext';
 
 // Define default iterations based on algorithm type
 const getDefaultIterations = (algorithm: string): number => {
@@ -92,6 +93,8 @@ const JobSchedulerForm: React.FC<JobSchedulerFormProps> = ({
 }) => {
 	const theme = useTheme();
 	const isDarkMode = theme.palette.mode === 'dark';
+	const { startHardwareExecution, stopHardwareExecution, setJobId } =
+		useQuantumHardware();
 
 	// State for form fields
 	const [jobType, setJobType] = useState<'benchmark' | 'quantum'>('benchmark');
@@ -238,6 +241,19 @@ const JobSchedulerForm: React.FC<JobSchedulerFormProps> = ({
 					scheduledTime,
 				};
 
+				const result = await window.jobSchedulerAPI.scheduleJob(quantumJob);
+
+				// Activate hardware execution visual effects if this is a real hardware job
+				// that will run immediately
+				if (target === 'real_hardware' && !scheduledTime) {
+					startHardwareExecution(quantumAlgorithm as 'shors' | 'grovers');
+
+					// Set job ID if available
+					if (result && result.id) {
+						setJobId(result.id);
+					}
+				}
+
 				await window.jobSchedulerAPI.scheduleJob(quantumJob);
 			}
 
@@ -250,6 +266,11 @@ const JobSchedulerForm: React.FC<JobSchedulerFormProps> = ({
 			setScheduleTime(new Date());
 		} catch (error) {
 			console.error('Failed to schedule job:', error);
+
+			// Ensure we stop hardware execution mode if there was an error
+			if (jobType === 'quantum' && target === 'real_hardware') {
+				stopHardwareExecution();
+			}
 		} finally {
 			setIsSubmitting(false);
 		}

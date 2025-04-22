@@ -347,8 +347,188 @@ export const SettingsPage: React.FC = () => {
 									pl: 4,
 								}}
 							/>
+							<FormControlLabel
+								control={
+									<Switch
+										checked={settings.enableBloomEffect}
+										onChange={(e) =>
+											updateSetting('enableBloomEffect', e.target.checked)
+										}
+										color="primary"
+										disabled={!settings.animatedBackground || !isDarkMode}
+									/>
+								}
+								label="Enable Bloom Effect"
+								sx={{
+									color:
+										!settings.animatedBackground || !isDarkMode
+											? '#777777'
+											: isDarkMode
+											? '#FFFFFF'
+											: '#000000',
+									display: 'flex',
+									mb: 1,
+								}}
+							/>
+							{!isDarkMode && settings.animatedBackground && (
+								<Typography
+									variant="caption"
+									sx={{
+										ml: 4,
+										mb: 1,
+										display: 'block',
+										color: '#777777',
+										fontSize: '0.75rem',
+									}}
+								>
+									Bloom effects are only available in dark mode
+								</Typography>
+							)}
+							{settings.enableBloomEffect &&
+								settings.animatedBackground &&
+								isDarkMode && (
+									<div className="ml-4 mb-3">
+										<Typography
+											variant="body2"
+											sx={{ mb: 1, color: isDarkMode ? '#AAAAAA' : '#666666' }}
+										>
+											Bloom Intensity
+										</Typography>
+										<div className="flex items-center space-x-3">
+											<Slider
+												value={settings.bloomIntensity}
+												onChange={(_, newValue) =>
+													updateSetting('bloomIntensity', newValue as number)
+												}
+												min={0.1}
+												max={3}
+												step={0.1}
+												sx={{
+													color: '#9747FF',
+													'& .MuiSlider-thumb': {
+														backgroundColor: '#FFFFFF',
+														border: '2px solid #9747FF',
+													},
+													width: '90%',
+												}}
+											/>
+											<Typography
+												variant="body2"
+												sx={{ color: isDarkMode ? '#FFFFFF' : '#000000' }}
+											>
+												{settings.bloomIntensity.toFixed(1)}
+											</Typography>
+										</div>
+									</div>
+								)}
 						</div>
 						<div>
+							<FormControlLabel
+								control={
+									<Switch
+										checked={settings.enableParticleSystem}
+										onChange={(e) =>
+											updateSetting('enableParticleSystem', e.target.checked)
+										}
+										color="primary"
+										disabled={!settings.animatedBackground}
+									/>
+								}
+								label="Enable Particle System"
+								sx={{
+									color: isDarkMode ? '#FFFFFF' : '#000000',
+									display: 'flex',
+									mb: 1,
+								}}
+							/>
+							{settings.enableParticleSystem && settings.animatedBackground && (
+								<div className="ml-4 mb-3">
+									<Typography
+										variant="body2"
+										sx={{ mb: 1, color: isDarkMode ? '#AAAAAA' : '#666666' }}
+									>
+										Particle Density
+									</Typography>
+									<div className="flex items-center space-x-3">
+										<Slider
+											value={settings.particleDensity}
+											onChange={(_, newValue) =>
+												updateSetting('particleDensity', newValue as number)
+											}
+											min={0.1}
+											max={5}
+											step={0.1}
+											sx={{
+												color: '#9747FF',
+												'& .MuiSlider-thumb': {
+													backgroundColor: '#FFFFFF',
+													border: '2px solid #9747FF',
+												},
+												width: '90%',
+											}}
+										/>
+										<Typography
+											variant="body2"
+											sx={{ color: isDarkMode ? '#FFFFFF' : '#000000' }}
+										>
+											{settings.particleDensity.toFixed(1)}
+										</Typography>
+									</div>
+									<Typography
+										variant="body2"
+										sx={{
+											mt: 2,
+											mb: 1,
+											color: isDarkMode ? '#AAAAAA' : '#666666',
+										}}
+									>
+										Particle Intensity
+									</Typography>
+									<div className="flex items-center space-x-3">
+										<Slider
+											value={settings.particleIntensity}
+											onChange={(_, newValue) =>
+												updateSetting('particleIntensity', newValue as number)
+											}
+											min={0.1}
+											max={5}
+											step={0.1}
+											sx={{
+												color: '#9747FF',
+												'& .MuiSlider-thumb': {
+													backgroundColor: '#FFFFFF',
+													border: '2px solid #9747FF',
+												},
+												width: '90%',
+											}}
+										/>
+										<Typography
+											variant="body2"
+											sx={{ color: isDarkMode ? '#FFFFFF' : '#000000' }}
+										>
+											{settings.particleIntensity.toFixed(1)}
+										</Typography>
+									</div>
+								</div>
+							)}
+							<FormControlLabel
+								control={
+									<Switch
+										checked={settings.enableDynamicLighting}
+										onChange={(e) =>
+											updateSetting('enableDynamicLighting', e.target.checked)
+										}
+										color="primary"
+										disabled={!settings.animatedBackground}
+									/>
+								}
+								label="Enable Dynamic Lighting"
+								sx={{
+									color: isDarkMode ? '#FFFFFF' : '#000000',
+									display: 'flex',
+									mb: 1,
+								}}
+							/>
 							<FormControlLabel
 								control={
 									<Switch

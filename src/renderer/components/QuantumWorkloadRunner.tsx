@@ -36,6 +36,7 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import { useTheme } from '@mui/material/styles';
 import { Card } from './ui/card';
 import { Speedometer } from './Speedometer';
+import { useQuantumHardware } from '../context/QuantumHardwareContext';
 
 /**
  * Type definitions for the quantum workload result
@@ -104,6 +105,10 @@ export const QuantumWorkloadRunner: React.FC = () => {
 
 	// Derived state - true if any mode is running
 	const isRunning = runningMode !== null;
+
+	// Add quantum hardware context
+	const { startHardwareExecution, stopHardwareExecution, setJobId } =
+		useQuantumHardware();
 
 	// Load saved API token on component mount
 	useEffect(() => {
@@ -255,6 +260,11 @@ export const QuantumWorkloadRunner: React.FC = () => {
 				plotDataUrl: null,
 			});
 
+			// Start hardware execution mode if using real quantum hardware
+			if (useHardware) {
+				startHardwareExecution(algorithm as 'shors' | 'grovers');
+			}
+
 			// Parse shots and get plot theme
 			const shotsNumber = parseInt(shots, 10);
 			const plotTheme = isDarkMode ? 'dark' : 'light';
@@ -292,6 +302,11 @@ export const QuantumWorkloadRunner: React.FC = () => {
 			}
 
 			console.log('Workload result:', result);
+
+			// Set job ID if it exists - this will be needed for the background visualization
+			if (result.data?.job_id) {
+				setJobId(result.data.job_id);
+			}
 
 			// Update state with the result
 			if (result.status === 'success') {
@@ -339,6 +354,11 @@ export const QuantumWorkloadRunner: React.FC = () => {
 			});
 		} finally {
 			setRunningMode(null);
+
+			// Stop hardware execution mode
+			if (useHardware) {
+				stopHardwareExecution();
+			}
 
 			// Restore the scroll position after the operation completes
 			// Use a small delay to ensure the DOM has updated

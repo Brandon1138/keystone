@@ -14,6 +14,10 @@ import '@fontsource/inter';
 import { BackgroundContext } from './pages/HomePage';
 import { gsap } from 'gsap';
 import { SettingsProvider, useSettings } from './context/SettingsContext';
+import {
+	QuantumHardwareProvider,
+	useQuantumHardware,
+} from './context/QuantumHardwareContext';
 
 // Pages
 import {
@@ -183,6 +187,7 @@ const PageTransition = ({ children }: { children: React.ReactNode }) => {
 // QuantumBackground component to use settings
 const QuantumBackground: React.FC = () => {
 	const { settings } = useSettings();
+	const { isRunningOnHardware, algorithmType } = useQuantumHardware();
 	const [backgroundIntensity, setBackgroundIntensity] = useState(1);
 
 	return (
@@ -192,6 +197,7 @@ const QuantumBackground: React.FC = () => {
 			<QuantumLatticeBackground
 				enabled={settings.animatedBackground}
 				intensity={backgroundIntensity}
+				algorithmType={isRunningOnHardware ? algorithmType : null}
 			/>
 		</BackgroundContext.Provider>
 	);
@@ -269,132 +275,135 @@ const App: React.FC = () => {
 		<ThemeProvider theme={theme}>
 			<CssBaseline />
 			<SettingsProvider>
-				<Router>
-					<div className="min-h-screen bg-background text-foreground relative overflow-hidden">
-						{/* Startup Animation */}
-						<StartupLoaderWrapper
-							setShowStartupAnimation={setShowStartupAnimation}
-							appHasLoaded={appHasLoaded}
-						/>
+				<QuantumHardwareProvider>
+					<Router>
+						<div className="min-h-screen bg-background text-foreground relative overflow-hidden">
+							{/* Startup Animation */}
+							<StartupLoaderWrapper
+								setShowStartupAnimation={setShowStartupAnimation}
+								appHasLoaded={appHasLoaded}
+							/>
 
-						{/* Always render the main app content, but control visibility with CSS */}
-						<div
-							ref={mainContentRef}
-							className="transition-opacity duration-500"
-							style={{
-								opacity: 0, // Start invisible and let gsap handle the animation
-								visibility: showStartupAnimation ? 'hidden' : 'visible',
-								position: 'absolute',
-								top: 0,
-								left: 0,
-								width: '100%',
-								height: '100%',
-								pointerEvents: showStartupAnimation ? 'none' : 'auto',
-							}}
-						>
-							{/* Quantum Lattice Background */}
-							<QuantumBackground />
+							{/* Always render the main app content, but control visibility with CSS */}
+							<div
+								ref={mainContentRef}
+								className="transition-opacity duration-500"
+								style={{
+									opacity: 0, // Start invisible and let gsap handle the animation
+									visibility: showStartupAnimation ? 'hidden' : 'visible',
+									position: 'absolute',
+									top: 0,
+									left: 0,
+									width: '100%',
+									height: '100%',
+									pointerEvents: showStartupAnimation ? 'none' : 'auto',
+								}}
+							>
+								{/* Quantum Lattice Background */}
+								<QuantumBackground />
 
-							{/* Background circles - only visible in dark mode */}
-							{!lightMode && (
-								<>
-									<div className="bg-circle bg-circle-topleft"></div>
-									<div className="bg-circle bg-circle-bottomright"></div>
-								</>
-							)}
+								{/* Background circles - only visible in dark mode */}
+								{!lightMode && (
+									<>
+										<div className="bg-circle bg-circle-topleft"></div>
+										<div className="bg-circle bg-circle-bottomright"></div>
+									</>
+								)}
 
-							<div className="container mx-auto p-2 relative z-10">
-								{/* Header */}
-								<header className="mb-4">
-									<div className="flex justify-between items-center">
-										{/* Logo */}
-										<div className="p-2">
-											<img
-												src={
-													lightMode
-														? './keystone_logo_light.svg'
-														: './keystone_logo_dark.svg'
-												}
-												alt="Keystone Logo"
-												className="h-40"
-											/>
+								<div className="container mx-auto p-2 relative z-10">
+									{/* Header */}
+									<header className="mb-4">
+										<div className="flex justify-between items-center">
+											{/* Logo */}
+											<div className="p-2">
+												<img
+													src={
+														lightMode
+															? './keystone_logo_light.svg'
+															: './keystone_logo_dark.svg'
+													}
+													alt="Keystone Logo"
+													className="h-40"
+												/>
+											</div>
+
+											{/* Dark Mode Toggle */}
+											<div className="flex items-center">
+												<DarkModeIcon
+													className={
+														lightMode ? 'text-[#131313]' : 'text-[#FAFAFA]'
+													}
+												/>
+												<Switch
+													checked={!lightMode}
+													onChange={toggleTheme}
+													color="primary"
+												/>
+											</div>
 										</div>
 
-										{/* Dark Mode Toggle */}
-										<div className="flex items-center">
-											<DarkModeIcon
-												className={
-													lightMode ? 'text-[#131313]' : 'text-[#FAFAFA]'
-												}
-											/>
-											<Switch
-												checked={!lightMode}
-												onChange={toggleTheme}
-												color="primary"
-											/>
-										</div>
-									</div>
+										{/* Introductory Text */}
+										<p
+											className="text-xl mb-2"
+											style={{ color: lightMode ? '#000000' : '#FFFFFF' }}
+										>
+											A Multi-Backend Workbench for Post-Quantum Cryptography &
+											Quantum Runtimes
+										</p>
+									</header>
 
-									{/* Introductory Text */}
-									<p
-										className="text-xl mb-2"
-										style={{ color: lightMode ? '#000000' : '#FFFFFF' }}
-									>
-										A Multi-Backend Workbench for Post-Quantum Cryptography &
-										Quantum Runtimes
-									</p>
-								</header>
+									{/* Navigation */}
+									<Navigation toggleTheme={toggleTheme} lightMode={lightMode} />
 
-								{/* Navigation */}
-								<Navigation toggleTheme={toggleTheme} lightMode={lightMode} />
+									{/* Main Content */}
+									<main>
+										<ConditionalPageTransition>
+											<Routes>
+												<Route path="/" element={<HomePage />} />
+												<Route path="/home" element={<HomePage />} />
+												<Route
+													path="/run-benchmark"
+													element={<RunBenchmarkPage />}
+												/>
+												<Route
+													path="/run-encryption"
+													element={<RunEncryptionPage />}
+												/>
+												<Route
+													path="/visualization"
+													element={<VisualizationPage />}
+												/>
+												<Route path="/codex" element={<CodexPage />} />
+												<Route path="/export" element={<ExportPage />} />
+												<Route
+													path="/quantum-workloads"
+													element={<RunQuantumWorkloadsPage />}
+												/>
+												<Route
+													path="/schedule-jobs"
+													element={<ScheduleJobsPage />}
+												/>
+												<Route path="/import" element={<ImportPage />} />
+												<Route path="/settings" element={<SettingsPage />} />
+											</Routes>
+										</ConditionalPageTransition>
+									</main>
 
-								{/* Main Content */}
-								<main>
-									<ConditionalPageTransition>
-										<Routes>
-											<Route path="/" element={<HomePage />} />
-											<Route path="/home" element={<HomePage />} />
-											<Route
-												path="/run-benchmark"
-												element={<RunBenchmarkPage />}
-											/>
-											<Route
-												path="/run-encryption"
-												element={<RunEncryptionPage />}
-											/>
-											<Route
-												path="/visualization"
-												element={<VisualizationPage />}
-											/>
-											<Route path="/codex" element={<CodexPage />} />
-											<Route path="/export" element={<ExportPage />} />
-											<Route
-												path="/quantum-workloads"
-												element={<RunQuantumWorkloadsPage />}
-											/>
-											<Route
-												path="/schedule-jobs"
-												element={<ScheduleJobsPage />}
-											/>
-											<Route path="/import" element={<ImportPage />} />
-											<Route path="/settings" element={<SettingsPage />} />
-										</Routes>
-									</ConditionalPageTransition>
-								</main>
-
-								{/* Footer */}
-								<footer className="mt-8 text-center text-sm text-gray-500">
-									<p>Keystone - Version 1.0.0-rc</p>
-									<p>
-										Running on Electron<span id="electron-version"></span>, Node
-										<span id="node-version"></span>, and Chromium
-										<span id="chrome-version"></span>
-									</p>
-								</footer>
+									{/* Footer */}
+									<footer className="mt-8 text-center text-sm text-gray-500">
+										<p>Keystone - Version 1.0.0-rc</p>
+										<p>
+											Running on Electron<span id="electron-version"></span>,
+											Node
+											<span id="node-version"></span>, and Chromium
+											<span id="chrome-version"></span>
+										</p>
+									</footer>
+								</div>
 							</div>
 						</div>
-					</div>
-				</Router>
+					</Router>
+				</QuantumHardwareProvider>
 			</SettingsProvider>
 		</ThemeProvider>
 	);

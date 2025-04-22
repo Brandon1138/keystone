@@ -8,6 +8,12 @@ interface Settings {
 	startupLoader: boolean;
 	enableMotionTransitions: boolean;
 	disableAnimatedBackgroundOnLightMode: boolean;
+	enableBloomEffect: boolean;
+	enableParticleSystem: boolean;
+	enableDynamicLighting: boolean;
+	bloomIntensity: number;
+	particleDensity: number;
+	particleIntensity: number;
 
 	// UX/Hints/Onboarding
 	tooltipsEnabled: boolean;
@@ -40,6 +46,12 @@ const defaultSettings: Settings = {
 	startupLoader: true,
 	enableMotionTransitions: true,
 	disableAnimatedBackgroundOnLightMode: true,
+	enableBloomEffect: true,
+	enableParticleSystem: true,
+	enableDynamicLighting: true,
+	bloomIntensity: 1.2,
+	particleDensity: 0.2,
+	particleIntensity: 0.4,
 
 	// UX/Hints/Onboarding
 	tooltipsEnabled: true,
