@@ -36,6 +36,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import SaveIcon from '@mui/icons-material/Save';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import FolderIcon from '@mui/icons-material/Folder';
+import { useSettings } from '../context/SettingsContext';
 
 /**
  * Settings Page Component
@@ -43,6 +44,8 @@ import FolderIcon from '@mui/icons-material/Folder';
 export const SettingsPage: React.FC = () => {
 	const theme = useTheme();
 	const isDarkMode = theme.palette.mode === 'dark';
+	const { settings, updateSetting, resetSettings, saveSettings } =
+		useSettings();
 
 	// Status message for operations
 	const [statusMessage, setStatusMessage] = useState<{
@@ -50,46 +53,15 @@ export const SettingsPage: React.FC = () => {
 		message: string;
 	} | null>(null);
 
-	// Settings state
-	// Appearance settings
-	const [themePreference, setThemePreference] = useState<
-		'light' | 'dark' | 'system'
-	>(isDarkMode ? 'dark' : 'light');
+	// Settings state - removed local state in favor of context
+	// We'll only keep UI state like showing API token and token status
 
-	// Visual & UI preferences
-	const [animatedBackground, setAnimatedBackground] = useState(true);
-	const [startupLoader, setStartupLoader] = useState(true);
-	const [enableMotionTransitions, setEnableMotionTransitions] = useState(true);
-
-	// UX/Hints/Onboarding
-	const [tooltipsEnabled, setTooltipsEnabled] = useState(true);
-	const [showOnboardingAtStartup, setShowOnboardingAtStartup] = useState(true);
-	const [confirmBeforeJobDeletion, setConfirmBeforeJobDeletion] =
-		useState(true);
-	const [enableKeyboardShortcuts, setEnableKeyboardShortcuts] = useState(true);
-
-	// Security & API
+	// Security & API token state (kept local since it's sensitive)
 	const [apiToken, setApiToken] = useState('');
 	const [showApiToken, setShowApiToken] = useState(false);
 	const [tokenStatus, setTokenStatus] = useState<'saved' | 'new' | 'none'>(
 		'none'
 	);
-	const [encryptLocalStorage, setEncryptLocalStorage] = useState(false);
-	const [autoBackupDatasets, setAutoBackupDatasets] = useState(true);
-	const [promptBeforeOverwriting, setPromptBeforeOverwriting] = useState(true);
-
-	// Benchmark Defaults
-	const [defaultIterationCount, setDefaultIterationCount] = useState(100);
-	const [enableSmartMemoryUnits, setEnableSmartMemoryUnits] = useState(true);
-	const [warnOnLongJobs, setWarnOnLongJobs] = useState(true);
-	const [longJobThreshold, setLongJobThreshold] = useState(60); // seconds
-
-	// Import/Export Behavior
-	const [defaultImportPath, setDefaultImportPath] = useState('');
-	const [switchToNewDatasetAfterImport, setSwitchToNewDatasetAfterImport] =
-		useState(true);
-	const [askBeforeOverwritingExport, setAskBeforeOverwritingExport] =
-		useState(true);
 
 	// Load settings on component mount
 	useEffect(() => {
@@ -99,9 +71,6 @@ export const SettingsPage: React.FC = () => {
 	// Load saved settings
 	const loadSettings = async () => {
 		try {
-			// In a real implementation, we would load settings from electron store
-			// For now, we'll just simulate loading with defaults
-
 			// Load API token (this part is currently implemented in other components)
 			try {
 				const savedToken = await window.quantumAPI.loadApiToken();
@@ -115,11 +84,6 @@ export const SettingsPage: React.FC = () => {
 				console.error('Failed to load saved API token:', err);
 				setTokenStatus('none');
 			}
-
-			// Sample loading other settings
-			// In a real implementation, we would call relevant IPC methods
-			// setThemePreference(loadedSettings.themePreference || 'system');
-			// etc.
 		} catch (error) {
 			console.error('Error loading settings:', error);
 			setStatusMessage({
@@ -130,15 +94,21 @@ export const SettingsPage: React.FC = () => {
 	};
 
 	// Save all settings
-	const saveSettings = async () => {
+	const handleSaveSettings = async () => {
 		try {
-			// In a real implementation, we would save settings via IPC
-			// For now, just showing a success message
+			const success = await saveSettings();
 
-			setStatusMessage({
-				type: 'success',
-				message: 'Settings saved successfully',
-			});
+			if (success) {
+				setStatusMessage({
+					type: 'success',
+					message: 'Settings saved successfully',
+				});
+			} else {
+				setStatusMessage({
+					type: 'error',
+					message: 'Failed to save settings',
+				});
+			}
 		} catch (error) {
 			console.error('Error saving settings:', error);
 			setStatusMessage({
@@ -150,24 +120,8 @@ export const SettingsPage: React.FC = () => {
 
 	// Restore default settings
 	const restoreDefaultSettings = () => {
-		// Reset all settings to their default values
-		setThemePreference('system');
-		setAnimatedBackground(true);
-		setStartupLoader(true);
-		setEnableMotionTransitions(true);
-		setTooltipsEnabled(true);
-		setShowOnboardingAtStartup(true);
-		setConfirmBeforeJobDeletion(true);
-		setEnableKeyboardShortcuts(true);
-		setEncryptLocalStorage(false);
-		setAutoBackupDatasets(true);
-		setPromptBeforeOverwriting(true);
-		setDefaultIterationCount(100);
-		setEnableSmartMemoryUnits(true);
-		setWarnOnLongJobs(true);
-		setLongJobThreshold(60);
-		setSwitchToNewDatasetAfterImport(true);
-		setAskBeforeOverwritingExport(true);
+		// Use the resetSettings function from context
+		resetSettings();
 
 		setStatusMessage({
 			type: 'info',
@@ -266,7 +220,10 @@ export const SettingsPage: React.FC = () => {
 			// }
 
 			// For now, simulate success
-			setDefaultImportPath('C:\\Users\\User\\Documents\\PQCBenchmark\\Imports');
+			updateSetting(
+				'defaultImportPath',
+				'C:\\Users\\User\\Documents\\PQCBenchmark\\Imports'
+			);
 			setStatusMessage({
 				type: 'success',
 				message: 'Default import path set',
@@ -358,9 +315,10 @@ export const SettingsPage: React.FC = () => {
 								Application Theme
 							</Typography>
 							<Select
-								value={themePreference}
+								value={settings.themePreference}
 								onChange={(e) =>
-									setThemePreference(
+									updateSetting(
+										'themePreference',
 										e.target.value as 'light' | 'dark' | 'system'
 									)
 								}
@@ -398,8 +356,10 @@ export const SettingsPage: React.FC = () => {
 						<FormControlLabel
 							control={
 								<Switch
-									checked={animatedBackground}
-									onChange={(e) => setAnimatedBackground(e.target.checked)}
+									checked={settings.animatedBackground}
+									onChange={(e) =>
+										updateSetting('animatedBackground', e.target.checked)
+									}
 									color="primary"
 								/>
 							}
@@ -413,8 +373,10 @@ export const SettingsPage: React.FC = () => {
 						<FormControlLabel
 							control={
 								<Switch
-									checked={startupLoader}
-									onChange={(e) => setStartupLoader(e.target.checked)}
+									checked={settings.startupLoader}
+									onChange={(e) =>
+										updateSetting('startupLoader', e.target.checked)
+									}
 									color="primary"
 								/>
 							}
@@ -428,8 +390,10 @@ export const SettingsPage: React.FC = () => {
 						<FormControlLabel
 							control={
 								<Switch
-									checked={enableMotionTransitions}
-									onChange={(e) => setEnableMotionTransitions(e.target.checked)}
+									checked={settings.enableMotionTransitions}
+									onChange={(e) =>
+										updateSetting('enableMotionTransitions', e.target.checked)
+									}
 									color="primary"
 								/>
 							}
@@ -464,8 +428,10 @@ export const SettingsPage: React.FC = () => {
 						<FormControlLabel
 							control={
 								<Switch
-									checked={tooltipsEnabled}
-									onChange={(e) => setTooltipsEnabled(e.target.checked)}
+									checked={settings.tooltipsEnabled}
+									onChange={(e) =>
+										updateSetting('tooltipsEnabled', e.target.checked)
+									}
 									color="primary"
 								/>
 							}
@@ -478,8 +444,10 @@ export const SettingsPage: React.FC = () => {
 						<FormControlLabel
 							control={
 								<Switch
-									checked={showOnboardingAtStartup}
-									onChange={(e) => setShowOnboardingAtStartup(e.target.checked)}
+									checked={settings.showOnboardingAtStartup}
+									onChange={(e) =>
+										updateSetting('showOnboardingAtStartup', e.target.checked)
+									}
 									color="primary"
 								/>
 							}
@@ -495,9 +463,9 @@ export const SettingsPage: React.FC = () => {
 						<FormControlLabel
 							control={
 								<Switch
-									checked={confirmBeforeJobDeletion}
+									checked={settings.confirmBeforeJobDeletion}
 									onChange={(e) =>
-										setConfirmBeforeJobDeletion(e.target.checked)
+										updateSetting('confirmBeforeJobDeletion', e.target.checked)
 									}
 									color="primary"
 								/>
@@ -511,8 +479,10 @@ export const SettingsPage: React.FC = () => {
 						<FormControlLabel
 							control={
 								<Switch
-									checked={enableKeyboardShortcuts}
-									onChange={(e) => setEnableKeyboardShortcuts(e.target.checked)}
+									checked={settings.enableKeyboardShortcuts}
+									onChange={(e) =>
+										updateSetting('enableKeyboardShortcuts', e.target.checked)
+									}
 									color="primary"
 								/>
 							}
@@ -656,8 +626,10 @@ export const SettingsPage: React.FC = () => {
 							<FormControlLabel
 								control={
 									<Switch
-										checked={encryptLocalStorage}
-										onChange={(e) => setEncryptLocalStorage(e.target.checked)}
+										checked={settings.encryptLocalStorage}
+										onChange={(e) =>
+											updateSetting('encryptLocalStorage', e.target.checked)
+										}
 										color="primary"
 									/>
 								}
@@ -670,8 +642,10 @@ export const SettingsPage: React.FC = () => {
 							<FormControlLabel
 								control={
 									<Switch
-										checked={autoBackupDatasets}
-										onChange={(e) => setAutoBackupDatasets(e.target.checked)}
+										checked={settings.autoBackupDatasets}
+										onChange={(e) =>
+											updateSetting('autoBackupDatasets', e.target.checked)
+										}
 										color="primary"
 									/>
 								}
@@ -684,9 +658,9 @@ export const SettingsPage: React.FC = () => {
 							<FormControlLabel
 								control={
 									<Switch
-										checked={promptBeforeOverwriting}
+										checked={settings.promptBeforeOverwriting}
 										onChange={(e) =>
-											setPromptBeforeOverwriting(e.target.checked)
+											updateSetting('promptBeforeOverwriting', e.target.checked)
 										}
 										color="primary"
 									/>
@@ -746,9 +720,9 @@ export const SettingsPage: React.FC = () => {
 						</Typography>
 						<div className="flex items-center space-x-3">
 							<Slider
-								value={defaultIterationCount}
+								value={settings.defaultIterationCount}
 								onChange={(_, newValue) =>
-									setDefaultIterationCount(newValue as number)
+									updateSetting('defaultIterationCount', newValue as number)
 								}
 								min={1}
 								max={1000}
@@ -762,11 +736,11 @@ export const SettingsPage: React.FC = () => {
 								}}
 							/>
 							<TextField
-								value={defaultIterationCount}
+								value={settings.defaultIterationCount}
 								onChange={(e) => {
 									const value = parseInt(e.target.value);
 									if (!isNaN(value) && value >= 1 && value <= 1000) {
-										setDefaultIterationCount(value);
+										updateSetting('defaultIterationCount', value);
 									}
 								}}
 								type="number"
@@ -798,8 +772,10 @@ export const SettingsPage: React.FC = () => {
 						<FormControlLabel
 							control={
 								<Switch
-									checked={enableSmartMemoryUnits}
-									onChange={(e) => setEnableSmartMemoryUnits(e.target.checked)}
+									checked={settings.enableSmartMemoryUnits}
+									onChange={(e) =>
+										updateSetting('enableSmartMemoryUnits', e.target.checked)
+									}
 									color="primary"
 								/>
 							}
@@ -812,8 +788,10 @@ export const SettingsPage: React.FC = () => {
 						<FormControlLabel
 							control={
 								<Switch
-									checked={warnOnLongJobs}
-									onChange={(e) => setWarnOnLongJobs(e.target.checked)}
+									checked={settings.warnOnLongJobs}
+									onChange={(e) =>
+										updateSetting('warnOnLongJobs', e.target.checked)
+									}
 									color="primary"
 								/>
 							}
@@ -823,7 +801,7 @@ export const SettingsPage: React.FC = () => {
 								display: 'flex',
 							}}
 						/>
-						{warnOnLongJobs && (
+						{settings.warnOnLongJobs && (
 							<div className="pl-10">
 								<Typography
 									variant="body2"
@@ -832,9 +810,9 @@ export const SettingsPage: React.FC = () => {
 									Long Job Threshold (seconds)
 								</Typography>
 								<Slider
-									value={longJobThreshold}
+									value={settings.longJobThreshold}
 									onChange={(_, newValue) =>
-										setLongJobThreshold(newValue as number)
+										updateSetting('longJobThreshold', newValue as number)
 									}
 									min={10}
 									max={300}
@@ -852,7 +830,7 @@ export const SettingsPage: React.FC = () => {
 									variant="body2"
 									sx={{ color: isDarkMode ? '#FFFFFF' : '#000000' }}
 								>
-									{longJobThreshold} seconds
+									{settings.longJobThreshold} seconds
 								</Typography>
 							</div>
 						)}
@@ -905,7 +883,7 @@ export const SettingsPage: React.FC = () => {
 						<div className="flex items-center space-x-2">
 							<TextField
 								fullWidth
-								value={defaultImportPath}
+								value={settings.defaultImportPath}
 								disabled
 								placeholder="Not set"
 								sx={{
@@ -941,9 +919,12 @@ export const SettingsPage: React.FC = () => {
 						<FormControlLabel
 							control={
 								<Switch
-									checked={switchToNewDatasetAfterImport}
+									checked={settings.switchToNewDatasetAfterImport}
 									onChange={(e) =>
-										setSwitchToNewDatasetAfterImport(e.target.checked)
+										updateSetting(
+											'switchToNewDatasetAfterImport',
+											e.target.checked
+										)
 									}
 									color="primary"
 								/>
@@ -957,9 +938,12 @@ export const SettingsPage: React.FC = () => {
 						<FormControlLabel
 							control={
 								<Switch
-									checked={askBeforeOverwritingExport}
+									checked={settings.askBeforeOverwritingExport}
 									onChange={(e) =>
-										setAskBeforeOverwritingExport(e.target.checked)
+										updateSetting(
+											'askBeforeOverwritingExport',
+											e.target.checked
+										)
 									}
 									color="primary"
 								/>
@@ -992,6 +976,21 @@ export const SettingsPage: React.FC = () => {
 					}}
 				>
 					Restore Defaults
+				</Button>
+				<Button
+					variant="contained"
+					startIcon={<SaveIcon />}
+					onClick={handleSaveSettings}
+					sx={{
+						marginLeft: 2,
+						backgroundColor: '#9747FF',
+						color: '#FFFFFF',
+						'&:hover': {
+							backgroundColor: '#8030E0',
+						},
+					}}
+				>
+					Save Settings
 				</Button>
 			</div>
 		</div>

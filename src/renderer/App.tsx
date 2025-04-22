@@ -13,6 +13,7 @@ import CssBaseline from '@mui/material/CssBaseline';
 import '@fontsource/inter';
 import { BackgroundContext } from './pages/HomePage';
 import { gsap } from 'gsap';
+import { SettingsProvider, useSettings } from './context/SettingsContext';
 
 // Pages
 import {
@@ -179,11 +180,27 @@ const PageTransition = ({ children }: { children: React.ReactNode }) => {
 	);
 };
 
+// QuantumBackground component to use settings
+const QuantumBackground: React.FC = () => {
+	const { settings } = useSettings();
+	const [backgroundIntensity, setBackgroundIntensity] = useState(1);
+
+	return (
+		<BackgroundContext.Provider
+			value={{ setIntensity: setBackgroundIntensity }}
+		>
+			<QuantumLatticeBackground
+				enabled={settings.animatedBackground}
+				intensity={backgroundIntensity}
+			/>
+		</BackgroundContext.Provider>
+	);
+};
+
 const App: React.FC = () => {
 	// Start with dark mode by default
 	const [lightMode, setLightMode] = useState(false);
 	const theme = createAppTheme(lightMode ? 'light' : 'dark');
-	const [backgroundIntensity, setBackgroundIntensity] = useState(1);
 
 	// Initialize theme mode
 	useEffect(() => {
@@ -209,16 +226,11 @@ const App: React.FC = () => {
 	return (
 		<ThemeProvider theme={theme}>
 			<CssBaseline />
-			<BackgroundContext.Provider
-				value={{ setIntensity: setBackgroundIntensity }}
-			>
+			<SettingsProvider>
 				<Router>
 					<div className="min-h-screen bg-background text-foreground relative overflow-hidden">
 						{/* Quantum Lattice Background */}
-						<QuantumLatticeBackground
-							enabled={!lightMode}
-							intensity={backgroundIntensity}
-						/>
+						<QuantumBackground />
 
 						{/* Background circles - only visible in dark mode */}
 						{!lightMode && (
@@ -319,7 +331,7 @@ const App: React.FC = () => {
 						</div>
 					</div>
 				</Router>
-			</BackgroundContext.Provider>
+			</SettingsProvider>
 		</ThemeProvider>
 	);
 };
