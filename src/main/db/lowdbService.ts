@@ -445,6 +445,13 @@ class LowDBService {
 				// Special handling for AES to ensure security parameter is preserved
 				if (mainAlgorithm.toLowerCase() === 'aes' && resultItem.algorithm) {
 					variant = resultItem.algorithm;
+				}
+				// Special handling for ECDSA and ECDH - use curve as variant
+				else if (
+					['ecdsa', 'ecdh'].includes(mainAlgorithm.toLowerCase()) &&
+					resultItem.curve
+				) {
+					variant = resultItem.curve;
 				} else {
 					variant =
 						resultItem.algorithm ||
@@ -469,11 +476,21 @@ class LowDBService {
 		} else {
 			// If there are no detailed results, create a single entry
 			const detailId = nanoid();
+			let variant = benchmarkData.securityParam || 'unknown';
+
+			// For ECDSA/ECDH, use curve as variant if available
+			if (
+				['ecdsa', 'ecdh'].includes(mainAlgorithm.toLowerCase()) &&
+				benchmarkData.curve
+			) {
+				variant = benchmarkData.curve;
+			}
+
 			const newDetail: PqcClassicalDetail = {
 				detailId,
 				runId,
 				mainAlgorithm,
-				variant: benchmarkData.securityParam || 'unknown',
+				variant,
 				iterations: iterations || 0,
 				...benchmarkData,
 			};
