@@ -38,11 +38,6 @@ const ChartTypeSelector: React.FC<ChartTypeSelectorProps> = ({
 						label: 'Noise & Error Data',
 						icon: <ShowChartIcon />,
 					},
-					{
-						value: 'compare',
-						label: 'Circuit Complexity',
-						icon: <CompareIcon />,
-					},
 			  ]
 			: [
 					{

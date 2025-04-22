@@ -43,7 +43,7 @@ import QuantumRunDetailsDialog from '../components/visualizations/QuantumRunDeta
 import QuantumAlgorithmSelector from '../components/visualizations/QuantumAlgorithmSelector';
 import EnhancedCircuitDepthCard from '../components/visualizations/EnhancedCircuitDepthCard';
 import ChartTypeSelector from '../components/visualizations/ChartTypeSelector';
-import { NoiseAndErrorView } from '../components/visualizations/NoiseAndErrorView';
+import NoiseErrorDataCard from '../components/visualizations/NoiseErrorDataCard';
 
 // Import data utils and event bus
 import {
@@ -761,8 +761,6 @@ export const VisualizationPage: React.FC = () => {
 								? 'Circuit Depth Comparison'
 								: activeChart === 'trend'
 								? 'Quantum Measurement Distribution'
-								: activeChart === 'compare'
-								? 'Execution Time vs Circuit Complexity'
 								: ''
 							: 'Encryption Performance'}
 					</Typography>
@@ -863,29 +861,12 @@ export const VisualizationPage: React.FC = () => {
 										/>
 									)}
 									{activeChart === 'trend' && (
-										<NoiseAndErrorView
+										<NoiseErrorDataCard
 											data={filteredQuantumData}
 											loading={loading}
 											height={600}
-										/>
-									)}
-									{activeChart === 'compare' && (
-										<QuantumResultsChart
-											data={filteredQuantumData}
-											chartType="scatter"
-											title="Execution Time vs Circuit Complexity"
-											loading={loading}
-											sortOrder={currentSortOrder}
-											onSortOrderChange={handleSortOrderChange}
-											onMetricTypeChange={handleMetricTypeChange}
-											metricType={
-												currentMetricType as
-													| 'qpu_time_sec'
-													| 'circuit_depth'
-													| 'total_gate_count'
-													| 'success_rate'
-											}
 											chartRef={quantumChartRef}
+											onViewDetails={handleViewQuantumRunDetails}
 										/>
 									)}
 

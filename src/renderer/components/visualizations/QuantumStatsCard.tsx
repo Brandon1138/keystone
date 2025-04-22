@@ -197,21 +197,17 @@ const QuantumStatsCard: React.FC<QuantumStatsCardProps> = ({
 			if (item.backend_used && isHardwareBackend) {
 				// Use real error metrics from the backend if available
 				if (item.gate_error !== null && item.gate_error !== undefined) {
-					// Convert from decimal to percentage (multiply by 100)
-					metrics.gate_error.push(item.gate_error * 100);
+					// Values are already in percentage form from the backend
+					metrics.gate_error.push(item.gate_error);
 					console.log(
-						`Found real gate_error: ${item.gate_error * 100}% for ${
-							item.backend_used
-						}`
+						`Found real gate_error: ${item.gate_error}% for ${item.backend_used}`
 					);
 				}
 				if (item.readout_error !== null && item.readout_error !== undefined) {
-					// Convert from decimal to percentage
-					metrics.readout_error.push(item.readout_error * 100);
+					// Values are already in percentage form from the backend
+					metrics.readout_error.push(item.readout_error);
 					console.log(
-						`Found real readout_error: ${item.readout_error * 100}% for ${
-							item.backend_used
-						}`
+						`Found real readout_error: ${item.readout_error}% for ${item.backend_used}`
 					);
 				}
 				if (item.t1_time !== null && item.t1_time !== undefined) {
@@ -232,7 +228,7 @@ const QuantumStatsCard: React.FC<QuantumStatsCardProps> = ({
 				) {
 					// Placeholder metrics for IBM hardware - only used if real values aren't available
 					const backendBasedSeed = (item.backend_used.length % 10) / 10;
-					metrics.gate_error.push(0.5 + backendBasedSeed * 0.3); // Now in percentage: 0.5% - 0.8%
+					metrics.gate_error.push(2.0 + backendBasedSeed * 0.8); // Realistic fallback: 2.0% - 2.8%
 					console.log('WARNING: Using placeholder gate_error values');
 				}
 				if (
@@ -240,7 +236,7 @@ const QuantumStatsCard: React.FC<QuantumStatsCardProps> = ({
 					item.backend_used.includes('ibm')
 				) {
 					const backendBasedSeed = (item.backend_used.length % 10) / 10;
-					metrics.readout_error.push(1.5 + backendBasedSeed * 1.0); // Now in percentage: 1.5% - 2.5%
+					metrics.readout_error.push(2.5 + backendBasedSeed * 1.0); // Realistic fallback: 2.5% - 3.5%
 					console.log('WARNING: Using placeholder readout_error values');
 				}
 				if (metrics.t1_time.length === 0 && item.backend_used.includes('ibm')) {

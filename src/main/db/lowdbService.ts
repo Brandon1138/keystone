@@ -354,24 +354,69 @@ class LowDBService {
 	async insertQuantumResult(runId: string, resultData: any): Promise<string> {
 		await this.ensureLoaded();
 
-		// Debug log to check for noise metrics
-		if (resultData) {
-			console.log('Inserting quantum result with data:', {
-				runId,
-				gate_error: resultData.gate_error,
-				readout_error: resultData.readout_error,
-				t1_time: resultData.t1_time,
-				t2_time: resultData.t2_time,
-				quantum_volume: resultData.quantum_volume,
+		// Extract noise & error metrics if they are nested under resultData.data
+		const noiseFields = [
+			'gate_error',
+			'readout_error',
+			't1_time',
+			't2_time',
+			'quantum_volume',
+		];
+
+		const flattenedNoise: Record<string, number | null | undefined> = {};
+
+		if (resultData && typeof resultData === 'object') {
+			// If metrics exist directly on the result object, keep them.
+			noiseFields.forEach((field) => {
+				if (field in resultData && resultData[field] !== undefined) {
+					flattenedNoise[field] = resultData[field];
+					console.log(
+						`Found ${field} directly on result: ${resultData[field]}`
+					);
+				}
 			});
+
+			// Additionally, look one level deeper (resultData.data) – this is where
+			// the Python workload usually places hardware characteristics.
+			if (resultData.data && typeof resultData.data === 'object') {
+				noiseFields.forEach((field) => {
+					if (
+						!(field in flattenedNoise) &&
+						field in resultData.data &&
+						resultData.data[field] !== undefined
+					) {
+						flattenedNoise[field] = resultData.data[field];
+						console.log(
+							`Found ${field} in result.data: ${resultData.data[field]}`
+						);
+					}
+				});
+			}
 		}
+
+		// Debug log to check for noise metrics that are about to be stored
+		console.log('Inserting quantum result with noise metrics:', {
+			runId,
+			...flattenedNoise,
+		});
 
 		const resultId = nanoid();
 		const newResult: QuantumResult = {
 			resultId,
 			runId,
+			// Spread the original result data (may contain nested structures)
 			...resultData,
+			// Spread flattened noise metrics last so they live at top‑level
+			...flattenedNoise,
 		};
+
+		// Ensure noise fields are properly set at the top level
+		// This redundancy helps ensure they're consistently available
+		noiseFields.forEach((field) => {
+			if (field in flattenedNoise) {
+				(newResult as any)[field] = flattenedNoise[field];
+			}
+		});
 
 		this.db.data.quantumResults.push(newResult);
 		await this.db.write();

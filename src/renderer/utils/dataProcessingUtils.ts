@@ -470,51 +470,42 @@ function processQuantumData(
 			const result = quantumResults.find((res) => res.runId === run.runId);
 			if (result) {
 				// Extract fields from result, checking both direct props and nested data structure
-				// This fixes our noise metrics extraction
+				// This improves our noise metrics extraction
 				const extractField = <T>(fieldName: string): T | null => {
+					let value: T | null = null;
+
 					// Check if field exists directly on result
 					if (result && typeof result === 'object' && fieldName in result) {
-						const value = (result as any)[fieldName] as T;
-						if (
-							fieldName.includes('error') ||
-							fieldName.includes('time') ||
-							fieldName.includes('volume')
-						) {
-							console.log(
-								`Found ${fieldName} directly on result: ${value} (type: ${typeof value})`
-							);
-						}
-						return value;
+						value = (result as any)[fieldName] as T;
 					}
+
 					// Check if field exists in result.data
+					// Only use this if we didn't find a value directly on the result
 					if (
+						value === null &&
 						result &&
 						result.data &&
 						typeof result.data === 'object' &&
 						fieldName in result.data
 					) {
-						const value = (result.data as any)[fieldName] as T;
-						if (
-							fieldName.includes('error') ||
-							fieldName.includes('time') ||
-							fieldName.includes('volume')
-						) {
-							console.log(
-								`Found ${fieldName} in result.data: ${value} (type: ${typeof value})`
-							);
-						}
-						return value;
+						value = (result.data as any)[fieldName] as T;
 					}
 
-					// If we get here for noise metrics, log that it wasn't found
+					// Special handling for noise metrics - log found values
 					if (
-						fieldName.includes('error') ||
-						fieldName.includes('time') ||
-						fieldName.includes('volume')
+						[
+							'gate_error',
+							'readout_error',
+							't1_time',
+							't2_time',
+							'quantum_volume',
+						].includes(fieldName) &&
+						value !== null
 					) {
-						console.log(`Warning: ${fieldName} not found in result`);
+						console.log(`Found ${fieldName}: ${value} (type: ${typeof value})`);
 					}
-					return null;
+
+					return value;
 				};
 
 				const execution_time_sec = extractField<number>('execution_time_sec');

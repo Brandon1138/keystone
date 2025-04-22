@@ -173,68 +173,236 @@ def get_backend_noise_metrics(backend):
     }
     
     try:
-        # Check if this is a hardware backend with properties
+        # Method 1: Direct access to properties methods (newest approach)
+        log_stderr("Trying direct properties access...")
+        
+        # Try to get quantum volume first
+        try:
+            if hasattr(backend, 'configuration'):
+                config = backend.configuration()
+                if hasattr(config, 'quantum_volume'):
+                    metrics["quantum_volume"] = config.quantum_volume
+                    log_stderr(f"Quantum Volume: {metrics['quantum_volume']}")
+        except Exception as e:
+            log_stderr(f"Error accessing quantum volume: {e}")
+        
+        # First try direct properties methods
         if hasattr(backend, 'properties') and backend.properties():
             props = backend.properties()
             
-            # Average gate error (focusing on CX gates as they're typically most error-prone)
-            cx_gate_errors = []
-            for gate_data in props.gates:
-                if gate_data.gate == 'cx':
-                    if hasattr(gate_data, 'parameters'):
-                        for param in gate_data.parameters:
-                            if param.name == 'gate_error':
-                                cx_gate_errors.append(param.value)
-            
-            if cx_gate_errors:
-                metrics["gate_error"] = sum(cx_gate_errors) / len(cx_gate_errors) * 100  # Convert to percentage
-                log_stderr(f"Average CX gate error: {metrics['gate_error']:.4f}%")
-            
-            # Average readout error
+            # Try to access T1/T2 directly from properties methods
+            t1_values = []
+            t2_values = []
             readout_errors = []
-            for qubit in range(props.n_qubits):
-                qubit_props = props.qubit_properties(qubit)
-                if qubit_props:
-                    for prop in qubit_props:
-                        if prop.name == 'readout_error':
-                            readout_errors.append(prop.value)
+            
+            for qubit in range(backend.num_qubits):
+                try:
+                    # Direct methods for T1, T2, readout_error
+                    if hasattr(props, 't1'):
+                        t1 = props.t1(qubit)
+                        t1_values.append(t1 * 1e6)  # Convert to microseconds
+                        log_stderr(f"T1 for qubit {qubit}: {t1 * 1e6:.2f} μs")
+                    
+                    if hasattr(props, 't2'):
+                        t2 = props.t2(qubit)
+                        t2_values.append(t2 * 1e6)  # Convert to microseconds
+                        log_stderr(f"T2 for qubit {qubit}: {t2 * 1e6:.2f} μs")
+                    
+                    if hasattr(props, 'readout_error'):
+                        re = props.readout_error(qubit)
+                        readout_errors.append(re)
+                        log_stderr(f"Readout error for qubit {qubit}: {re * 100:.4f}%")
+                except Exception as e:
+                    log_stderr(f"Error accessing direct properties for qubit {qubit}: {e}")
+            
+            # Set metrics if we found values
+            if t1_values:
+                metrics["t1_time"] = sum(t1_values) / len(t1_values)
+                log_stderr(f"Average T1 time: {metrics['t1_time']:.2f} μs")
+            
+            if t2_values:
+                metrics["t2_time"] = sum(t2_values) / len(t2_values)
+                log_stderr(f"Average T2 time: {metrics['t2_time']:.2f} μs")
             
             if readout_errors:
                 metrics["readout_error"] = sum(readout_errors) / len(readout_errors) * 100  # Convert to percentage
                 log_stderr(f"Average readout error: {metrics['readout_error']:.4f}%")
-            
-            # Average T1 and T2 times
+        
+        # Method 2: Try to get readout error directly from target's measure gate
+        if metrics["readout_error"] is None and hasattr(backend, 'target') and backend.target:
+            log_stderr("Trying to get readout error from target's measure gate...")
+            readout_errors = []
+            try:
+                for qubit in range(backend.num_qubits):
+                    # Access measure gate properties for this qubit
+                    if "measure" in backend.target and (qubit,) in backend.target["measure"]:
+                        measure_props = backend.target["measure"][(qubit,)]
+                        if hasattr(measure_props, 'error'):
+                            readout_errors.append(measure_props.error)
+                            log_stderr(f"Readout error from target for qubit {qubit}: {measure_props.error * 100:.4f}%")
+                
+                if readout_errors:
+                    metrics["readout_error"] = sum(readout_errors) / len(readout_errors) * 100  # Convert to percentage
+                    log_stderr(f"Average readout error from target: {metrics['readout_error']:.4f}%")
+            except Exception as e:
+                log_stderr(f"Error accessing measure properties from target: {e}")
+        
+        # Method 3: Try modern qubit_properties for T1/T2
+        if (metrics["t1_time"] is None or metrics["t2_time"] is None) and hasattr(backend, 'qubit_properties'):
+            log_stderr("Trying modern qubit_properties for T1/T2...")
             t1_times = []
             t2_times = []
-            for qubit in range(props.n_qubits):
-                qubit_props = props.qubit_properties(qubit)
-                if qubit_props:
-                    t1 = next((prop.value for prop in qubit_props if prop.name == 'T1'), None)
-                    t2 = next((prop.value for prop in qubit_props if prop.name == 'T2'), None)
-                    
-                    if t1 is not None:
-                        t1_times.append(t1 * 1e6)  # Convert to microseconds
-                    if t2 is not None:
-                        t2_times.append(t2 * 1e6)  # Convert to microseconds
             
-            if t1_times:
+            for qubit in range(backend.num_qubits):
+                try:
+                    # Use the modern API
+                    qubit_props = backend.qubit_properties(qubit)
+                    if qubit_props:
+                        # Modern backends return these as attributes
+                        if hasattr(qubit_props, 'T1'):
+                            t1_times.append(qubit_props.T1 * 1e6)  # Make sure it's in μs
+                            log_stderr(f"T1 from qubit_properties for qubit {qubit}: {qubit_props.T1 * 1e6:.2f} μs")
+                        if hasattr(qubit_props, 'T2'):
+                            t2_times.append(qubit_props.T2 * 1e6)  # Make sure it's in μs
+                            log_stderr(f"T2 from qubit_properties for qubit {qubit}: {qubit_props.T2 * 1e6:.2f} μs")
+                except Exception as e:
+                    log_stderr(f"Error accessing qubit_properties for qubit {qubit}: {e}")
+            
+            # Update metrics if we found values
+            if t1_times and metrics["t1_time"] is None:
                 metrics["t1_time"] = sum(t1_times) / len(t1_times)
-                log_stderr(f"Average T1 time: {metrics['t1_time']:.2f} μs")
+                log_stderr(f"Average T1 time from qubit_properties: {metrics['t1_time']:.2f} μs")
             
-            if t2_times:
+            if t2_times and metrics["t2_time"] is None:
                 metrics["t2_time"] = sum(t2_times) / len(t2_times)
-                log_stderr(f"Average T2 time: {metrics['t2_time']:.2f} μs")
+                log_stderr(f"Average T2 time from qubit_properties: {metrics['t2_time']:.2f} μs")
         
-        # Try to get quantum volume from backend configuration
-        if hasattr(backend, 'configuration'):
-            config = backend.configuration()
-            if hasattr(config, 'quantum_volume'):
-                metrics["quantum_volume"] = config.quantum_volume
-                log_stderr(f"Quantum Volume: {metrics['quantum_volume']}")
+        # Method 4: Extract gate errors from target if not found yet
+        if metrics["gate_error"] is None and hasattr(backend, 'target') and backend.target:
+            log_stderr("Trying to extract gate errors from target...")
+            try:
+                # Important two-qubit gates to check (different backends use different ones)
+                two_qubit_gates = ['cx', 'cnot', 'ecr', 'cz', 'cp', 'crx', 'cry', 'crz', 'swap', 'iswap']
+                
+                gate_errors = {}  # Store errors by gate type
+                
+                # First, check all available instructions in target
+                for gate_name in backend.target.keys():
+                    # Convert gate name to string for comparison
+                    gate_str = gate_name.name if hasattr(gate_name, 'name') else str(gate_name)
+                    gate_str = gate_str.lower()
+                    
+                    # Check if it's a two-qubit gate we're interested in
+                    is_two_qubit_gate = False
+                    for gate_type in two_qubit_gates:
+                        if gate_type in gate_str:
+                            is_two_qubit_gate = True
+                            gate_type_key = gate_type
+                            break
+                    
+                    if is_two_qubit_gate:
+                        log_stderr(f"Found two-qubit gate: {gate_str}")
+                        
+                        # Get all qubit tuples where this gate is defined
+                        if gate_name in backend.target:
+                            gate_errors.setdefault(gate_type_key, [])
+                            
+                            # For each qubits configuration of this gate
+                            for qubits, props in backend.target[gate_name].items():
+                                # Make sure it's a 2-qubit operation
+                                if len(qubits) == 2:
+                                    # Extract the error if available
+                                    if hasattr(props, 'error') and props.error is not None:
+                                        error_value = props.error
+                                        gate_errors[gate_type_key].append(error_value)
+                                        log_stderr(f"  {gate_str} error on qubits {qubits}: {error_value * 100:.6f}%")
+                
+                # If we found any errors, calculate the average for each gate type and overall
+                if gate_errors:
+                    gate_type_avgs = {}
+                    total_errors = []
+                    
+                    for gate_type, errors in gate_errors.items():
+                        if errors:
+                            avg = sum(errors) / len(errors) * 100  # Convert to percentage
+                            gate_type_avgs[gate_type] = avg
+                            total_errors.extend(errors)
+                            log_stderr(f"Average {gate_type} gate error: {avg:.6f}%")
+                    
+                    # Set the overall average of all two-qubit gate errors
+                    if total_errors:
+                        metrics["gate_error"] = sum(total_errors) / len(total_errors) * 100
+                        log_stderr(f"Overall average two-qubit gate error: {metrics['gate_error']:.6f}%")
+                        
+                        # If CX/CNOT errors specifically exist, prefer those
+                        if 'cx' in gate_type_avgs:
+                            metrics["gate_error"] = gate_type_avgs['cx']
+                            log_stderr(f"Using CX gate error: {metrics['gate_error']:.6f}%")
+                        elif 'cnot' in gate_type_avgs:
+                            metrics["gate_error"] = gate_type_avgs['cnot']
+                            log_stderr(f"Using CNOT gate error: {metrics['gate_error']:.6f}%")
+                else:
+                    log_stderr("No two-qubit gate errors found in target.")
+                
+                # If still no errors found, try looking for single-qubit gates as fallback
+                if metrics["gate_error"] is None:
+                    log_stderr("Checking single-qubit gates as fallback...")
+                    single_qubit_errors = []
+                    
+                    for gate_name in backend.target.keys():
+                        gate_str = gate_name.name if hasattr(gate_name, 'name') else str(gate_name)
+                        
+                        # Skip if it's a two-qubit gate or special operation
+                        if any(g in gate_str.lower() for g in two_qubit_gates + ['measure', 'reset', 'barrier']):
+                            continue
+                            
+                        # Get properties for all qubit locations
+                        if gate_name in backend.target:
+                            for qubits, props in backend.target[gate_name].items():
+                                if len(qubits) == 1:  # Single-qubit gate
+                                    if hasattr(props, 'error') and props.error is not None:
+                                        single_qubit_errors.append(props.error)
+                    
+                    if single_qubit_errors:
+                        # Use single-qubit errors but mark as different in the log
+                        metrics["gate_error"] = sum(single_qubit_errors) / len(single_qubit_errors) * 100
+                        log_stderr(f"WARNING: Using single-qubit gate errors: {metrics['gate_error']:.6f}%")
+            except Exception as e:
+                log_stderr(f"Failed to extract gate errors from target: {e}")
+                log_stderr(traceback.format_exc())
+        
+        # Last fallback: Try legacy extraction through properties
+        if any(metrics[key] is None for key in ["gate_error", "readout_error", "t1_time", "t2_time"]):
+            log_stderr("Trying legacy property extraction for missing metrics...")
+            if hasattr(backend, 'properties') and backend.properties():
+                props = backend.properties()
+                
+                # Try to get gate error if not found yet
+                if metrics["gate_error"] is None and hasattr(props, 'gates'):
+                    cx_gate_errors = []
+                    for gate_data in props.gates:
+                        if gate_data.gate == 'cx':
+                            if hasattr(gate_data, 'parameters'):
+                                for param in gate_data.parameters:
+                                    if param.name == 'gate_error':
+                                        cx_gate_errors.append(param.value)
+                    
+                    if cx_gate_errors:
+                        metrics["gate_error"] = sum(cx_gate_errors) / len(cx_gate_errors) * 100  # Convert to percentage
+                        log_stderr(f"Average CX gate error from legacy properties: {metrics['gate_error']:.4f}%")
     
     except Exception as e:
         log_stderr(f"Error retrieving backend noise metrics: {e}")
         log_stderr(traceback.format_exc())
+    
+    # Report on which metrics we collected
+    collected = [key for key, value in metrics.items() if value is not None]
+    missing = [key for key, value in metrics.items() if value is None]
+    
+    if collected:
+        log_stderr(f"Successfully collected metrics: {', '.join(collected)}")
+    if missing:
+        log_stderr(f"Could not retrieve metrics: {', '.join(missing)}")
     
     return metrics
 

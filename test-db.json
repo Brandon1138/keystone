@@ -1,0 +1,52 @@
+{
+  "runs": [
+    {
+      "runId": "b52pDAJcrXFHC6Yts6qAw",
+      "timestamp": "2025-04-21T23:16:24.548Z",
+      "runType": "Quantum_Shor",
+      "status": "completed",
+      "algorithm": "Shor",
+      "securityParam": "N=15",
+      "iterations": 4096
+    }
+  ],
+  "quantumResults": [
+    {
+      "resultId": "xZP6dG_D7Y2w94paodcvS",
+      "runId": "b52pDAJcrXFHC6Yts6qAw",
+      "status": "success",
+      "execution_time_sec": 12.34,
+      "circuit_depth": 42,
+      "cx_gate_count": 123,
+      "total_gate_count": 456,
+      "backend_used": "ibm_test_backend",
+      "job_id": "test-job-id",
+      "shots": 4096,
+      "ran_on_hardware": true,
+      "plot_file_path": "/path/to/plot.png",
+      "error_message": null,
+      "raw_counts": {
+        "0000": 100,
+        "0001": 200
+      },
+      "gate_error": 0.78,
+      "readout_error": 1.23,
+      "t1_time": 65.43,
+      "t2_time": 45.67,
+      "quantum_volume": 32,
+      "data": {
+        "status": "success",
+        "execution_time_sec": 12.34,
+        "circuit_depth": 42,
+        "gate_error": 0.78,
+        "readout_error": 1.23,
+        "t1_time": 65.43,
+        "t2_time": 45.67,
+        "quantum_volume": 32
+      }
+    }
+  ],
+  "pcqClassicalDetails": [],
+  "articles": [],
+  "rssFeeds": []
+}
