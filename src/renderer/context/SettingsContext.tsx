@@ -7,6 +7,7 @@ interface Settings {
 	themePreference: 'light' | 'dark' | 'system';
 	startupLoader: boolean;
 	enableMotionTransitions: boolean;
+	disableAnimatedBackgroundOnLightMode: boolean;
 
 	// UX/Hints/Onboarding
 	tooltipsEnabled: boolean;
@@ -38,6 +39,7 @@ const defaultSettings: Settings = {
 	themePreference: 'dark',
 	startupLoader: true,
 	enableMotionTransitions: true,
+	disableAnimatedBackgroundOnLightMode: true,
 
 	// UX/Hints/Onboarding
 	tooltipsEnabled: true,

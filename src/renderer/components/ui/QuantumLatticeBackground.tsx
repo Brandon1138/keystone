@@ -1,6 +1,8 @@
 import React, { useRef, useEffect, useState } from 'react';
 import * as THREE from 'three';
 import { gsap } from 'gsap';
+import { useTheme } from '@mui/material/styles';
+import { useSettings } from '../../context/SettingsContext';
 
 interface QuantumLatticeBackgroundProps {
 	enabled?: boolean;
@@ -11,6 +13,16 @@ const QuantumLatticeBackground: React.FC<QuantumLatticeBackgroundProps> = ({
 	enabled = true,
 	intensity = 1,
 }) => {
+	const theme = useTheme();
+	const { settings } = useSettings();
+	const isDarkMode = theme.palette.mode === 'dark';
+
+	// Determine if animation should be shown based on settings and theme
+	const shouldShowAnimation =
+		enabled &&
+		settings.animatedBackground &&
+		(isDarkMode || !settings.disableAnimatedBackgroundOnLightMode);
+
 	const mountRef = useRef<HTMLDivElement>(null);
 	const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
 	const sceneRef = useRef<THREE.Scene | null>(null);
@@ -60,7 +72,7 @@ const QuantumLatticeBackground: React.FC<QuantumLatticeBackgroundProps> = ({
 
 	// Initialize Three.js scene
 	const initThreeJS = () => {
-		if (!mountRef.current || !enabled) return;
+		if (!mountRef.current || !shouldShowAnimation) return;
 
 		// Create scene
 		const scene = new THREE.Scene();
@@ -279,7 +291,7 @@ const QuantumLatticeBackground: React.FC<QuantumLatticeBackgroundProps> = ({
 	// Update function that runs on each animation frame
 	const update = (time: number) => {
 		if (
-			!enabled ||
+			!shouldShowAnimation ||
 			!sceneRef.current ||
 			!cameraRef.current ||
 			!rendererRef.current
@@ -351,7 +363,7 @@ const QuantumLatticeBackground: React.FC<QuantumLatticeBackgroundProps> = ({
 
 	// Initialize Three.js on component mount
 	useEffect(() => {
-		if (!enabled) return;
+		if (!shouldShowAnimation) return;
 
 		const cleanup = initThreeJS();
 		frameIdRef.current = requestAnimationFrame(update);
@@ -359,11 +371,11 @@ const QuantumLatticeBackground: React.FC<QuantumLatticeBackgroundProps> = ({
 		return () => {
 			cleanup && cleanup();
 		};
-	}, [enabled]);
+	}, [shouldShowAnimation]);
 
 	// Handle intensity changes
 	useEffect(() => {
-		if (!enabled || !nodesRef.current.length) return;
+		if (!shouldShowAnimation || !nodesRef.current.length) return;
 
 		// Adjust animation intensity based on prop
 		nodesRef.current.forEach((node) => {
@@ -381,10 +393,10 @@ const QuantumLatticeBackground: React.FC<QuantumLatticeBackgroundProps> = ({
 				ease: 'power2.inOut',
 			});
 		});
-	}, [intensity, enabled]);
+	}, [intensity, shouldShowAnimation]);
 
-	// Don't render anything if disabled
-	if (!enabled) {
+	// Don't render anything if animation shouldn't be shown
+	if (!shouldShowAnimation) {
 		return null;
 	}
 

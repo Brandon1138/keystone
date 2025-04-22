@@ -298,112 +298,138 @@ export const SettingsPage: React.FC = () => {
 					</h2>
 				</div>
 
-				<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-					<div>
-						<Typography
-							variant="subtitle1"
-							className="mb-3"
-							style={{ color: isDarkMode ? '#FFFFFF' : '#000000' }}
-						>
-							Theme Settings
-						</Typography>
-						<FormControl fullWidth sx={{ mb: 3 }}>
-							<Typography
-								variant="body2"
-								sx={{ mb: 1, color: isDarkMode ? '#AAAAAA' : '#666666' }}
-							>
-								Application Theme
-							</Typography>
-							<Select
-								value={settings.themePreference}
-								onChange={(e) =>
-									updateSetting(
-										'themePreference',
-										e.target.value as 'light' | 'dark' | 'system'
-									)
+				<div className="mb-6">
+					<Typography
+						variant="subtitle1"
+						className="mb-3"
+						style={{ color: isDarkMode ? '#FFFFFF' : '#000000' }}
+					>
+						UI Effects
+					</Typography>
+					<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+						<div>
+							<FormControlLabel
+								control={
+									<Switch
+										checked={settings.animatedBackground}
+										onChange={(e) =>
+											updateSetting('animatedBackground', e.target.checked)
+										}
+										color="primary"
+									/>
 								}
+								label="Animated Background"
 								sx={{
-									backgroundColor: isDarkMode ? '#2a2a2a' : '#f8f8f8',
-									color: isDarkMode ? '#ffffff' : '#111111',
-									'& .MuiOutlinedInput-notchedOutline': {
-										borderColor: 'transparent',
-									},
-									'&:hover .MuiOutlinedInput-notchedOutline': {
-										borderColor: isDarkMode
-											? 'rgba(255, 255, 255, 0.6)'
-											: 'rgba(0, 0, 0, 0.5)',
-									},
-									'&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-										borderColor: '#9747FF',
-									},
+									color: isDarkMode ? '#FFFFFF' : '#000000',
+									display: 'flex',
+									mb: 1,
 								}}
-							>
-								<MenuItem value="light">Light</MenuItem>
-								<MenuItem value="dark">Dark</MenuItem>
-								<MenuItem value="system">Follow System</MenuItem>
-							</Select>
-						</FormControl>
+							/>
+							<FormControlLabel
+								control={
+									<Switch
+										checked={settings.disableAnimatedBackgroundOnLightMode}
+										onChange={(e) =>
+											updateSetting(
+												'disableAnimatedBackgroundOnLightMode',
+												e.target.checked
+											)
+										}
+										color="primary"
+										disabled={!settings.animatedBackground}
+									/>
+								}
+								label="Disable Animation on Light Mode"
+								sx={{
+									color: isDarkMode ? '#FFFFFF' : '#000000',
+									display: 'flex',
+									mb: 1,
+									pl: 4,
+								}}
+							/>
+						</div>
+						<div>
+							<FormControlLabel
+								control={
+									<Switch
+										checked={settings.startupLoader}
+										onChange={(e) =>
+											updateSetting('startupLoader', e.target.checked)
+										}
+										color="primary"
+									/>
+								}
+								label="Startup Loader"
+								sx={{
+									color: isDarkMode ? '#FFFFFF' : '#000000',
+									display: 'flex',
+									mb: 1,
+								}}
+							/>
+							<FormControlLabel
+								control={
+									<Switch
+										checked={settings.enableMotionTransitions}
+										onChange={(e) =>
+											updateSetting('enableMotionTransitions', e.target.checked)
+										}
+										color="primary"
+									/>
+								}
+								label="Enable Motion Transitions"
+								sx={{
+									color: isDarkMode ? '#FFFFFF' : '#000000',
+									display: 'flex',
+								}}
+							/>
+						</div>
 					</div>
+				</div>
 
-					<div>
+				<div>
+					<Typography
+						variant="subtitle1"
+						className="mb-3"
+						style={{ color: isDarkMode ? '#FFFFFF' : '#000000' }}
+					>
+						Theme Settings
+					</Typography>
+					<FormControl fullWidth sx={{ mb: 3 }}>
 						<Typography
-							variant="subtitle1"
-							className="mb-3"
-							style={{ color: isDarkMode ? '#FFFFFF' : '#000000' }}
+							variant="body2"
+							sx={{ mb: 1, color: isDarkMode ? '#AAAAAA' : '#666666' }}
 						>
-							UI Effects
+							Application Theme
 						</Typography>
-						<FormControlLabel
-							control={
-								<Switch
-									checked={settings.animatedBackground}
-									onChange={(e) =>
-										updateSetting('animatedBackground', e.target.checked)
-									}
-									color="primary"
-								/>
+						<Select
+							value={settings.themePreference}
+							onChange={(e) =>
+								updateSetting(
+									'themePreference',
+									e.target.value as 'light' | 'dark' | 'system'
+								)
 							}
-							label="Animated Background"
 							sx={{
-								color: isDarkMode ? '#FFFFFF' : '#000000',
-								display: 'flex',
-								mb: 1,
+								backgroundColor: isDarkMode ? '#2a2a2a' : '#f8f8f8',
+								color: isDarkMode ? '#ffffff' : '#111111',
+								'& .MuiOutlinedInput-notchedOutline': {
+									borderColor: 'transparent',
+								},
+								'&:hover .MuiOutlinedInput-notchedOutline': {
+									borderColor: isDarkMode
+										? 'rgba(255, 255, 255, 0.6)'
+										: 'rgba(0, 0, 0, 0.5)',
+								},
+								'&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+									borderColor: '#9747FF',
+								},
 							}}
-						/>
-						<FormControlLabel
-							control={
-								<Switch
-									checked={settings.startupLoader}
-									onChange={(e) =>
-										updateSetting('startupLoader', e.target.checked)
-									}
-									color="primary"
-								/>
-							}
-							label="Startup Loader"
-							sx={{
-								color: isDarkMode ? '#FFFFFF' : '#000000',
-								display: 'flex',
-								mb: 1,
-							}}
-						/>
-						<FormControlLabel
-							control={
-								<Switch
-									checked={settings.enableMotionTransitions}
-									onChange={(e) =>
-										updateSetting('enableMotionTransitions', e.target.checked)
-									}
-									color="primary"
-								/>
-							}
-							label="Enable Motion Transitions"
-							sx={{
-								color: isDarkMode ? '#FFFFFF' : '#000000',
-								display: 'flex',
-							}}
-						/>
-					</div>
+						>
+							<MenuItem value="light">Light</MenuItem>
+							<MenuItem value="dark">Dark</MenuItem>
+							<MenuItem value="system">Follow System</MenuItem>
+						</Select>
+					</FormControl>
 				</div>
 			</Card>
 
@@ -493,6 +519,29 @@ export const SettingsPage: React.FC = () => {
 							}}
 						/>
 					</div>
+				</div>
+
+				<div className="mt-4 flex justify-center">
+					<Button
+						variant="outlined"
+						startIcon={<HelpIcon />}
+						onClick={() => {
+							// No logic yet
+							console.log('Repeat onboarding clicked');
+						}}
+						sx={{
+							borderColor: '#9747FF',
+							color: isDarkMode ? '#FFFFFF' : '#000000',
+							'&:hover': {
+								borderColor: '#8030E0',
+								backgroundColor: isDarkMode
+									? 'rgba(151, 71, 255, 0.1)'
+									: 'rgba(151, 71, 255, 0.1)',
+							},
+						}}
+					>
+						Repeat Onboarding
+					</Button>
 				</div>
 			</Card>
 

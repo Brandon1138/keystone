@@ -197,6 +197,21 @@ const QuantumBackground: React.FC = () => {
 	);
 };
 
+// Conditional Page Transition component
+const ConditionalPageTransition: React.FC<{ children: React.ReactNode }> = ({
+	children,
+}) => {
+	const { settings } = useSettings();
+
+	// If motion transitions are disabled, render children directly
+	if (!settings.enableMotionTransitions) {
+		return <>{children}</>;
+	}
+
+	// Otherwise use the PageTransition component
+	return <PageTransition>{children}</PageTransition>;
+};
+
 const App: React.FC = () => {
 	// Start with dark mode by default
 	const [lightMode, setLightMode] = useState(false);
@@ -287,7 +302,7 @@ const App: React.FC = () => {
 
 							{/* Main Content */}
 							<main>
-								<PageTransition>
+								<ConditionalPageTransition>
 									<Routes>
 										<Route path="/" element={<HomePage />} />
 										<Route path="/home" element={<HomePage />} />
@@ -316,7 +331,7 @@ const App: React.FC = () => {
 										<Route path="/import" element={<ImportPage />} />
 										<Route path="/settings" element={<SettingsPage />} />
 									</Routes>
-								</PageTransition>
+								</ConditionalPageTransition>
 							</main>
 
 							{/* Footer */}
