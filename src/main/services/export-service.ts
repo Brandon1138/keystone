@@ -3,6 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as csv from 'fast-csv';
 import { lowdbService } from '../db/lowdbService';
+import PDFDocument from 'pdfkit';
 
 interface ExportOptions {
 	format: 'csv' | 'json' | 'pdf';
@@ -764,113 +765,280 @@ class ExportService {
 
 	/**
 	 * Export data as PDF
-	 * This requires a PDF generation library, which would need to be installed
 	 */
 	private async exportAsPdf(filePath: string, data: any): Promise<void> {
-		// For now, use JSON export as a fallback since PDF generation
-		// requires additional dependencies like pdfkit or jspdf
+		// Create a new PDF document without specifying a font
+		const doc = new PDFDocument({
+			margin: 50,
+			// Don't specify a font here - we'll use built-in fonts
+		});
+
+		// Pipe the PDF to a file
+		const stream = fs.createWriteStream(filePath);
+		doc.pipe(stream);
+
+		// Add document title - use built-in fonts
+		doc
+			.fontSize(24)
+			.font('Times-Roman')
+			.text('PQC Benchmark Export', { align: 'center' })
+			.moveDown(1);
+
+		// Add export timestamp
+		doc
+			.fontSize(10)
+			.font('Times-Roman')
+			.text(`Generated on: ${new Date().toLocaleString()}`, { align: 'right' })
+			.moveDown(1);
 
 		// Use comprehensive data if available
-		let exportData = data;
-		if (data.comprehensiveData && data.comprehensiveData.length > 0) {
-			// Remove logs from quantum data
-			const cleanedComprehensiveData = data.comprehensiveData.map(
-				(item: any) => {
-					if (
-						item.runType === 'Quantum_Shor' ||
-						item.runType === 'Quantum_Grover'
-					) {
-						const { logs, ...cleanedItem } = item;
-						return cleanedItem;
-					}
-					return item;
-				}
-			);
+		const benchmarkData =
+			data.comprehensiveData && data.comprehensiveData.length > 0
+				? data.comprehensiveData
+				: data.runs || [];
 
-			// Organize data by categories for better readability
-			exportData = {
-				benchmarkResults: cleanedComprehensiveData,
-				metadata: data.metadata,
-				// Organize data by algorithm categories
-				categorizedResults: {
-					symmetricEncryption: cleanedComprehensiveData.filter(
-						(item: any) =>
-							item.runType === 'PQC_Classical' &&
-							((item.mainAlgorithm || item.algorithm || '')
-								.toLowerCase()
-								.includes('aes') ||
-								['des', 'camellia', 'blowfish', 'twofish', 'chacha'].some(
-									(algo) =>
-										(item.mainAlgorithm || item.algorithm || '')
-											.toLowerCase()
-											.includes(algo)
-								))
-					),
-					signatures: cleanedComprehensiveData.filter(
-						(item: any) =>
-							item.runType === 'PQC_Classical' &&
-							(item.sign ||
-								item.verify ||
-								[
-									'dilithium',
-									'falcon',
-									'sphincs',
-									'rainbow',
-									'picnic',
-									'ecdsa',
-									'ed25519',
-								].some((algo) =>
-									(item.mainAlgorithm || item.algorithm || '')
-										.toLowerCase()
-										.includes(algo)
-								))
-					),
-					keyExchange: cleanedComprehensiveData.filter(
-						(item: any) =>
-							item.runType === 'PQC_Classical' &&
-							(item.encaps ||
-								item.decaps ||
-								item.shared_secret ||
-								[
-									'kyber',
-									'sike',
-									'ntru',
-									'mceliece',
-									'frodo',
-									'ecdh',
-									'x25519',
-								].some((algo) =>
-									(item.mainAlgorithm || item.algorithm || '')
-										.toLowerCase()
-										.includes(algo)
-								))
-					),
-					quantum: cleanedComprehensiveData.filter(
-						(item: any) =>
-							item.runType === 'Quantum_Shor' ||
-							item.runType === 'Quantum_Grover'
-					),
-				},
-			};
+		// Add a summary section
+		doc
+			.fontSize(16)
+			.font('Times-Bold')
+			.text('Summary', { underline: true })
+			.moveDown(0.5);
+
+		doc
+			.fontSize(10)
+			.font('Times-Roman')
+			.text(`Total Benchmarks: ${benchmarkData.length}`)
+			.moveDown(0.5);
+
+		// Count benchmark types
+		const pqcClassicalCount = benchmarkData.filter(
+			(item: any) => item.runType === 'PQC_Classical'
+		).length;
+		const quantumShorCount = benchmarkData.filter(
+			(item: any) => item.runType === 'Quantum_Shor'
+		).length;
+		const quantumGroverCount = benchmarkData.filter(
+			(item: any) => item.runType === 'Quantum_Grover'
+		).length;
+
+		doc
+			.text(`PQC/Classical Benchmarks: ${pqcClassicalCount}`)
+			.text(`Quantum Shor Benchmarks: ${quantumShorCount}`)
+			.text(`Quantum Grover Benchmarks: ${quantumGroverCount}`)
+			.moveDown(1);
+
+		// Add benchmark details section
+		doc
+			.fontSize(16)
+			.font('Times-Bold')
+			.text('Benchmark Details', { underline: true })
+			.moveDown(0.5);
+
+		// Function to add a benchmark entry to the PDF
+		const addBenchmarkToPdf = (benchmark: any, index: number) => {
+			const maxWidth = 500;
+
+			// Create a colored background for alternating entries
+			if (index % 2 === 0) {
+				doc.rect(50, doc.y, maxWidth, 80).fill('#f6f6f6').moveUp();
+			}
+
+			doc
+				.fontSize(12)
+				.font('Times-Bold')
+				.text(
+					`#${index + 1}: ${
+						benchmark.mainAlgorithm ||
+						benchmark.algorithm ||
+						'Unknown Algorithm'
+					}`,
+					{ continued: true }
+				)
+				.font('Times-Roman')
+				.text(` (${benchmark.runType || 'Unknown Type'})`, { underline: false })
+				.moveDown(0.25);
+
+			doc.fontSize(10);
+
+			// Add benchmark metadata
+			doc
+				.text(`Run ID: ${benchmark.runId || 'N/A'}`, { width: maxWidth })
+				.text(`Timestamp: ${benchmark.timestamp || 'N/A'}`, { width: maxWidth })
+				.text(`Status: ${benchmark.status || 'N/A'}`, { width: maxWidth });
+
+			// Add variant/security param if available
+			if (benchmark.variant || benchmark.securityParam) {
+				doc.text(
+					`Variant: ${benchmark.variant || benchmark.securityParam || 'N/A'}`,
+					{ width: maxWidth }
+				);
+			}
+
+			// Add iterations if available
+			if (benchmark.iterations) {
+				doc.text(`Iterations: ${benchmark.iterations}`, { width: maxWidth });
+			}
+
+			// Add benchmark-specific metrics based on type
+			if (benchmark.runType === 'PQC_Classical') {
+				// For PQC Classical, check for operations like keygen, sign, verify, etc.
+				const operations = [];
+
+				if (benchmark.keygen) {
+					const keygenTime =
+						benchmark.keygen.avg_time_ms || benchmark.keygen.time_ms || 'N/A';
+					operations.push(`Key Generation: ${keygenTime} ms`);
+				}
+
+				if (benchmark.sign) {
+					const signTime =
+						benchmark.sign.avg_time_ms || benchmark.sign.time_ms || 'N/A';
+					operations.push(`Sign: ${signTime} ms`);
+				}
+
+				if (benchmark.verify) {
+					const verifyTime =
+						benchmark.verify.avg_time_ms || benchmark.verify.time_ms || 'N/A';
+					operations.push(`Verify: ${verifyTime} ms`);
+				}
+
+				if (benchmark.encaps) {
+					const encapsTime =
+						benchmark.encaps.avg_time_ms || benchmark.encaps.time_ms || 'N/A';
+					operations.push(`Encapsulate: ${encapsTime} ms`);
+				}
+
+				if (benchmark.decaps) {
+					const decapsTime =
+						benchmark.decaps.avg_time_ms || benchmark.decaps.time_ms || 'N/A';
+					operations.push(`Decapsulate: ${decapsTime} ms`);
+				}
+
+				if (benchmark.encryption) {
+					const encryptTime =
+						benchmark.encryption.avg_time_ms ||
+						benchmark.encryption.time_ms ||
+						'N/A';
+					operations.push(`Encryption: ${encryptTime} ms`);
+				}
+
+				if (benchmark.decryption) {
+					const decryptTime =
+						benchmark.decryption.avg_time_ms ||
+						benchmark.decryption.time_ms ||
+						'N/A';
+					operations.push(`Decryption: ${decryptTime} ms`);
+				}
+
+				if (operations.length > 0) {
+					doc
+						.font('Times-Bold')
+						.text('Performance Metrics:', { width: maxWidth })
+						.font('Times-Roman');
+
+					operations.forEach((op) => {
+						doc.text(`• ${op}`, { width: maxWidth });
+					});
+				}
+			} else if (
+				benchmark.runType === 'Quantum_Shor' ||
+				benchmark.runType === 'Quantum_Grover'
+			) {
+				// For Quantum algorithms
+				const qubits = benchmark.numQubits || benchmark.qubits || 'N/A';
+				const gates = benchmark.numGates || benchmark.gates || 'N/A';
+				const depth = benchmark.circuitDepth || benchmark.depth || 'N/A';
+
+				doc
+					.font('Times-Bold')
+					.text('Quantum Metrics:', { width: maxWidth })
+					.font('Times-Roman')
+					.text(`• Qubits: ${qubits}`, { width: maxWidth })
+					.text(`• Gates: ${gates}`, { width: maxWidth })
+					.text(`• Circuit Depth: ${depth}`, { width: maxWidth });
+			}
+
+			// Add notes if available
+			if (benchmark.notes) {
+				doc
+					.font('Times-Bold')
+					.text('Notes:', { width: maxWidth })
+					.font('Times-Roman')
+					.text(benchmark.notes, { width: maxWidth });
+			}
+
+			doc.moveDown(1);
+		};
+
+		// Process benchmarks (limit to reasonable number to avoid massive PDFs)
+		const maxBenchmarksToShow = 50;
+		const benchmarksToProcess = benchmarkData.slice(0, maxBenchmarksToShow);
+
+		benchmarksToProcess.forEach((benchmark: any, index: number) => {
+			// Add a page break if needed, but not for the first item
+			if (index > 0 && doc.y > 700) {
+				doc.addPage();
+			}
+			addBenchmarkToPdf(benchmark, index);
+		});
+
+		// If we truncated the results, add a note
+		if (benchmarkData.length > maxBenchmarksToShow) {
+			doc.addPage();
+			doc
+				.fontSize(12)
+				.font('Times-Bold')
+				.text(
+					`Note: This PDF contains ${maxBenchmarksToShow} of ${benchmarkData.length} total benchmarks.`,
+					{ align: 'center' }
+				)
+				.moveDown(0.5)
+				.font('Times-Roman')
+				.text(
+					'To view all benchmark data, please export as CSV or JSON format which will include the complete dataset.',
+					{ align: 'center' }
+				);
 		}
 
-		const jsonString = JSON.stringify(exportData, null, 2);
+		// Add metadata about the export
+		doc.addPage();
+		doc
+			.fontSize(16)
+			.font('Times-Bold')
+			.text('Export Information', { underline: true })
+			.moveDown(0.5);
 
-		// In a real implementation, we would use a PDF library to create
-		// a well-formatted PDF document with tables, etc.
-		// For this demo, we'll create a simple text file with a PDF extension
-		fs.writeFileSync(
-			filePath,
-			`PQC Benchmark Data Export\n\n` +
-				`Export Date: ${new Date().toLocaleString()}\n\n` +
-				`Data (JSON format):\n${jsonString}`,
-			'utf8'
-		);
+		doc
+			.fontSize(10)
+			.font('Times-Roman')
+			.text(`Generated by: PQC Benchmark GUI`)
+			.text(`Export Date: ${new Date().toLocaleString()}`)
+			.text(`Total Benchmarks: ${benchmarkData.length}`)
+			.moveDown(1);
 
-		// In a production app, you would replace this with proper PDF generation
-		console.log(
-			'Note: PDF export is using a simple text format. Install a PDF library for better formatting.'
-		);
+		// Add a footer
+		const pageCount = doc.bufferedPageRange().count;
+		for (let i = 0; i < pageCount; i++) {
+			doc.switchToPage(i);
+			doc
+				.fontSize(8)
+				.text(`Page ${i + 1} of ${pageCount}`, 50, doc.page.height - 50, {
+					align: 'center',
+				});
+		}
+
+		// Finalize the PDF
+		doc.end();
+
+		// Return a promise that resolves when the stream is finished
+		return new Promise((resolve, reject) => {
+			stream.on('finish', () => {
+				resolve();
+			});
+			stream.on('error', (err) => {
+				reject(err);
+			});
+		});
 	}
 
 	/**

@@ -50,8 +50,8 @@ const defaultSettings: Settings = {
 	enableParticleSystem: true,
 	enableDynamicLighting: true,
 	bloomIntensity: 1.2,
-	particleDensity: 0.2,
-	particleIntensity: 0.4,
+	particleDensity: 0.1,
+	particleIntensity: 0.8,
 
 	// UX/Hints/Onboarding
 	tooltipsEnabled: true,

@@ -18,6 +18,9 @@ import {
 	QuantumHardwareProvider,
 	useQuantumHardware,
 } from './context/QuantumHardwareContext';
+import { Tooltip } from '@mui/material';
+import VisibilityIcon from '@mui/icons-material/Visibility';
+import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 
 // Pages
 import {
@@ -34,7 +37,11 @@ import {
 } from './pages';
 
 // Components
-import { QuantumLatticeBackground, StartupAnimation } from './components';
+import {
+	QuantumLatticeBackground,
+	StartupAnimation,
+	EyeToggle,
+} from './components';
 
 // Create theme based on mode
 const createAppTheme = (mode: 'light' | 'dark') =>
@@ -225,6 +232,10 @@ const App: React.FC = () => {
 	const [showStartupAnimation, setShowStartupAnimation] = useState(true);
 	const [appHasLoaded, setAppHasLoaded] = useState(false);
 	const mainContentRef = useRef<HTMLDivElement>(null);
+	const appContentRef = useRef<HTMLDivElement>(null);
+	// Add state for UI visibility
+	const [isUIVisible, setIsUIVisible] = useState(true);
+	const { settings } = useSettings();
 
 	// Initialize theme mode
 	useEffect(() => {
@@ -265,6 +276,13 @@ const App: React.FC = () => {
 			);
 		}
 	}, [showStartupAnimation]);
+
+	// Handle UI visibility toggle with animation
+	const toggleUIVisibility = () => {
+		if (!appContentRef.current) return;
+
+		setIsUIVisible(!isUIVisible);
+	};
 
 	// Toggle light/dark mode
 	const toggleTheme = () => {
@@ -327,21 +345,46 @@ const App: React.FC = () => {
 												/>
 											</div>
 
-											{/* Dark Mode Toggle */}
-											<div className="flex items-center">
-												<DarkModeIcon
-													className={
-														lightMode ? 'text-[#131313]' : 'text-[#FAFAFA]'
+											{/* Header Controls - Keep eye toggle outside the hidden content */}
+											<div className="flex items-center gap-3 p-3">
+												<EyeToggle
+													isVisible={isUIVisible}
+													onToggle={toggleUIVisibility}
+													isEnabled={true}
+													appContentRef={
+														appContentRef as React.RefObject<HTMLDivElement>
 													}
 												/>
-												<Switch
-													checked={!lightMode}
-													onChange={toggleTheme}
-													color="primary"
-												/>
+												<div
+													style={{
+														visibility: isUIVisible ? 'visible' : 'hidden',
+														opacity: isUIVisible ? 1 : 0,
+													}}
+													className="flex items-center gap-3"
+												>
+													<DarkModeIcon
+														className={
+															lightMode ? 'text-[#131313]' : 'text-[#FAFAFA]'
+														}
+													/>
+													<Switch
+														checked={!lightMode}
+														onChange={toggleTheme}
+														color="primary"
+													/>
+												</div>
 											</div>
 										</div>
+									</header>
 
+									{/* App content that will be hidden/shown */}
+									<div
+										ref={appContentRef}
+										style={{
+											visibility: isUIVisible ? 'visible' : 'hidden',
+											opacity: isUIVisible ? 1 : 0,
+										}}
+									>
 										{/* Introductory Text */}
 										<p
 											className="text-xl mb-2"
@@ -350,55 +393,58 @@ const App: React.FC = () => {
 											A Multi-Backend Workbench for Post-Quantum Cryptography &
 											Quantum Runtimes
 										</p>
-									</header>
 
-									{/* Navigation */}
-									<Navigation toggleTheme={toggleTheme} lightMode={lightMode} />
+										{/* Navigation */}
+										<Navigation
+											toggleTheme={toggleTheme}
+											lightMode={lightMode}
+										/>
 
-									{/* Main Content */}
-									<main>
-										<ConditionalPageTransition>
-											<Routes>
-												<Route path="/" element={<HomePage />} />
-												<Route path="/home" element={<HomePage />} />
-												<Route
-													path="/run-benchmark"
-													element={<RunBenchmarkPage />}
-												/>
-												<Route
-													path="/run-encryption"
-													element={<RunEncryptionPage />}
-												/>
-												<Route
-													path="/visualization"
-													element={<VisualizationPage />}
-												/>
-												<Route path="/codex" element={<CodexPage />} />
-												<Route path="/export" element={<ExportPage />} />
-												<Route
-													path="/quantum-workloads"
-													element={<RunQuantumWorkloadsPage />}
-												/>
-												<Route
-													path="/schedule-jobs"
-													element={<ScheduleJobsPage />}
-												/>
-												<Route path="/import" element={<ImportPage />} />
-												<Route path="/settings" element={<SettingsPage />} />
-											</Routes>
-										</ConditionalPageTransition>
-									</main>
+										{/* Main Content */}
+										<main>
+											<ConditionalPageTransition>
+												<Routes>
+													<Route path="/" element={<HomePage />} />
+													<Route path="/home" element={<HomePage />} />
+													<Route
+														path="/run-benchmark"
+														element={<RunBenchmarkPage />}
+													/>
+													<Route
+														path="/run-encryption"
+														element={<RunEncryptionPage />}
+													/>
+													<Route
+														path="/visualization"
+														element={<VisualizationPage />}
+													/>
+													<Route path="/codex" element={<CodexPage />} />
+													<Route path="/export" element={<ExportPage />} />
+													<Route
+														path="/quantum-workloads"
+														element={<RunQuantumWorkloadsPage />}
+													/>
+													<Route
+														path="/schedule-jobs"
+														element={<ScheduleJobsPage />}
+													/>
+													<Route path="/import" element={<ImportPage />} />
+													<Route path="/settings" element={<SettingsPage />} />
+												</Routes>
+											</ConditionalPageTransition>
+										</main>
 
-									{/* Footer */}
-									<footer className="mt-8 text-center text-sm text-gray-500">
-										<p>Keystone - Version 1.0.0-rc</p>
-										<p>
-											Running on Electron<span id="electron-version"></span>,
-											Node
-											<span id="node-version"></span>, and Chromium
-											<span id="chrome-version"></span>
-										</p>
-									</footer>
+										{/* Footer */}
+										<footer className="mt-8 text-center text-sm text-gray-500">
+											<p>Keystone - Version 1.0.0-rc</p>
+											<p>
+												Running on Electron<span id="electron-version"></span>,
+												Node
+												<span id="node-version"></span>, and Chromium
+												<span id="chrome-version"></span>
+											</p>
+										</footer>
+									</div>
 								</div>
 							</div>
 						</div>

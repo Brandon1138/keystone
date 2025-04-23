@@ -8,3 +8,4 @@ export { RecentBenchmarks } from './RecentBenchmarks';
 export { DatasetManager } from './DatasetManager';
 export { default as QuantumLatticeBackground } from './ui/QuantumLatticeBackground';
 export { default as StartupAnimation } from './ui/StartupAnimation';
+export { default as EyeToggle } from './ui/eye-toggle';
