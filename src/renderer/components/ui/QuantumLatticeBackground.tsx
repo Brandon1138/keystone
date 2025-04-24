@@ -48,6 +48,7 @@ const QuantumLatticeBackground: React.FC<QuantumLatticeBackgroundProps> = ({
 	const coheredNodesRef = useRef<Set<number>>(new Set());
 	const visitedNodesRef = useRef<Set<number>>(new Set());
 	const algorithmAnimationTimerRef = useRef<NodeJS.Timeout | null>(null);
+	const [lastDecoherenceCheck, setLastDecoherenceCheck] = useState<number>(0);
 
 	const [isThrottled, setIsThrottled] = useState(false);
 	const [activeNode, setActiveNode] = useState<number | null>(null);
@@ -243,6 +244,7 @@ const QuantumLatticeBackground: React.FC<QuantumLatticeBackgroundProps> = ({
 		canvas.style.width = '100%';
 		canvas.style.height = '100%';
 		canvas.style.zIndex = '0';
+		canvas.style.pointerEvents = 'auto'; // Ensure clicks are captured
 
 		// Setup click event listener
 		canvas.addEventListener('click', handleCanvasClick);
@@ -640,6 +642,233 @@ const QuantumLatticeBackground: React.FC<QuantumLatticeBackgroundProps> = ({
 			}
 		}
 		lastTimeRef.current = time;
+
+		// Periodically check for nodes that should have decohered but didn't
+		if (!isRunningOnHardware && time - lastDecoherenceCheck > 5000) {
+			// Find any nodes that appear to be cohered but aren't in our tracking set
+			nodesRef.current.forEach((node, index) => {
+				const nodeMaterial = node.material as
+					| THREE.MeshStandardMaterial
+					| THREE.MeshBasicMaterial;
+
+				// Check if node appears blue (coherent) but isn't tracked in our cohered set
+				if (!coheredNodesRef.current.has(index)) {
+					// Check if the color is blue-ish (coherent state)
+					const isBlueish =
+						nodeMaterial.color.b > 0.8 && nodeMaterial.color.r < 0.4;
+
+					if (isBlueish) {
+						// Force decohere this node
+						const originalColor = new THREE.Color(0x9747ff).offsetHSL(
+							0,
+							0,
+							(Math.random() - 0.5) * 0.2
+						);
+
+						// Smoothly transition back to original color
+						gsap.to(nodeMaterial.color, {
+							r: originalColor.r,
+							g: originalColor.g,
+							b: originalColor.b,
+							duration: 0.5,
+							ease: 'power2.out',
+						});
+
+						// Reset opacity
+						gsap.to(nodeMaterial, {
+							opacity: 0.7 + Math.random() * 0.3,
+							duration: 0.5,
+							ease: 'power2.out',
+						});
+
+						// Reset emissive properties if standard material
+						if (nodeMaterial instanceof THREE.MeshStandardMaterial) {
+							const originalEmissive = new THREE.Color(0x9747ff).offsetHSL(
+								0,
+								0,
+								(Math.random() - 0.5) * 0.2
+							);
+
+							gsap.to(nodeMaterial.emissive, {
+								r: originalEmissive.r,
+								g: originalEmissive.g,
+								b: originalEmissive.b,
+								duration: 0.5,
+								ease: 'power2.out',
+							});
+
+							gsap.to(nodeMaterial, {
+								emissiveIntensity: 0.4,
+								duration: 0.5,
+								ease: 'power2.out',
+							});
+						}
+
+						// Remove any blue glow lights around this node
+						sceneRef.current?.children.forEach((child) => {
+							if (
+								child instanceof THREE.PointLight &&
+								child.position.distanceTo(node.position) < 0.5 &&
+								child.color.b > 0.9 &&
+								child.color.r < 0.1
+							) {
+								// This appears to be a coherence glow light, remove it
+								sceneRef.current?.remove(child);
+							}
+						});
+					}
+				}
+			});
+
+			// Check for lines that remained colored from entanglement animations
+			linesRef.current.forEach((line) => {
+				const lineMaterial = line.material as THREE.LineBasicMaterial;
+
+				// Check if line appears bright purple (entangled state)
+				// Entangled lines have high opacity and strong purple color
+				const isPurplish =
+					lineMaterial.color.b > 0.9 &&
+					lineMaterial.color.r > 0.4 &&
+					lineMaterial.opacity > 0.7;
+
+				if (isPurplish) {
+					// Reset to normal pulsing animation using the line's stored userData values
+					// This preserves the original pulsing behavior
+
+					// Restore normal opacity range
+					gsap.killTweensOf(lineMaterial); // Kill any existing animations
+
+					gsap.to(lineMaterial, {
+						opacity: line.userData.minOpacity || 0.1,
+						duration: 0.5,
+						ease: 'power2.out',
+						onComplete: () => {
+							// Restart normal pulsing animation
+							gsap.to(lineMaterial, {
+								opacity: line.userData.maxOpacity || 0.2,
+								duration: 1 / (line.userData.pulseSpeed || 1),
+								repeat: -1,
+								yoyo: true,
+								ease: 'sine.inOut',
+							});
+						},
+					});
+
+					// Reset the color
+					// Use base colors from the original creation pattern
+					const baseBlue = new THREE.Color(0x3b82f6);
+					const basePurple = new THREE.Color(0x9747ff);
+
+					// Use a pseudorandom but deterministic mix based on the line's nodes
+					// This ensures the same line gets the same color each time
+					const nodeIndices = line.userData.nodes || [0, 0];
+					const mixFactor =
+						((nodeIndices[0] * 13 + nodeIndices[1] * 17) % 100) / 250; // 0-0.4 range
+
+					const resetColor = new THREE.Color().lerpColors(
+						baseBlue,
+						basePurple,
+						mixFactor
+					);
+
+					gsap.to(lineMaterial.color, {
+						r: resetColor.r,
+						g: resetColor.g,
+						b: resetColor.b,
+						duration: 0.5,
+						ease: 'power2.out',
+					});
+				}
+			});
+
+			// Also check for any coherence timeouts that might have been interrupted
+			coheredNodesRef.current.forEach((nodeIndex) => {
+				const node = nodesRef.current[nodeIndex];
+				if (!node) return;
+
+				// If no timeout exists for this node (but it's tracked as cohered), recreate it
+				if (!coherenceTimeoutsRef.current.has(nodeIndex)) {
+					const timeoutId = setTimeout(() => {
+						// Standard decoherence logic (copied from animateCoherenceAndEntanglement)
+						const nodeMaterial = node.material as
+							| THREE.MeshStandardMaterial
+							| THREE.MeshBasicMaterial;
+						const originalColor = new THREE.Color(0x9747ff).offsetHSL(
+							0,
+							0,
+							(Math.random() - 0.5) * 0.2
+						);
+						const originalEmissive =
+							nodeMaterial instanceof THREE.MeshStandardMaterial
+								? new THREE.Color(0x9747ff).offsetHSL(
+										0,
+										0,
+										(Math.random() - 0.5) * 0.2
+								  )
+								: new THREE.Color(0x000000);
+
+						// Reset node appearance
+						gsap.to(node.scale, {
+							x: 1,
+							y: 1,
+							z: 1,
+							duration: 0.5,
+							ease: 'elastic.out(1, 0.3)',
+						});
+
+						gsap.to(nodeMaterial, {
+							opacity: 0.7 + Math.random() * 0.3,
+							duration: 0.5,
+							ease: 'power2.out',
+						});
+
+						gsap.to(nodeMaterial.color, {
+							r: originalColor.r,
+							g: originalColor.g,
+							b: originalColor.b,
+							duration: 0.5,
+							ease: 'power2.out',
+						});
+
+						if (nodeMaterial instanceof THREE.MeshStandardMaterial) {
+							gsap.to(nodeMaterial.emissive, {
+								r: originalEmissive.r,
+								g: originalEmissive.g,
+								b: originalEmissive.b,
+								duration: 0.5,
+								ease: 'power2.out',
+							});
+
+							gsap.to(nodeMaterial, {
+								emissiveIntensity: 0.4,
+								duration: 0.5,
+								ease: 'power2.out',
+							});
+						}
+
+						// Remove any coherence glow light
+						sceneRef.current?.children.forEach((child) => {
+							if (
+								child instanceof THREE.PointLight &&
+								child.position.distanceTo(node.position) < 0.5 &&
+								child.color.b > 0.9 &&
+								child.color.r < 0.1
+							) {
+								sceneRef.current?.remove(child);
+							}
+						});
+
+						// Remove tracking references
+						coheredNodesRef.current.delete(nodeIndex);
+						coherenceTimeoutsRef.current.delete(nodeIndex);
+					}, 10000); // 10 seconds decoherence time
+
+					coherenceTimeoutsRef.current.set(nodeIndex, timeoutId);
+				}
+			});
+
+			setLastDecoherenceCheck(time);
+		}
 
 		// Add a very subtle rotation to the entire scene for better visual interest
 		if (sceneRef.current) {
@@ -1411,7 +1640,7 @@ const QuantumLatticeBackground: React.FC<QuantumLatticeBackgroundProps> = ({
 	// Hardware execution effect - trigger automatic node coherence for quantum hardware runs
 	useEffect(() => {
 		// Skip if animation shouldn't be shown or hardware isn't running
-		if (!shouldShowAnimation || !isRunningOnHardware) return;
+		if (!shouldShowAnimation) return;
 
 		// Clear any existing algorithm animation timer
 		if (algorithmAnimationTimerRef.current) {
@@ -1428,6 +1657,11 @@ const QuantumLatticeBackground: React.FC<QuantumLatticeBackgroundProps> = ({
 		});
 		coheredNodesRef.current.clear();
 		visitedNodesRef.current.clear();
+
+		// Force decoherence of all nodes when hardware state changes and not running
+		if (!isRunningOnHardware) {
+			resetAllQubits();
+		}
 
 		// Setup variables for node activation
 		let nodesToActivate: number[] = [];
@@ -1671,6 +1905,169 @@ const QuantumLatticeBackground: React.FC<QuantumLatticeBackgroundProps> = ({
 		settings.enableParticleSystem,
 	]);
 
+	// Function to reset all qubits to their natural state, used when hardware state changes
+	const resetAllQubits = () => {
+		if (!shouldShowAnimation || !nodesRef.current.length || !sceneRef.current)
+			return;
+
+		// Loop through all nodes and reset their appearance
+		nodesRef.current.forEach((node) => {
+			const nodeMaterial = node.material as
+				| THREE.MeshStandardMaterial
+				| THREE.MeshBasicMaterial;
+
+			// Generate original colors similar to how they're created initially
+			const originalColor = new THREE.Color(0x9747ff).offsetHSL(
+				0,
+				0,
+				(Math.random() - 0.5) * 0.2
+			);
+
+			const originalEmissive =
+				nodeMaterial instanceof THREE.MeshStandardMaterial
+					? new THREE.Color(0x9747ff).offsetHSL(
+							0,
+							0,
+							(Math.random() - 0.5) * 0.2
+					  )
+					: new THREE.Color(0x000000);
+
+			// Animate back to original appearance
+			gsap.to(node.scale, {
+				x: 1,
+				y: 1,
+				z: 1,
+				duration: 0.5,
+				ease: 'elastic.out(1, 0.3)',
+			});
+
+			gsap.to(nodeMaterial, {
+				opacity: 0.7 + Math.random() * 0.3,
+				duration: 0.5,
+				ease: 'power2.out',
+			});
+
+			gsap.to(nodeMaterial.color, {
+				r: originalColor.r,
+				g: originalColor.g,
+				b: originalColor.b,
+				duration: 0.5,
+				ease: 'power2.out',
+			});
+
+			if (nodeMaterial instanceof THREE.MeshStandardMaterial) {
+				gsap.to(nodeMaterial.emissive, {
+					r: originalEmissive.r,
+					g: originalEmissive.g,
+					b: originalEmissive.b,
+					duration: 0.5,
+					ease: 'power2.out',
+				});
+
+				gsap.to(nodeMaterial, {
+					emissiveIntensity: 0.4,
+					duration: 0.5,
+					ease: 'power2.out',
+				});
+			}
+		});
+
+		// Reset all connecting lines to their original state
+		linesRef.current.forEach((line) => {
+			const lineMaterial = line.material as THREE.LineBasicMaterial;
+
+			// Get node indices for deterministic color generation
+			const nodeIndices = line.userData.nodes || [0, 0];
+
+			// Generate a deterministic color mix based on node indices
+			// This ensures the same line always gets the same color after reset
+			const baseBlue = new THREE.Color(0x3b82f6);
+			const basePurple = new THREE.Color(0x9747ff);
+			const mixFactor =
+				((nodeIndices[0] * 13 + nodeIndices[1] * 17) % 100) / 250; // 0-0.4 range
+
+			const resetColor = new THREE.Color().lerpColors(
+				baseBlue,
+				basePurple,
+				mixFactor
+			);
+
+			// Kill any existing animations
+			gsap.killTweensOf(lineMaterial);
+			gsap.killTweensOf(lineMaterial.color);
+
+			// Animate back to original appearance
+			gsap.to(lineMaterial.color, {
+				r: resetColor.r,
+				g: resetColor.g,
+				b: resetColor.b,
+				duration: 0.5,
+				ease: 'power2.out',
+			});
+
+			// First set a base opacity
+			gsap.to(lineMaterial, {
+				opacity: line.userData.minOpacity || 0.1,
+				duration: 0.5,
+				ease: 'power2.out',
+				onComplete: () => {
+					// Then restart the pulsing animation with the line's own values
+					gsap.to(lineMaterial, {
+						opacity: line.userData.maxOpacity || 0.2,
+						duration: 1 / (line.userData.pulseSpeed || 1),
+						repeat: -1,
+						yoyo: true,
+						ease: 'sine.inOut',
+						delay: Math.random() * 0.5, // Small random delay to avoid synchronized pulsing
+					});
+				},
+			});
+		});
+
+		// Remove all coherence glow lights
+		sceneRef.current.children.forEach((child) => {
+			if (
+				child instanceof THREE.PointLight &&
+				child.color.b > 0.9 &&
+				child.color.r < 0.1
+			) {
+				// This appears to be a coherence glow light
+				sceneRef.current?.remove(child);
+			}
+		});
+
+		// Reset all tracking data
+		coheredNodesRef.current.clear();
+		visitedNodesRef.current.clear();
+
+		// Clear all coherence timeouts
+		coherenceTimeoutsRef.current.forEach((timeout) => {
+			clearTimeout(timeout);
+		});
+		coherenceTimeoutsRef.current.clear();
+	};
+
+	// Reset qubits when job or algorithm changes and no hardware is running
+	useEffect(() => {
+		// When job or algorithm changes but not running on hardware,
+		// ensure all qubits return to natural state
+		if (!isRunningOnHardware) {
+			resetAllQubits();
+		}
+	}, [jobId, algorithmType, isRunningOnHardware]);
+
+	// Reset qubits when animation becomes visible
+	useEffect(() => {
+		if (shouldShowAnimation) {
+			// Give a small delay to ensure nodes are initialized properly
+			const timer = setTimeout(() => {
+				resetAllQubits();
+			}, 100);
+
+			return () => clearTimeout(timer);
+		}
+	}, [shouldShowAnimation]);
+
 	// Don't render anything if animation shouldn't be shown
 	if (!shouldShowAnimation) {
 		return null;
@@ -1681,7 +2078,6 @@ const QuantumLatticeBackground: React.FC<QuantumLatticeBackgroundProps> = ({
 			ref={mountRef}
 			className="fixed inset-0 w-full h-full z-0"
 			aria-label="Interactive Quantum Lattice Visualization"
-			title="Click on nodes to see quantum coherence and entanglement effects"
 		/>
 	);
 };
