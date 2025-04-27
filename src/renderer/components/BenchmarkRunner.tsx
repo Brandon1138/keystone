@@ -136,20 +136,16 @@ export const BenchmarkRunner: React.FC = () => {
 			setJustCompleted(true);
 			setCurrentPhase('Completed');
 			setProgress(100);
-		}
-	};
 
-	const stopBenchmark = async () => {
-		if (benchmarkId) {
-			try {
-				await benchmarkStoreUtils.stopBenchmark(benchmarkId);
-			} catch (error) {
-				console.error('Failed to stop benchmark:', error);
-			} finally {
-				setIsRunning(false);
-				setJustCompleted(true);
-				setCurrentPhase('Stopped');
-			}
+			// Add these lines to freeze the metrics at their final values
+			const finalMetrics = { ...performanceMetrics };
+			const finalSystemMetrics = { ...systemMetrics };
+
+			// Small delay to ensure we don't get race conditions with last event
+			setTimeout(() => {
+				setPerformanceMetrics(finalMetrics);
+				setSystemMetrics(finalSystemMetrics);
+			}, 50);
 		}
 	};
 
@@ -425,39 +421,6 @@ export const BenchmarkRunner: React.FC = () => {
 					>
 						{isRunning ? 'RUNNING...' : 'RUN BENCHMARK'}
 					</Button>
-					{isRunning && (
-						<Button
-							variant="outlined"
-							disableElevation
-							onClick={stopBenchmark}
-							sx={{
-								backgroundColor: isDarkMode
-									? 'rgba(255, 0, 0, 0.08)'
-									: 'rgba(255, 0, 0, 0.04)',
-								color: isDarkMode
-									? 'rgba(255, 100, 100, 0.9)'
-									: 'rgba(220, 0, 0, 0.8)',
-								borderColor: isDarkMode
-									? 'rgba(255, 100, 100, 0.5)'
-									: 'rgba(220, 0, 0, 0.5)',
-								'&:hover': {
-									backgroundColor: isDarkMode
-										? 'rgba(255, 0, 0, 0.12)'
-										: 'rgba(255, 0, 0, 0.08)',
-									borderColor: isDarkMode
-										? 'rgba(255, 100, 100, 0.7)'
-										: 'rgba(220, 0, 0, 0.7)',
-								},
-								fontSize: '0.9rem',
-								padding: '10px 24px',
-								textTransform: 'uppercase',
-								fontWeight: 'bold',
-								borderRadius: '8px',
-							}}
-						>
-							Stop
-						</Button>
-					)}
 				</div>
 			</Card>
 
