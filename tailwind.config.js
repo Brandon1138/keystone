@@ -7,7 +7,7 @@ module.exports = {
 				// shadcn-inspired color palette with dark as default
 				background: {
 					DEFAULT: '#09090b', // slate-950 (dark by default)
-					light: '#ffffff',
+					light: '#f8f9fa', // Changed from #ffffff to a softer off-white
 				},
 				foreground: {
 					DEFAULT: '#f1f5f9', // slate-100 (light text on dark background)
@@ -15,7 +15,7 @@ module.exports = {
 				},
 				card: {
 					DEFAULT: '#212121', // dark card (updated to #212121)
-					light: '#ffffff',
+					light: '#ffffff', // Keep white for cards but with softer shadow in CSS
 					dark: '#212121', // Added for dark:bg-card-dark variant
 				},
 				border: {

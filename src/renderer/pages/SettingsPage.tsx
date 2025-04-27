@@ -421,6 +421,51 @@ export const SettingsPage: React.FC = () => {
 										</div>
 									</div>
 								)}
+							<div className="mt-5">
+								<Typography
+									variant="subtitle1"
+									className="mb-3"
+									style={{ color: isDarkMode ? '#FFFFFF' : '#000000' }}
+								>
+									Theme Settings
+								</Typography>
+								<FormControl sx={{ mb: 3, width: '90%' }}>
+									<Typography
+										variant="body2"
+										sx={{ mb: 1, color: isDarkMode ? '#AAAAAA' : '#666666' }}
+									>
+										Application Theme
+									</Typography>
+									<Select
+										value={settings.themePreference}
+										onChange={(e) =>
+											updateSetting(
+												'themePreference',
+												e.target.value as 'light' | 'dark' | 'system'
+											)
+										}
+										sx={{
+											backgroundColor: isDarkMode ? '#2a2a2a' : '#f8f8f8',
+											color: isDarkMode ? '#ffffff' : '#111111',
+											'& .MuiOutlinedInput-notchedOutline': {
+												borderColor: 'transparent',
+											},
+											'&:hover .MuiOutlinedInput-notchedOutline': {
+												borderColor: isDarkMode
+													? 'rgba(255, 255, 255, 0.6)'
+													: 'rgba(0, 0, 0, 0.5)',
+											},
+											'&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+												borderColor: '#9747FF',
+											},
+										}}
+									>
+										<MenuItem value="light">Light</MenuItem>
+										<MenuItem value="dark">Dark</MenuItem>
+										<MenuItem value="system">Follow System</MenuItem>
+									</Select>
+								</FormControl>
+							</div>
 						</div>
 						<div>
 							<FormControlLabel
@@ -443,6 +488,26 @@ export const SettingsPage: React.FC = () => {
 							/>
 							{settings.enableParticleSystem && settings.animatedBackground && (
 								<div className="ml-4 mb-3">
+									<FormControlLabel
+										control={
+											<Switch
+												checked={settings.disableParticleSystemOnLightMode}
+												onChange={(e) =>
+													updateSetting(
+														'disableParticleSystemOnLightMode',
+														e.target.checked
+													)
+												}
+												color="primary"
+											/>
+										}
+										label="Disable Particles on Light Mode"
+										sx={{
+											color: isDarkMode ? '#FFFFFF' : '#000000',
+											display: 'flex',
+											mb: 2,
+										}}
+									/>
 									<Typography
 										variant="body2"
 										sx={{ mb: 1, color: isDarkMode ? '#AAAAAA' : '#666666' }}
@@ -564,164 +629,6 @@ export const SettingsPage: React.FC = () => {
 							/>
 						</div>
 					</div>
-				</div>
-
-				<div>
-					<Typography
-						variant="subtitle1"
-						className="mb-3"
-						style={{ color: isDarkMode ? '#FFFFFF' : '#000000' }}
-					>
-						Theme Settings
-					</Typography>
-					<FormControl fullWidth sx={{ mb: 3 }}>
-						<Typography
-							variant="body2"
-							sx={{ mb: 1, color: isDarkMode ? '#AAAAAA' : '#666666' }}
-						>
-							Application Theme
-						</Typography>
-						<Select
-							value={settings.themePreference}
-							onChange={(e) =>
-								updateSetting(
-									'themePreference',
-									e.target.value as 'light' | 'dark' | 'system'
-								)
-							}
-							sx={{
-								backgroundColor: isDarkMode ? '#2a2a2a' : '#f8f8f8',
-								color: isDarkMode ? '#ffffff' : '#111111',
-								'& .MuiOutlinedInput-notchedOutline': {
-									borderColor: 'transparent',
-								},
-								'&:hover .MuiOutlinedInput-notchedOutline': {
-									borderColor: isDarkMode
-										? 'rgba(255, 255, 255, 0.6)'
-										: 'rgba(0, 0, 0, 0.5)',
-								},
-								'&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-									borderColor: '#9747FF',
-								},
-							}}
-						>
-							<MenuItem value="light">Light</MenuItem>
-							<MenuItem value="dark">Dark</MenuItem>
-							<MenuItem value="system">Follow System</MenuItem>
-						</Select>
-					</FormControl>
-				</div>
-			</Card>
-
-			{/* UX & Onboarding Card */}
-			<Card
-				className={`p-6 rounded-xl shadow-md transition-all ${
-					isDarkMode ? 'bg-[#212121]' : 'bg-[#E9E9E9]'
-				}`}
-			>
-				<div className="flex items-center mb-4">
-					<HelpIcon style={{ color: '#9747FF' }} className="mr-3" />
-					<h2
-						className="text-[18px] font-semibold"
-						style={{ color: isDarkMode ? '#FFFFFF' : '#000000' }}
-					>
-						UX, Hints & Onboarding
-					</h2>
-				</div>
-
-				<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-					<div className="space-y-2">
-						<FormControlLabel
-							control={
-								<Switch
-									checked={settings.tooltipsEnabled}
-									onChange={(e) =>
-										updateSetting('tooltipsEnabled', e.target.checked)
-									}
-									color="primary"
-								/>
-							}
-							label="Enable Tooltips"
-							sx={{
-								color: isDarkMode ? '#FFFFFF' : '#000000',
-								display: 'flex',
-							}}
-						/>
-						<FormControlLabel
-							control={
-								<Switch
-									checked={settings.showOnboardingAtStartup}
-									onChange={(e) =>
-										updateSetting('showOnboardingAtStartup', e.target.checked)
-									}
-									color="primary"
-								/>
-							}
-							label="Show Onboarding at Startup"
-							sx={{
-								color: isDarkMode ? '#FFFFFF' : '#000000',
-								display: 'flex',
-							}}
-						/>
-					</div>
-
-					<div className="space-y-2">
-						<FormControlLabel
-							control={
-								<Switch
-									checked={settings.confirmBeforeJobDeletion}
-									onChange={(e) =>
-										updateSetting('confirmBeforeJobDeletion', e.target.checked)
-									}
-									color="primary"
-								/>
-							}
-							label="Confirm Before Job Deletion"
-							sx={{
-								color: isDarkMode ? '#FFFFFF' : '#000000',
-								display: 'flex',
-							}}
-						/>
-						<FormControlLabel
-							control={
-								<Switch
-									checked={settings.enableKeyboardShortcuts}
-									onChange={(e) =>
-										updateSetting('enableKeyboardShortcuts', e.target.checked)
-									}
-									color="primary"
-								/>
-							}
-							label="Enable Keyboard Shortcuts"
-							sx={{
-								color: isDarkMode ? '#FFFFFF' : '#000000',
-								display: 'flex',
-							}}
-						/>
-					</div>
-				</div>
-
-				<div className="mt-4 flex justify-center">
-					<Button
-						variant="outlined"
-						startIcon={<HelpIcon />}
-						onClick={() => {
-							// No logic yet
-							console.log('Repeat onboarding clicked');
-						}}
-						sx={{
-							borderColor: '#9747FF',
-							color: isDarkMode ? '#FFFFFF' : '#000000',
-							'&:hover': {
-								borderColor: '#8030E0',
-								backgroundColor: isDarkMode
-									? 'rgba(151, 71, 255, 0.1)'
-									: 'rgba(151, 71, 255, 0.1)',
-							},
-						}}
-					>
-						Repeat Onboarding
-					</Button>
 				</div>
 			</Card>
 
@@ -852,52 +759,50 @@ export const SettingsPage: React.FC = () => {
 
 					<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 						<div className="space-y-2">
+							<Typography
+								variant="subtitle2"
+								className="mb-2"
+								style={{ color: isDarkMode ? '#AAAAAA' : '#666666' }}
+							>
+								Additional Security Features (Coming Soon)
+							</Typography>
 							<FormControlLabel
 								control={
-									<Switch
-										checked={settings.encryptLocalStorage}
-										onChange={(e) =>
-											updateSetting('encryptLocalStorage', e.target.checked)
-										}
-										color="primary"
-									/>
+									<Switch checked={false} disabled={true} color="primary" />
 								}
 								label="Encrypt Local Storage"
 								sx={{
-									color: isDarkMode ? '#FFFFFF' : '#000000',
+									color: isDarkMode
+										? 'rgba(255, 255, 255, 0.5)'
+										: 'rgba(0, 0, 0, 0.5)',
 									display: 'flex',
+									opacity: 0.6,
 								}}
 							/>
 							<FormControlLabel
 								control={
-									<Switch
-										checked={settings.autoBackupDatasets}
-										onChange={(e) =>
-											updateSetting('autoBackupDatasets', e.target.checked)
-										}
-										color="primary"
-									/>
+									<Switch checked={false} disabled={true} color="primary" />
 								}
 								label="Auto-backup Datasets"
 								sx={{
-									color: isDarkMode ? '#FFFFFF' : '#000000',
+									color: isDarkMode
+										? 'rgba(255, 255, 255, 0.5)'
+										: 'rgba(0, 0, 0, 0.5)',
 									display: 'flex',
+									opacity: 0.6,
 								}}
 							/>
 							<FormControlLabel
 								control={
-									<Switch
-										checked={settings.promptBeforeOverwriting}
-										onChange={(e) =>
-											updateSetting('promptBeforeOverwriting', e.target.checked)
-										}
-										color="primary"
-									/>
+									<Switch checked={false} disabled={true} color="primary" />
 								}
 								label="Prompt Before Overwriting Datasets"
 								sx={{
-									color: isDarkMode ? '#FFFFFF' : '#000000',
+									color: isDarkMode
+										? 'rgba(255, 255, 255, 0.5)'
+										: 'rgba(0, 0, 0, 0.5)',
 									display: 'flex',
+									opacity: 0.6,
 								}}
 							/>
 						</div>
@@ -906,19 +811,111 @@ export const SettingsPage: React.FC = () => {
 							<Button
 								variant="outlined"
 								startIcon={<DeleteIcon />}
-								onClick={handleClearStoredDatasets}
+								disabled={true}
 								sx={{
-									borderColor: '#f44336',
-									color: '#f44336',
-									'&:hover': {
-										borderColor: '#d32f2f',
-										backgroundColor: 'rgba(244, 67, 54, 0.04)',
+									borderColor: 'rgba(244, 67, 54, 0.5)',
+									color: 'rgba(244, 67, 54, 0.5)',
+									opacity: 0.6,
+									'&.Mui-disabled': {
+										borderColor: 'rgba(244, 67, 54, 0.3)',
+										color: 'rgba(244, 67, 54, 0.3)',
 									},
 								}}
 							>
 								Clear Stored Datasets
 							</Button>
+							<Typography
+								variant="caption"
+								style={{ color: isDarkMode ? '#AAAAAA' : '#666666' }}
+							>
+								This feature is coming soon
+							</Typography>
 						</div>
+					</div>
+				</div>
+			</Card>
+
+			{/* UX & Onboarding Card */}
+			<Card
+				className={`p-6 rounded-xl shadow-md transition-all ${
+					isDarkMode ? 'bg-[#212121]' : 'bg-[#E9E9E9]'
+				}`}
+			>
+				<div className="flex items-center mb-4">
+					<HelpIcon style={{ color: '#9747FF' }} className="mr-3" />
+					<h2
+						className="text-[18px] font-semibold"
+						style={{ color: isDarkMode ? '#FFFFFF' : '#000000' }}
+					>
+						UX, Hints & Onboarding
+					</h2>
+				</div>
+
+				<Typography
+					variant="subtitle2"
+					className="mb-3"
+					style={{ color: isDarkMode ? '#AAAAAA' : '#666666' }}
+				>
+					These features are coming soon
+				</Typography>
+
+				<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+					<div className="space-y-2">
+						<FormControlLabel
+							control={
+								<Switch checked={false} disabled={true} color="primary" />
+							}
+							label="Enable Tooltips"
+							sx={{
+								color: isDarkMode
+									? 'rgba(255, 255, 255, 0.5)'
+									: 'rgba(0, 0, 0, 0.5)',
+								display: 'flex',
+								opacity: 0.6,
+							}}
+						/>
+						<FormControlLabel
+							control={
+								<Switch checked={false} disabled={true} color="primary" />
+							}
+							label="Show Onboarding at Startup"
+							sx={{
+								color: isDarkMode
+									? 'rgba(255, 255, 255, 0.5)'
+									: 'rgba(0, 0, 0, 0.5)',
+								display: 'flex',
+								opacity: 0.6,
+							}}
+						/>
+					</div>
+
+					<div className="space-y-2">
+						<FormControlLabel
+							control={
+								<Switch checked={false} disabled={true} color="primary" />
+							}
+							label="Confirm Before Job Deletion"
+							sx={{
+								color: isDarkMode
+									? 'rgba(255, 255, 255, 0.5)'
+									: 'rgba(0, 0, 0, 0.5)',
+								display: 'flex',
+								opacity: 0.6,
+							}}
+						/>
+						<FormControlLabel
+							control={
+								<Switch checked={false} disabled={true} color="primary" />
+							}
+							label="Enable Keyboard Shortcuts"
+							sx={{
+								color: isDarkMode
+									? 'rgba(255, 255, 255, 0.5)'
+									: 'rgba(0, 0, 0, 0.5)',
+								display: 'flex',
+								opacity: 0.6,
+							}}
+						/>
 					</div>
 				</div>
 			</Card>
@@ -939,44 +936,51 @@ export const SettingsPage: React.FC = () => {
 					</h2>
 				</div>
 
+				<Typography
+					variant="subtitle2"
+					className="mb-3"
+					style={{ color: isDarkMode ? '#AAAAAA' : '#666666' }}
+				>
+					These features are coming soon
+				</Typography>
+
 				<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 					<div>
 						<Typography
 							variant="body2"
-							sx={{ mb: 1, color: isDarkMode ? '#AAAAAA' : '#666666' }}
+							sx={{
+								mb: 1,
+								color: isDarkMode ? '#AAAAAA' : '#666666',
+								opacity: 0.6,
+							}}
 						>
 							Default Iteration Count
 						</Typography>
 						<div className="flex items-center space-x-3">
 							<Slider
-								value={settings.defaultIterationCount}
-								onChange={(_, newValue) =>
-									updateSetting('defaultIterationCount', newValue as number)
-								}
+								value={100}
+								disabled={true}
 								min={1}
 								max={1000}
 								step={10}
 								sx={{
-									color: '#9747FF',
+									color: 'rgba(151, 71, 255, 0.5)',
+									opacity: 0.6,
 									'& .MuiSlider-thumb': {
 										backgroundColor: '#FFFFFF',
-										border: '2px solid #9747FF',
+										border: '2px solid rgba(151, 71, 255, 0.5)',
 									},
 								}}
 							/>
 							<TextField
-								value={settings.defaultIterationCount}
-								onChange={(e) => {
-									const value = parseInt(e.target.value);
-									if (!isNaN(value) && value >= 1 && value <= 1000) {
-										updateSetting('defaultIterationCount', value);
-									}
-								}}
+								value={100}
+								disabled={true}
 								type="number"
 								InputProps={{ inputProps: { min: 1, max: 1000 } }}
 								sx={{
 									width: '80px',
 									backgroundColor: isDarkMode ? '#2a2a2a' : '#f8f8f8',
+									opacity: 0.6,
 									borderRadius: '8px',
 									'& .MuiOutlinedInput-root': {
 										borderRadius: '8px',
@@ -985,12 +989,12 @@ export const SettingsPage: React.FC = () => {
 										borderColor: 'transparent',
 									},
 									'&:hover .MuiOutlinedInput-notchedOutline': {
-										borderColor: isDarkMode
-											? 'rgba(255, 255, 255, 0.6)'
-											: 'rgba(0, 0, 0, 0.5)',
+										borderColor: 'transparent',
 									},
 									'.MuiInputBase-input': {
-										color: isDarkMode ? '#ffffff' : '#111111',
+										color: isDarkMode
+											? 'rgba(255, 255, 255, 0.5)'
+											: 'rgba(0, 0, 0, 0.5)',
 									},
 								}}
 							/>
@@ -1000,69 +1004,69 @@ export const SettingsPage: React.FC = () => {
 					<div className="space-y-2">
 						<FormControlLabel
 							control={
-								<Switch
-									checked={settings.enableSmartMemoryUnits}
-									onChange={(e) =>
-										updateSetting('enableSmartMemoryUnits', e.target.checked)
-									}
-									color="primary"
-								/>
+								<Switch checked={false} disabled={true} color="primary" />
 							}
 							label="Enable Smart Memory Units"
 							sx={{
-								color: isDarkMode ? '#FFFFFF' : '#000000',
+								color: isDarkMode
+									? 'rgba(255, 255, 255, 0.5)'
+									: 'rgba(0, 0, 0, 0.5)',
 								display: 'flex',
+								opacity: 0.6,
 							}}
 						/>
 						<FormControlLabel
 							control={
-								<Switch
-									checked={settings.warnOnLongJobs}
-									onChange={(e) =>
-										updateSetting('warnOnLongJobs', e.target.checked)
-									}
-									color="primary"
-								/>
+								<Switch checked={false} disabled={true} color="primary" />
 							}
 							label="Warn on Long Jobs"
 							sx={{
-								color: isDarkMode ? '#FFFFFF' : '#000000',
+								color: isDarkMode
+									? 'rgba(255, 255, 255, 0.5)'
+									: 'rgba(0, 0, 0, 0.5)',
 								display: 'flex',
+								opacity: 0.6,
 							}}
 						/>
-						{settings.warnOnLongJobs && (
-							<div className="pl-10">
-								<Typography
-									variant="body2"
-									sx={{ mb: 1, color: isDarkMode ? '#AAAAAA' : '#666666' }}
-								>
-									Long Job Threshold (seconds)
-								</Typography>
-								<Slider
-									value={settings.longJobThreshold}
-									onChange={(_, newValue) =>
-										updateSetting('longJobThreshold', newValue as number)
-									}
-									min={10}
-									max={300}
-									step={10}
-									sx={{
-										width: '90%',
-										color: '#9747FF',
-										'& .MuiSlider-thumb': {
-											backgroundColor: '#FFFFFF',
-											border: '2px solid #9747FF',
-										},
-									}}
-								/>
-								<Typography
-									variant="body2"
-									sx={{ color: isDarkMode ? '#FFFFFF' : '#000000' }}
-								>
-									{settings.longJobThreshold} seconds
-								</Typography>
-							</div>
-						)}
+						<div className="pl-10">
+							<Typography
+								variant="body2"
+								sx={{
+									mb: 1,
+									color: isDarkMode ? '#AAAAAA' : '#666666',
+									opacity: 0.6,
+								}}
+							>
+								Long Job Threshold (seconds)
+							</Typography>
+							<Slider
+								value={60}
+								disabled={true}
+								min={10}
+								max={300}
+								step={10}
+								sx={{
+									width: '90%',
+									color: 'rgba(151, 71, 255, 0.5)',
+									opacity: 0.6,
+									'& .MuiSlider-thumb': {
+										backgroundColor: '#FFFFFF',
+										border: '2px solid rgba(151, 71, 255, 0.5)',
+									},
+								}}
+							/>
+							<Typography
+								variant="body2"
+								sx={{
+									color: isDarkMode
+										? 'rgba(255, 255, 255, 0.5)'
+										: 'rgba(0, 0, 0, 0.5)',
+									opacity: 0.6,
+								}}
+							>
+								60 seconds
+							</Typography>
+						</div>
 					</div>
 				</div>
 
@@ -1101,22 +1105,35 @@ export const SettingsPage: React.FC = () => {
 					</h2>
 				</div>
 
+				<Typography
+					variant="subtitle2"
+					className="mb-3"
+					style={{ color: isDarkMode ? '#AAAAAA' : '#666666' }}
+				>
+					These features are coming soon
+				</Typography>
+
 				<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 					<div>
 						<Typography
 							variant="body2"
-							sx={{ mb: 1, color: isDarkMode ? '#AAAAAA' : '#666666' }}
+							sx={{
+								mb: 1,
+								color: isDarkMode ? '#AAAAAA' : '#666666',
+								opacity: 0.6,
+							}}
 						>
 							Default Import Path
 						</Typography>
 						<div className="flex items-center space-x-2">
 							<TextField
 								fullWidth
-								value={settings.defaultImportPath}
-								disabled
+								value={''}
+								disabled={true}
 								placeholder="Not set"
 								sx={{
 									backgroundColor: isDarkMode ? '#2a2a2a' : '#f8f8f8',
+									opacity: 0.6,
 									borderRadius: '8px',
 									'& .MuiOutlinedInput-root': {
 										borderRadius: '8px',
@@ -1125,18 +1142,18 @@ export const SettingsPage: React.FC = () => {
 										borderColor: 'transparent',
 									},
 									'.MuiInputBase-input': {
-										color: isDarkMode ? '#ffffff' : '#111111',
+										color: isDarkMode
+											? 'rgba(255, 255, 255, 0.5)'
+											: 'rgba(0, 0, 0, 0.5)',
 									},
 								}}
 							/>
 							<IconButton
-								onClick={handleChooseImportPath}
+								disabled={true}
 								sx={{
-									color: '#9747FF',
+									color: 'rgba(151, 71, 255, 0.5)',
+									opacity: 0.6,
 									bgcolor: isDarkMode ? '#2a2a2a' : '#f8f8f8',
-									'&:hover': {
-										bgcolor: isDarkMode ? '#333333' : '#e0e0e0',
-									},
 								}}
 							>
 								<FolderIcon />
@@ -1147,40 +1164,28 @@ export const SettingsPage: React.FC = () => {
 					<div className="space-y-2">
 						<FormControlLabel
 							control={
-								<Switch
-									checked={settings.switchToNewDatasetAfterImport}
-									onChange={(e) =>
-										updateSetting(
-											'switchToNewDatasetAfterImport',
-											e.target.checked
-										)
-									}
-									color="primary"
-								/>
+								<Switch checked={false} disabled={true} color="primary" />
 							}
 							label="Auto-switch to New Dataset After Import"
 							sx={{
-								color: isDarkMode ? '#FFFFFF' : '#000000',
+								color: isDarkMode
+									? 'rgba(255, 255, 255, 0.5)'
+									: 'rgba(0, 0, 0, 0.5)',
 								display: 'flex',
+								opacity: 0.6,
 							}}
 						/>
 						<FormControlLabel
 							control={
-								<Switch
-									checked={settings.askBeforeOverwritingExport}
-									onChange={(e) =>
-										updateSetting(
-											'askBeforeOverwritingExport',
-											e.target.checked
-										)
-									}
-									color="primary"
-								/>
+								<Switch checked={false} disabled={true} color="primary" />
 							}
 							label="Ask Before Overwriting Export"
 							sx={{
-								color: isDarkMode ? '#FFFFFF' : '#000000',
+								color: isDarkMode
+									? 'rgba(255, 255, 255, 0.5)'
+									: 'rgba(0, 0, 0, 0.5)',
 								display: 'flex',
+								opacity: 0.6,
 							}}
 						/>
 					</div>

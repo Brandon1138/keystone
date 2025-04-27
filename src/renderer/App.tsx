@@ -225,9 +225,13 @@ const ConditionalPageTransition: React.FC<{ children: React.ReactNode }> = ({
 	return <PageTransition>{children}</PageTransition>;
 };
 
-const App: React.FC = () => {
-	// Start with dark mode by default
-	const [lightMode, setLightMode] = useState(false);
+// AppContent component that will use the settings context
+const AppContent: React.FC = () => {
+	const { settings, updateSetting } = useSettings();
+	// Update lightMode to use settings
+	const [lightMode, setLightMode] = useState(
+		settings.themePreference === 'light'
+	);
 	const theme = createAppTheme(lightMode ? 'light' : 'dark');
 	const [showStartupAnimation, setShowStartupAnimation] = useState(true);
 	const [appHasLoaded, setAppHasLoaded] = useState(false);
@@ -235,7 +239,36 @@ const App: React.FC = () => {
 	const appContentRef = useRef<HTMLDivElement>(null);
 	// Add state for UI visibility
 	const [isUIVisible, setIsUIVisible] = useState(true);
-	const { settings } = useSettings();
+
+	// Media query for detecting system color scheme
+	const prefersDarkScheme = window.matchMedia('(prefers-color-scheme: dark)');
+
+	// Effect to update the theme based on settings
+	useEffect(() => {
+		const updateThemeBasedOnPreference = () => {
+			if (settings.themePreference === 'system') {
+				setLightMode(!prefersDarkScheme.matches);
+			} else {
+				setLightMode(settings.themePreference === 'light');
+			}
+		};
+
+		// Initial setup
+		updateThemeBasedOnPreference();
+
+		// Listen for system theme changes
+		const systemThemeChangeHandler = (e: MediaQueryListEvent) => {
+			if (settings.themePreference === 'system') {
+				setLightMode(!e.matches);
+			}
+		};
+
+		prefersDarkScheme.addEventListener('change', systemThemeChangeHandler);
+
+		return () => {
+			prefersDarkScheme.removeEventListener('change', systemThemeChangeHandler);
+		};
+	}, [settings.themePreference]);
 
 	// Initialize theme mode
 	useEffect(() => {
@@ -284,174 +317,213 @@ const App: React.FC = () => {
 		setIsUIVisible(!isUIVisible);
 	};
 
-	// Toggle light/dark mode
+	// Toggle light/dark mode (only between light and dark, not system)
 	const toggleTheme = () => {
-		setLightMode(!lightMode);
+		// Only toggle between light and dark, don't affect system setting
+		if (settings.themePreference === 'system') {
+			return; // Do nothing if in system mode
+		}
+
+		// Toggle between light and dark
+		const newThemePreference =
+			settings.themePreference === 'light' ? 'dark' : 'light';
+		updateSetting('themePreference', newThemePreference);
 	};
 
 	return (
 		<ThemeProvider theme={theme}>
 			<CssBaseline />
-			<SettingsProvider>
-				<QuantumHardwareProvider>
-					<Router>
-						<div className="min-h-screen bg-background text-foreground relative overflow-hidden">
-							{/* Startup Animation */}
-							<StartupLoaderWrapper
-								setShowStartupAnimation={setShowStartupAnimation}
-								appHasLoaded={appHasLoaded}
-							/>
+			<QuantumHardwareProvider>
+				<Router>
+					<div className="min-h-screen bg-background text-foreground relative overflow-hidden">
+						{/* Startup Animation */}
+						<StartupLoaderWrapper
+							setShowStartupAnimation={setShowStartupAnimation}
+							appHasLoaded={appHasLoaded}
+						/>
 
-							{/* Always render the main app content, but control visibility with CSS */}
-							<div
-								ref={mainContentRef}
-								className="transition-opacity duration-500"
-								style={{
-									opacity: 0, // Start invisible and let gsap handle the animation
-									visibility: showStartupAnimation ? 'hidden' : 'visible',
-									position: 'absolute',
-									top: 0,
-									left: 0,
-									width: '100%',
-									height: '100%',
-									pointerEvents: showStartupAnimation ? 'none' : 'auto',
-								}}
-							>
-								{/* Quantum Lattice Background */}
-								<QuantumBackground />
+						{/* Always render the main app content, but control visibility with CSS */}
+						<div
+							ref={mainContentRef}
+							className="transition-opacity duration-500"
+							style={{
+								opacity: 0, // Start invisible and let gsap handle the animation
+								visibility: showStartupAnimation ? 'hidden' : 'visible',
+								position: 'absolute',
+								top: 0,
+								left: 0,
+								width: '100%',
+								height: '100%',
+								pointerEvents: showStartupAnimation ? 'none' : 'auto',
+							}}
+						>
+							{/* Quantum Lattice Background */}
+							<QuantumBackground />
 
-								{/* Background circles - only visible in dark mode */}
-								{!lightMode && (
-									<>
-										<div className="bg-circle bg-circle-topleft"></div>
-										<div className="bg-circle bg-circle-bottomright"></div>
-									</>
-								)}
+							{/* Background circles - only visible in dark mode */}
+							{!lightMode && (
+								<>
+									<div className="bg-circle bg-circle-topleft"></div>
+									<div className="bg-circle bg-circle-bottomright"></div>
+								</>
+							)}
 
-								<div className="container mx-auto p-2 relative z-10">
-									{/* Header */}
-									<header className="mb-4">
-										<div className="flex justify-between items-center">
-											{/* Logo */}
-											<div className="p-2">
-												<img
-													src={
-														lightMode
-															? './keystone_logo_light.svg'
-															: './keystone_logo_dark.svg'
-													}
-													alt="Keystone Logo"
-													className="h-40"
+							<div className="container mx-auto p-2 relative z-10">
+								{/* Header */}
+								<header className="mb-4">
+									<div className="flex justify-between items-center">
+										{/* Logo */}
+										<div className="p-2">
+											<img
+												src={
+													lightMode
+														? './keystone_logo_light.svg'
+														: './keystone_logo_dark.svg'
+												}
+												alt="Keystone Logo"
+												className="h-40"
+											/>
+										</div>
+
+										{/* Header Controls - Keep eye toggle outside the hidden content */}
+										<div className="flex items-center gap-3 p-3">
+											<EyeToggle
+												isVisible={isUIVisible}
+												onToggle={toggleUIVisibility}
+												isEnabled={true}
+												appContentRef={
+													appContentRef as React.RefObject<HTMLDivElement>
+												}
+											/>
+											<div
+												style={{
+													visibility: isUIVisible ? 'visible' : 'hidden',
+													opacity: isUIVisible ? 1 : 0,
+												}}
+												className="flex items-center gap-3"
+											>
+												{/* Theme indicator */}
+												{settings.themePreference === 'system' ? (
+													<div className="flex items-center">
+														<span
+															className="text-xs mr-2"
+															style={{ color: lightMode ? '#555' : '#aaa' }}
+														>
+															System: {lightMode ? 'Light' : 'Dark'}
+														</span>
+														{lightMode ? (
+															<LightModeIcon
+																className="text-[#555] text-sm"
+																fontSize="small"
+															/>
+														) : (
+															<DarkModeIcon
+																className="text-[#aaa] text-sm"
+																fontSize="small"
+															/>
+														)}
+													</div>
+												) : (
+													<>
+														{lightMode ? (
+															<LightModeIcon className="text-[#131313]" />
+														) : (
+															<DarkModeIcon className="text-[#FAFAFA]" />
+														)}
+													</>
+												)}
+
+												{/* Show switch for all modes, but disable for system */}
+												<Switch
+													checked={!lightMode}
+													onChange={toggleTheme}
+													color="primary"
+													disabled={settings.themePreference === 'system'}
 												/>
-											</div>
-
-											{/* Header Controls - Keep eye toggle outside the hidden content */}
-											<div className="flex items-center gap-3 p-3">
-												<EyeToggle
-													isVisible={isUIVisible}
-													onToggle={toggleUIVisibility}
-													isEnabled={true}
-													appContentRef={
-														appContentRef as React.RefObject<HTMLDivElement>
-													}
-												/>
-												<div
-													style={{
-														visibility: isUIVisible ? 'visible' : 'hidden',
-														opacity: isUIVisible ? 1 : 0,
-													}}
-													className="flex items-center gap-3"
-												>
-													<DarkModeIcon
-														className={
-															lightMode ? 'text-[#131313]' : 'text-[#FAFAFA]'
-														}
-													/>
-													<Switch
-														checked={!lightMode}
-														onChange={toggleTheme}
-														color="primary"
-													/>
-												</div>
 											</div>
 										</div>
-									</header>
-
-									{/* App content that will be hidden/shown */}
-									<div
-										ref={appContentRef}
-										style={{
-											visibility: isUIVisible ? 'visible' : 'hidden',
-											opacity: isUIVisible ? 1 : 0,
-										}}
-									>
-										{/* Introductory Text */}
-										<p
-											className="text-xl mb-2"
-											style={{ color: lightMode ? '#000000' : '#FFFFFF' }}
-										>
-											A Multi-Backend Workbench for Post-Quantum Cryptography &
-											Quantum Runtimes
-										</p>
-
-										{/* Navigation */}
-										<Navigation
-											toggleTheme={toggleTheme}
-											lightMode={lightMode}
-										/>
-
-										{/* Main Content */}
-										<main>
-											<ConditionalPageTransition>
-												<Routes>
-													<Route path="/" element={<HomePage />} />
-													<Route path="/home" element={<HomePage />} />
-													<Route
-														path="/run-benchmark"
-														element={<RunBenchmarkPage />}
-													/>
-													<Route
-														path="/run-encryption"
-														element={<RunEncryptionPage />}
-													/>
-													<Route
-														path="/visualization"
-														element={<VisualizationPage />}
-													/>
-													<Route path="/codex" element={<CodexPage />} />
-													<Route path="/export" element={<ExportPage />} />
-													<Route
-														path="/quantum-workloads"
-														element={<RunQuantumWorkloadsPage />}
-													/>
-													<Route
-														path="/schedule-jobs"
-														element={<ScheduleJobsPage />}
-													/>
-													<Route path="/import" element={<ImportPage />} />
-													<Route path="/settings" element={<SettingsPage />} />
-												</Routes>
-											</ConditionalPageTransition>
-										</main>
-
-										{/* Footer */}
-										<footer className="mt-8 text-center text-sm text-gray-500">
-											<p>Keystone - Version 1.0.0-rc</p>
-											<p>
-												Running on Electron<span id="electron-version"></span>,
-												Node
-												<span id="node-version"></span>, and Chromium
-												<span id="chrome-version"></span>
-											</p>
-										</footer>
 									</div>
+								</header>
+
+								{/* App content that will be hidden/shown */}
+								<div
+									ref={appContentRef}
+									style={{
+										visibility: isUIVisible ? 'visible' : 'hidden',
+										opacity: isUIVisible ? 1 : 0,
+									}}
+								>
+									{/* Introductory Text */}
+									<p
+										className="text-xl mb-2"
+										style={{ color: lightMode ? '#000000' : '#FFFFFF' }}
+									>
+										A Multi-Backend Workbench for Post-Quantum Cryptography &
+										Quantum Runtimes
+									</p>
+
+									{/* Navigation */}
+									<Navigation toggleTheme={toggleTheme} lightMode={lightMode} />
+
+									{/* Main Content */}
+									<main>
+										<ConditionalPageTransition>
+											<Routes>
+												<Route path="/" element={<HomePage />} />
+												<Route path="/home" element={<HomePage />} />
+												<Route
+													path="/run-benchmark"
+													element={<RunBenchmarkPage />}
+												/>
+												<Route
+													path="/run-encryption"
+													element={<RunEncryptionPage />}
+												/>
+												<Route
+													path="/visualization"
+													element={<VisualizationPage />}
+												/>
+												<Route path="/codex" element={<CodexPage />} />
+												<Route path="/export" element={<ExportPage />} />
+												<Route
+													path="/quantum-workloads"
+													element={<RunQuantumWorkloadsPage />}
+												/>
+												<Route
+													path="/schedule-jobs"
+													element={<ScheduleJobsPage />}
+												/>
+												<Route path="/import" element={<ImportPage />} />
+												<Route path="/settings" element={<SettingsPage />} />
+											</Routes>
+										</ConditionalPageTransition>
+									</main>
+
+									{/* Footer */}
+									<footer className="mt-8 text-center text-sm text-gray-500">
+										<p>Keystone - Version 1.0.0-rc</p>
+										<p>
+											Running on Electron<span id="electron-version"></span>,
+											Node
+											<span id="node-version"></span>, and Chromium
+											<span id="chrome-version"></span>
+										</p>
+									</footer>
 								</div>
 							</div>
 						</div>
-					</Router>
-				</QuantumHardwareProvider>
-			</SettingsProvider>
+					</div>
+				</Router>
+			</QuantumHardwareProvider>
 		</ThemeProvider>
+	);
+};
+
+const App: React.FC = () => {
+	return (
+		<SettingsProvider>
+			<AppContent />
+		</SettingsProvider>
 	);
 };
 
@@ -488,6 +560,7 @@ const Navigation: React.FC<{
 	lightMode: boolean;
 }> = ({ toggleTheme, lightMode }) => {
 	const location = useLocation();
+	const { settings } = useSettings();
 
 	// Navigation items
 	const navItems = [

@@ -460,7 +460,10 @@ const QuantumLatticeBackground: React.FC<QuantumLatticeBackgroundProps> = ({
 		}
 
 		// Create particle system if enabled
-		if (settings.enableParticleSystem) {
+		if (
+			settings.enableParticleSystem &&
+			(isDarkMode || !settings.disableParticleSystemOnLightMode)
+		) {
 			// Create particle geometry with many more vertices
 			const particlesCount = Math.floor(
 				2000 * Math.max(0.1, settings.particleDensity)
@@ -597,7 +600,11 @@ const QuantumLatticeBackground: React.FC<QuantumLatticeBackgroundProps> = ({
 		}
 
 		// Animate particle system if enabled
-		if (settings.enableParticleSystem && particlesRef.current) {
+		if (
+			settings.enableParticleSystem &&
+			particlesRef.current &&
+			(isDarkMode || !settings.disableParticleSystemOnLightMode)
+		) {
 			// Animate the particle system overall rotation
 			gsap.to(particlesRef.current.rotation, {
 				y: Math.PI * 2,
@@ -950,7 +957,11 @@ const QuantumLatticeBackground: React.FC<QuantumLatticeBackgroundProps> = ({
 		}
 
 		// Update particle system if enabled
-		if (settings.enableParticleSystem && particlesRef.current) {
+		if (
+			settings.enableParticleSystem &&
+			particlesRef.current &&
+			(isDarkMode || !settings.disableParticleSystemOnLightMode)
+		) {
 			// Add some subtle movement to the particles
 			particlesRef.current.rotation.y += 0.0005;
 
@@ -1054,7 +1065,8 @@ const QuantumLatticeBackground: React.FC<QuantumLatticeBackgroundProps> = ({
 		if (
 			!shouldShowAnimation ||
 			!settings.enableParticleSystem ||
-			!sceneRef.current
+			!sceneRef.current ||
+			(!isDarkMode && settings.disableParticleSystemOnLightMode)
 		)
 			return;
 
@@ -1155,6 +1167,8 @@ const QuantumLatticeBackground: React.FC<QuantumLatticeBackgroundProps> = ({
 		settings.enableParticleSystem,
 		shouldShowAnimation,
 		settings.particleIntensity,
+		isDarkMode,
+		settings.disableParticleSystemOnLightMode,
 	]);
 
 	// Update particle system visibility when enableParticleSystem changes
@@ -1162,18 +1176,28 @@ const QuantumLatticeBackground: React.FC<QuantumLatticeBackgroundProps> = ({
 		if (!shouldShowAnimation || !particlesRef.current || !sceneRef.current)
 			return;
 
-		if (settings.enableParticleSystem) {
+		// Check if particles should be shown based on enableParticleSystem and theme mode
+		const shouldShowParticles =
+			settings.enableParticleSystem &&
+			(isDarkMode || !settings.disableParticleSystemOnLightMode);
+
+		if (shouldShowParticles) {
 			// Make sure it's added to the scene if not already
 			if (!particlesRef.current.parent) {
 				sceneRef.current.add(particlesRef.current);
 			}
 		} else {
-			// Remove from scene if setting is disabled
+			// Remove from scene if setting is disabled or in light mode with disableParticleSystemOnLightMode enabled
 			if (particlesRef.current.parent) {
 				particlesRef.current.parent.remove(particlesRef.current);
 			}
 		}
-	}, [settings.enableParticleSystem, shouldShowAnimation]);
+	}, [
+		settings.enableParticleSystem,
+		shouldShowAnimation,
+		isDarkMode,
+		settings.disableParticleSystemOnLightMode,
+	]);
 
 	// Update point lights visibility when enableDynamicLighting changes
 	useEffect(() => {
