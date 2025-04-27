@@ -331,10 +331,32 @@ export function initDatasetManager() {
 			// Write to the new location
 			fs.writeFileSync(filePath, currentData);
 
+			// Switch to the newly saved dataset
+			await lowdbService.switchDatabase(filePath);
+
+			// Update the current dataset path
+			currentDatasetPath = filePath;
+
 			// Add to dataset history
 			addToDatasetHistory(filePath);
 
-			return { success: true, path: filePath };
+			// Get stats for the newly saved dataset
+			const runs = await lowdbService.getAllRuns();
+			const quantumResults = await lowdbService.getAllQuantumResults();
+			const pqcClassicalDetails =
+				await lowdbService.getAllPqcClassicalDetails();
+
+			const stats = {
+				runs: runs.length || 0,
+				quantum: quantumResults.length || 0,
+				pqcClassical: pqcClassicalDetails.length || 0,
+			};
+
+			return {
+				success: true,
+				path: filePath,
+				stats,
+			};
 		} catch (error: any) {
 			console.error('Error saving dataset:', error);
 			return {

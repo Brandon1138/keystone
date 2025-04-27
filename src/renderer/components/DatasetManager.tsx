@@ -18,6 +18,7 @@ import {
 	Box,
 	IconButton,
 	Tooltip,
+	Pagination,
 } from '@mui/material';
 import ImportIcon from '@mui/icons-material/Upload';
 import SaveIcon from '@mui/icons-material/Save';
@@ -48,6 +49,10 @@ export const DatasetManager: React.FC = () => {
 	const [importedDatasets, setImportedDatasets] = useState<DatasetInfo[]>([]);
 	const [isLoading, setIsLoading] = useState<boolean>(true); // Start with loading true
 	const [isInitialized, setIsInitialized] = useState<boolean>(false);
+
+	// Pagination state
+	const [page, setPage] = useState(1);
+	const itemsPerPage = 10;
 
 	// Dialog state
 	const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
@@ -160,6 +165,8 @@ export const DatasetManager: React.FC = () => {
 					);
 
 					setImportedDatasets(updatedDatasets);
+					// Reset to first page when datasets change
+					setPage(1);
 
 					// Update current dataset
 					if (customEvent.detail.path) {
@@ -247,6 +254,8 @@ export const DatasetManager: React.FC = () => {
 				);
 
 				setImportedDatasets(updatedDatasets);
+				// Reset to first page when datasets change
+				setPage(1);
 
 				// Update current dataset
 				setCurrentDataset({
@@ -268,6 +277,10 @@ export const DatasetManager: React.FC = () => {
 	const handleSaveDataset = async () => {
 		try {
 			setIsLoading(true);
+
+			// Store the current dataset path before saving
+			const oldPath = currentDataset?.path;
+
 			const result = await window.datasetAPI.saveDataset();
 
 			if (result.success) {
@@ -277,15 +290,51 @@ export const DatasetManager: React.FC = () => {
 				const history: Array<{ path: string; lastUsed?: boolean }> =
 					await window.datasetAPI.getDatasetHistory();
 
+				// If old path exists and is different from the new path, filter it out
+				if (oldPath && result.path && oldPath !== result.path) {
+					// Remove the old dataset from history if it was a temporary dataset
+					if (oldPath.includes('new-dataset-') || oldPath.includes('temp')) {
+						try {
+							// Check if removeDatasetFromHistory is defined
+							if (window.datasetAPI.removeDatasetFromHistory) {
+								// Remove the old dataset from history via API
+								await window.datasetAPI.removeDatasetFromHistory(oldPath);
+							} else {
+								// Fallback to direct IPC if API method is not defined
+								await window.electron.ipcRenderer.invoke(
+									'remove-dataset-from-history',
+									oldPath
+								);
+							}
+						} catch (error) {
+							console.error('Error removing old dataset from history:', error);
+						}
+					}
+				}
+
 				// Refresh imported datasets with the updated history
+				const updatedHistory = await window.datasetAPI.getDatasetHistory();
 				const updatedDatasets = await Promise.all(
-					history.map(async (dataset) => {
+					updatedHistory.map(async (dataset) => {
 						const stats = await window.datasetAPI.getDatasetStats(dataset.path);
 						return { ...dataset, stats };
 					})
 				);
 
 				setImportedDatasets(updatedDatasets);
+
+				// Update current dataset to the newly saved one if we have a result path
+				if (result.path) {
+					setCurrentDataset({
+						path: result.path,
+						lastUsed: true,
+						stats: currentDataset?.stats || {
+							runs: 0,
+							quantum: 0,
+							pqcClassical: 0,
+						},
+					});
+				}
 			} else {
 				showNotification(result.message || 'Failed to save dataset', 'error');
 			}
@@ -449,12 +498,10 @@ export const DatasetManager: React.FC = () => {
 
 	// Function to format the file path for display
 	const formatPath = (path: string) => {
-		const maxLength = 60;
-		if (path.length <= maxLength) return path;
-
-		const start = path.substring(0, 20);
-		const end = path.substring(path.length - 30);
-		return `${start}...${end}`;
+		// Extract just the filename from the full path
+		// Handle both forward and backward slashes for cross-platform compatibility
+		const filename = path.split(/[/\\]/).pop() || path;
+		return filename;
 	};
 
 	// Handler to remove a dataset from history
@@ -474,7 +521,6 @@ export const DatasetManager: React.FC = () => {
 
 		try {
 			setIsLoading(true);
-			setDeleteDialogOpen(false);
 
 			// Use the API method if available, otherwise fallback to direct IPC
 			let result;
@@ -491,41 +537,46 @@ export const DatasetManager: React.FC = () => {
 			}
 
 			if (result.success) {
-				showNotification('Dataset removed from history', 'success');
-
-				// Get updated dataset history
-				const history: Array<{ path: string; lastUsed?: boolean }> =
-					await window.datasetAPI.getDatasetHistory();
-
-				// Refresh imported datasets with the updated history
-				const updatedDatasets = await Promise.all(
-					history.map(async (dataset) => {
-						const stats = await window.datasetAPI.getDatasetStats(dataset.path);
-						return { ...dataset, stats };
-					})
+				// Update the imported datasets by filtering out the deleted one
+				setImportedDatasets((prevDatasets) =>
+					prevDatasets.filter((ds) => ds.path !== datasetToDelete)
 				);
 
-				setImportedDatasets(updatedDatasets);
+				// Reset to first page when a dataset is removed
+				setPage(1);
 
-				// If the current dataset was changed, update it
-				if (result.newCurrentPath) {
-					const stats = await window.datasetAPI.getDatasetStats(
-						result.newCurrentPath
-					);
-					setCurrentDataset({
-						path: result.newCurrentPath,
-						lastUsed: true,
-						stats,
-					});
+				showNotification('Dataset removed from history', 'success');
+
+				// If the deleted dataset was the current one, we need to update currentDataset
+				if (currentDataset && currentDataset.path === datasetToDelete) {
+					// Get the new current dataset (if any)
+					const currentPath = await window.datasetAPI.getDatasetPath();
+					if (currentPath) {
+						const stats = await window.datasetAPI.getDatasetStats(currentPath);
+						setCurrentDataset({
+							path: currentPath,
+							lastUsed: true,
+							stats,
+						});
+					} else {
+						setCurrentDataset(null);
+					}
 				}
 			} else {
-				showNotification(result.message || 'Failed to remove dataset', 'error');
+				showNotification(
+					`Failed to remove dataset: ${result.message}`,
+					'error'
+				);
 			}
 		} catch (error) {
 			console.error('Error removing dataset:', error);
-			showNotification('Failed to remove dataset', 'error');
+			showNotification(
+				`Failed to remove dataset: ${(error as Error).message}`,
+				'error'
+			);
 		} finally {
 			setIsLoading(false);
+			setDeleteDialogOpen(false);
 			setDatasetToDelete(null);
 		}
 	};
@@ -535,6 +586,26 @@ export const DatasetManager: React.FC = () => {
 		setDeleteDialogOpen(false);
 		setDatasetToDelete(null);
 	};
+
+	// Handle page change
+	const handlePageChange = (
+		event: React.ChangeEvent<unknown>,
+		value: number
+	) => {
+		setPage(value);
+	};
+
+	// Calculate displayed datasets based on pagination
+	const getDisplayedDatasets = () => {
+		// Create a reversed copy of the datasets array to display newest first
+		const reversedDatasets = [...importedDatasets].reverse();
+		const startIndex = (page - 1) * itemsPerPage;
+		const endIndex = startIndex + itemsPerPage;
+		return reversedDatasets.slice(startIndex, endIndex);
+	};
+
+	// Calculate total number of pages
+	const totalPages = Math.ceil(importedDatasets.length / itemsPerPage);
 
 	return (
 		<div className="space-y-5">
@@ -809,7 +880,7 @@ export const DatasetManager: React.FC = () => {
 					</div>
 				) : (
 					<div className="space-y-3 transition-opacity duration-300">
-						{importedDatasets.map((dataset, index) => (
+						{getDisplayedDatasets().map((dataset, index) => (
 							<div
 								key={index}
 								className={`p-4 rounded-lg flex items-center justify-between ${
@@ -874,6 +945,39 @@ export const DatasetManager: React.FC = () => {
 								</div>
 							</div>
 						))}
+						{/* Pagination controls */}
+						{importedDatasets.length > itemsPerPage && (
+							<div className="flex justify-center mt-4">
+								<Pagination
+									count={totalPages}
+									page={page}
+									onChange={handlePageChange}
+									variant="outlined"
+									shape="rounded"
+									size="medium"
+									showFirstButton
+									showLastButton
+									sx={{
+										'& .MuiPaginationItem-root': {
+											color: isDarkMode ? '#FFFFFF' : '#000000',
+											borderColor: isDarkMode
+												? 'rgba(255, 255, 255, 0.2)'
+												: 'rgba(0, 0, 0, 0.2)',
+											'&.Mui-selected': {
+												backgroundColor: '#9747FF',
+												color: '#FFFFFF',
+												'&:hover': {
+													backgroundColor: '#8330E7',
+												},
+											},
+											'&:hover': {
+												borderColor: '#9747FF',
+											},
+										},
+									}}
+								/>
+							</div>
+						)}
 					</div>
 				)}
 			</Card>
