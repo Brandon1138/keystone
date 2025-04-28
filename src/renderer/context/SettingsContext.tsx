@@ -43,7 +43,7 @@ interface Settings {
 const defaultSettings: Settings = {
 	// Appearance
 	animatedBackground: true,
-	themePreference: 'dark',
+	themePreference: 'system',
 	startupLoader: true,
 	enableMotionTransitions: true,
 	disableAnimatedBackgroundOnLightMode: false,
