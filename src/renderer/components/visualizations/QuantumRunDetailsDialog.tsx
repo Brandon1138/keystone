@@ -32,6 +32,7 @@ import PhotoIcon from '@mui/icons-material/Photo';
 import FullscreenIcon from '@mui/icons-material/Fullscreen';
 import FullscreenExitIcon from '@mui/icons-material/FullscreenExit';
 import AssessmentIcon from '@mui/icons-material/Assessment';
+import ComputerIcon from '@mui/icons-material/Computer';
 import { ProcessedQuantumData } from '../../utils/dataProcessingUtils';
 // Removed QuantumResultsChart import since distribution plot image is used instead
 
@@ -55,6 +56,7 @@ const QuantumRunDetailsDialog: React.FC<QuantumRunDetailsDialogProps> = ({
 	const [imageLoaded, setImageLoaded] = useState(false);
 	const [imagePath, setImagePath] = useState<string | null>(null);
 	const [plotFullscreen, setPlotFullscreen] = useState(false);
+	const [logs, setLogs] = useState<string[]>([]);
 
 	useEffect(() => {
 		if (open && runId) {
@@ -62,6 +64,9 @@ const QuantumRunDetailsDialog: React.FC<QuantumRunDetailsDialogProps> = ({
 			const foundRun = data.find((item) => item.runId === runId) || null;
 			setRun(foundRun);
 			setLoading(false);
+
+			// Set logs from the run data
+			setLogs(foundRun?.logs || []);
 
 			// Request plot image via quantumAPI if any plot file path is stored
 			if (foundRun && foundRun.plot_file_path) {
@@ -91,6 +96,7 @@ const QuantumRunDetailsDialog: React.FC<QuantumRunDetailsDialogProps> = ({
 		} else {
 			setRun(null);
 			setImagePath(null);
+			setLogs([]);
 			setLoading(true);
 		}
 	}, [open, runId, data]);
@@ -389,7 +395,7 @@ const QuantumRunDetailsDialog: React.FC<QuantumRunDetailsDialogProps> = ({
 							{/* Distribution and Results */}
 							<Grid item xs={12}>
 								<Grid container spacing={3}>
-									<Grid item xs={12} md={6}>
+									<Grid item xs={12} md={4}>
 										<Paper
 											className={`p-4 h-full rounded-xl shadow-md transition-all ${
 												isDarkMode ? 'bg-[#212121]' : 'bg-[#E9E9E9]'
@@ -536,7 +542,53 @@ const QuantumRunDetailsDialog: React.FC<QuantumRunDetailsDialogProps> = ({
 											</Box>
 										</Paper>
 									</Grid>
-									<Grid item xs={12} md={6}>
+
+									{/* Execution Logs Card - Added between Results and Distribution Plot */}
+									<Grid item xs={12} md={4}>
+										<Paper
+											className={`p-4 h-full rounded-xl shadow-md transition-all ${
+												isDarkMode ? 'bg-[#212121]' : 'bg-[#E9E9E9]'
+											}`}
+										>
+											<div className="flex items-center mb-3">
+												<ComputerIcon
+													style={{ color: '#9747FF' }}
+													className="mr-2"
+												/>
+												<Typography variant="subtitle1">
+													Execution Logs
+												</Typography>
+											</div>
+											<div
+												className="overflow-auto p-2 font-mono text-xs"
+												style={{
+													backgroundColor: isDarkMode ? '#121212' : '#f0f0f0',
+													color: isDarkMode ? '#c0c0c0' : '#333333',
+													height: '250px',
+													borderRadius: '8px',
+												}}
+											>
+												{logs.length > 0 ? (
+													logs.map((log, index) => (
+														<div
+															key={index}
+															className="whitespace-pre-wrap mb-1"
+														>
+															{log}
+														</div>
+													))
+												) : (
+													<div className="text-center p-4">
+														<Typography variant="body2">
+															No execution logs available for this run
+														</Typography>
+													</div>
+												)}
+											</div>
+										</Paper>
+									</Grid>
+
+									<Grid item xs={12} md={4}>
 										<Paper
 											className={`p-4 h-full rounded-xl shadow-md transition-all ${
 												isDarkMode ? 'bg-[#212121]' : 'bg-[#E9E9E9]'

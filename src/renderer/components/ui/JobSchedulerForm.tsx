@@ -253,8 +253,6 @@ const JobSchedulerForm: React.FC<JobSchedulerFormProps> = ({
 						setJobId(result.id);
 					}
 				}
-
-				await window.jobSchedulerAPI.scheduleJob(quantumJob);
 			}
 
 			// Call the callback function

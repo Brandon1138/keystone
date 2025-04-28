@@ -216,6 +216,7 @@ export interface ProcessedQuantumData {
 	t1_time?: number | null;
 	t2_time?: number | null;
 	quantum_volume?: number | null;
+	logs?: string[];
 }
 
 // Function to fetch and process all benchmark data
@@ -801,6 +802,7 @@ function processQuantumData(
 					t1_time: t1_time || null,
 					t2_time: t2_time || null,
 					quantum_volume: quantum_volume || null,
+					logs: result.logs,
 				});
 			}
 		}

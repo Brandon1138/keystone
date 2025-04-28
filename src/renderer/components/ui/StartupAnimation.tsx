@@ -196,9 +196,12 @@ const StartupAnimation: React.FC<StartupAnimationProps> = ({
 			new THREE.BufferAttribute(positions, 3)
 		);
 
+		// Set particle color based on theme mode
+		const particleColor = isDarkMode ? 0xffffff : 0x555555; // White for dark mode, grey for light mode
+
 		// Create particle material with larger size and glow
 		const particleMaterial = new THREE.PointsMaterial({
-			color: 0xffffff,
+			color: particleColor,
 			size: 0.15, // Increased from 0.12
 			transparent: true,
 			opacity: 0.8, // Start with some opacity
@@ -383,21 +386,32 @@ const StartupAnimation: React.FC<StartupAnimationProps> = ({
 		// Fade out animation for the entire component
 		tl.to(containerRef.current, {
 			opacity: 0,
-			duration: 0.5, // Reduced from 0.8 for a faster transition
+			duration: 0.5,
 			ease: 'power2.out',
 		});
 
-		// Also scale down the qubits for a nice effect
+		// Fade out qubits and particles together
 		if (qubit1Ref.current && qubit2Ref.current) {
+			// Fade out qubit materials
 			tl.to(
-				[qubit1Ref.current.scale, qubit2Ref.current.scale],
+				[qubit1Ref.current.material, qubit2Ref.current.material],
 				{
-					x: 0.1,
-					y: 0.1,
-					z: 0.1,
-					duration: 0.5, // Reduced from 0.8 to match container fade duration
+					opacity: 0,
+					duration: 0.5,
 				},
-				'-=0.5' // Match the duration above
+				'-=0.5' // Run simultaneously with container fade
+			);
+		}
+
+		// Fade out the entanglement particles
+		if (particlesRef.current && particlesRef.current.material) {
+			tl.to(
+				particlesRef.current.material,
+				{
+					opacity: 0,
+					duration: 0.5,
+				},
+				'-=0.5' // Run simultaneously with container fade
 			);
 		}
 	};
