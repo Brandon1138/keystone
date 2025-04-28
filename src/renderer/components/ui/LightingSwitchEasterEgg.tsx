@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { gsap } from 'gsap';
-import * as THREE from 'three';
+import { THREE } from '../../utils/threeInstance';
 
 interface LightingSwitchEasterEggProps {
 	enabled: boolean;

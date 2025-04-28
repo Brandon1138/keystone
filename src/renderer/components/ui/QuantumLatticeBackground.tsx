@@ -1,12 +1,14 @@
 import React, { useRef, useEffect, useState, useMemo } from 'react';
-import * as THREE from 'three';
+import {
+	THREE,
+	EffectComposer,
+	RenderPass,
+	UnrealBloomPass,
+} from '../../utils/threeInstance';
 import { gsap } from 'gsap';
 import { useTheme } from '@mui/material/styles';
 import { useSettings } from '../../context/SettingsContext';
 import { useQuantumHardware } from '../../context/QuantumHardwareContext';
-import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer';
-import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass';
-import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass';
 
 interface QuantumLatticeBackgroundProps {
 	enabled?: boolean;

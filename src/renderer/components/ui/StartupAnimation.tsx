@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
-import * as THREE from 'three';
+import { THREE } from '../../utils/threeInstance';
 import { gsap } from 'gsap';
 import { Typography, LinearProgress, Box } from '@mui/material';
 import { useTheme } from '@mui/material/styles';

@@ -10,6 +10,38 @@ import fs from 'fs';
 import { app } from 'electron';
 
 /**
+ * Gets the project root directory
+ */
+function getProjectRoot(): string {
+	const isDevelopment = process.env.NODE_ENV === 'development';
+	if (isDevelopment) {
+		// In development, find the directory containing package.json
+		let currentDir = __dirname;
+		while (
+			!fs.existsSync(path.join(currentDir, 'package.json')) &&
+			currentDir !== path.parse(currentDir).root
+		) {
+			currentDir = path.dirname(currentDir);
+		}
+		if (fs.existsSync(path.join(currentDir, 'package.json'))) {
+			return currentDir;
+		} else {
+			// Fallback if package.json not found
+			return path.resolve(__dirname, '..', '..');
+		}
+	} else {
+		// In production, use resources path
+		const processAny = process as any;
+		const resourcesPath =
+			processAny.resourcesPath ||
+			(app
+				? path.dirname(app.getAppPath())
+				: path.resolve(__dirname, '..', '..'));
+		return resourcesPath;
+	}
+}
+
+/**
  * Service that manages job scheduling and execution
  */
 export class JobSchedulerService {
@@ -21,6 +53,72 @@ export class JobSchedulerService {
 	constructor() {
 		console.log('[JobSchedulerService] Initializing job scheduler service');
 		this.startScheduleChecker();
+		this.verifyQuantumScripts();
+	}
+
+	/**
+	 * Verify that quantum scripts exist and log their paths
+	 * This is used for diagnostics at startup
+	 */
+	private verifyQuantumScripts(): void {
+		const quantumScriptsPath = this.getQuantumScriptPath();
+		console.log(
+			`[JobSchedulerService] Verifying quantum scripts in: ${quantumScriptsPath}`
+		);
+
+		// Check if directory exists
+		if (!fs.existsSync(quantumScriptsPath)) {
+			console.error(
+				`[JobSchedulerService] ERROR: Quantum scripts directory does not exist: ${quantumScriptsPath}`
+			);
+			return;
+		}
+
+		// List all Python scripts
+		const scriptFiles = fs
+			.readdirSync(quantumScriptsPath)
+			.filter((file) => file.endsWith('.py'));
+
+		if (scriptFiles.length === 0) {
+			console.error(
+				`[JobSchedulerService] ERROR: No Python scripts found in ${quantumScriptsPath}`
+			);
+		} else {
+			console.log(
+				`[JobSchedulerService] Found ${scriptFiles.length} quantum scripts:`
+			);
+			scriptFiles.forEach((file) => {
+				const filePath = path.join(quantumScriptsPath, file);
+				console.log(
+					`  - ${file} (${fs.existsSync(filePath) ? 'exists' : 'MISSING!'})`
+				);
+			});
+
+			// Specifically check for required scripts
+			const requiredScripts = ['shor_n15.py', 'grover_search.py'];
+			const missingScripts = requiredScripts.filter(
+				(script) => !fs.existsSync(path.join(quantumScriptsPath, script))
+			);
+
+			if (missingScripts.length > 0) {
+				console.error(
+					`[JobSchedulerService] ERROR: Missing required quantum scripts: ${missingScripts.join(
+						', '
+					)}`
+				);
+			} else {
+				console.log(
+					`[JobSchedulerService] All required quantum scripts are available.`
+				);
+			}
+		}
+	}
+
+	/**
+	 * Gets the path to the quantum scripts directory
+	 */
+	private getQuantumScriptPath(): string {
+		return path.join(getProjectRoot(), 'quantum');
 	}
 
 	/**
@@ -401,23 +499,11 @@ export class JobSchedulerService {
 		// Update run status to running
 		await lowdbService.updateRunStatus(runId, 'running');
 
-		// Determine the path to the Python script
-		const isDevelopment = process.env.NODE_ENV === 'development';
-		const projectRoot = process.cwd();
-
-		// In development, use the script in the project directory
-		// In production, the script should be in resources/quantum
-		let scriptPath = '';
-		if (isDevelopment) {
-			scriptPath = path.join(projectRoot, 'quantum', 'shor_n15.py');
-		} else {
-			// In production, resources folder contains our extra resources
-			const resourcesPath = path.join(
-				process.resourcesPath || app.getAppPath(),
-				'resources'
-			);
-			scriptPath = path.join(resourcesPath, 'quantum', 'shor_n15.py');
-		}
+		// Get the path to the quantum script
+		const scriptPath = path.join(this.getQuantumScriptPath(), 'shor_n15.py');
+		console.log(
+			`[JobSchedulerService] Using quantum script path: ${scriptPath}`
+		);
 
 		// Verify the script exists
 		if (!fs.existsSync(scriptPath)) {
@@ -441,6 +527,7 @@ export class JobSchedulerService {
 
 		// Determine the Python executable path from virtual environment
 		let pythonExecutable = 'python'; // Default fallback
+		const projectRoot = getProjectRoot();
 		const venvPythonPath = path.join(
 			projectRoot,
 			'.venv',
@@ -658,23 +745,14 @@ export class JobSchedulerService {
 		// Update run status to running
 		await lowdbService.updateRunStatus(runId, 'running');
 
-		// Determine the path to the Python script
-		const isDevelopment = process.env.NODE_ENV === 'development';
-		const projectRoot = process.cwd();
-
-		// In development, use the script in the project directory
-		// In production, the script should be in resources/quantum
-		let scriptPath = '';
-		if (isDevelopment) {
-			scriptPath = path.join(projectRoot, 'quantum', 'grover_search.py');
-		} else {
-			// In production, resources folder contains our extra resources
-			const resourcesPath = path.join(
-				process.resourcesPath || app.getAppPath(),
-				'resources'
-			);
-			scriptPath = path.join(resourcesPath, 'quantum', 'grover_search.py');
-		}
+		// Get the path to the quantum script
+		const scriptPath = path.join(
+			this.getQuantumScriptPath(),
+			'grover_search.py'
+		);
+		console.log(
+			`[JobSchedulerService] Using quantum script path: ${scriptPath}`
+		);
 
 		// Verify the script exists
 		if (!fs.existsSync(scriptPath)) {
@@ -698,6 +776,7 @@ export class JobSchedulerService {
 
 		// Determine the Python executable path from virtual environment
 		let pythonExecutable = 'python'; // Default fallback
+		const projectRoot = getProjectRoot();
 		const venvPythonPath = path.join(
 			projectRoot,
 			'.venv',

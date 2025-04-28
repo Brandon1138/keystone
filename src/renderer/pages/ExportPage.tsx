@@ -56,7 +56,7 @@ interface ExportStats {
 const ExportPage: React.FC = () => {
 	const theme = useTheme();
 	const isDarkMode = theme.palette.mode === 'dark';
-	const [selectedFormat, setSelectedFormat] = useState<string>('csv');
+	const [selectedFormat, setSelectedFormat] = useState<string>('json');
 	const [isExporting, setIsExporting] = useState(false);
 	const [filename, setFilename] = useState('pqc_benchmark_data');
 	const [exportPath, setExportPath] = useState<string>('');

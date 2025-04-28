@@ -484,11 +484,35 @@ try {
 // ==========================================================================
 
 export function setupBenchmarkIPC() {
+	// Log the benchmark path
+	const benchmarkBinPath = path.join(getProjectRoot(), 'benchmarks', 'bin');
+	console.log(`[IPC] Benchmark executables path: ${benchmarkBinPath}`);
+
+	// Verify benchmark executables
+	benchmarkManager.verifyBenchmarkExecutables();
+
+	// Get available benchmarks for error handling
+	const availableBenchmarks = benchmarkManager.getAvailableBenchmarks();
+	console.log(
+		`[IPC] Available benchmark algorithms: ${availableBenchmarks.join(', ')}`
+	);
+
 	// No changes needed here
 	ipcMain.handle(
 		'run-benchmark',
 		async (event: IpcMainInvokeEvent, params: BenchmarkParams) => {
 			try {
+				// Check if the requested benchmark executable exists
+				if (!availableBenchmarks.includes(params.algorithm)) {
+					throw new Error(
+						`Benchmark executable for '${
+							params.algorithm
+						}' was not found. Available benchmarks: ${availableBenchmarks.join(
+							', '
+						)}`
+					);
+				}
+
 				// Set up progress reporting
 				benchmarkManager.onProgress((progressData) => {
 					// Send progress updates to renderer

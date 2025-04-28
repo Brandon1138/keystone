@@ -135,6 +135,10 @@ module.exports = [
 		},
 		resolve: {
 			extensions: ['.tsx', '.ts', '.js'],
+			// Add an alias for Three.js to ensure a single instance is used
+			alias: {
+				three: path.resolve(__dirname, 'node_modules/three'),
+			},
 		},
 	},
 ];

@@ -194,12 +194,6 @@ export const CodexPage: React.FC = () => {
 							description:
 								"Microsoft's implementation of supersingular isogeny Diffie-Hellman",
 						},
-						{
-							title: 'PQShield',
-							url: 'https://pqshield.com/resources/',
-							description:
-								'Resources on PQC implementations and security analysis',
-						},
 					],
 				},
 			],
@@ -296,13 +290,13 @@ export const CodexPage: React.FC = () => {
 					title: 'Quantum Threats & Algorithms',
 					links: [
 						{
-							title: "Shor's Algorithm Explanation",
-							url: 'https://quantum-computing.ibm.com/composer/docs/iqx/guide/shors-algorithm',
+							title: "Learning Shor's Algorithm",
+							url: 'https://learning.quantum.ibm.com/course/fundamentals-of-quantum-algorithms/phase-estimation-and-factoring',
 							description: "IBM Quantum explanation of Shor's algorithm",
 						},
 						{
-							title: "Grover's Algorithm Explanation",
-							url: 'https://quantum-computing.ibm.com/composer/docs/iqx/guide/grovers-algorithm',
+							title: "Learning Grover's Algorithm",
+							url: 'https://learning.quantum.ibm.com/course/fundamentals-of-quantum-algorithms/grovers-algorithm',
 							description: "IBM Quantum explanation of Grover's algorithm",
 						},
 						{
@@ -318,7 +312,7 @@ export const CodexPage: React.FC = () => {
 					links: [
 						{
 							title: 'Lattice-based Cryptography',
-							url: 'https://csrc.nist.gov/CSRC/media/Events/Second-PQC-Standardization-Conference/documents/accepted-papers/moody-NIST-PQC-Stnd.pdf',
+							url: 'https://www.ico-occitanie.fr/wp-content/uploads/2024/06/202407_ICO.pdf',
 							description: 'Introduction to lattice-based cryptography',
 						},
 						{
@@ -329,7 +323,7 @@ export const CodexPage: React.FC = () => {
 						},
 						{
 							title: 'NSA PQC Guidance',
-							url: 'https://media.defense.gov/2022/Sep/07/2003071834/-1/-1/0/CSA_COMMERCIAL_NATIONAL_SECURITY_ALGORITHM_2_0_20220907.PDF',
+							url: 'https://www.nsa.gov/Cybersecurity/Post-Quantum-Cybersecurity-Resources/',
 							description: 'NSA guidance on post-quantum cryptography',
 						},
 					],

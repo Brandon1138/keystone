@@ -3,6 +3,7 @@ import path from 'path';
 import { BenchmarkParams, BenchmarkResult } from '../types/benchmark';
 import { v4 as uuidv4 } from 'uuid';
 import { lowdbService } from './db/lowdbService';
+import fs from 'fs';
 
 // Define the progress data interface
 export interface BenchmarkProgressData {
@@ -32,9 +33,109 @@ export interface BenchmarkProgressData {
 	signature_bytes?: number; // Optional field for ECDSA signature size
 }
 
+/**
+ * Gets the project root directory, using the same logic as in ipc.ts
+ */
+function getProjectRoot(): string {
+	const isDevelopment = process.env.NODE_ENV === 'development';
+	if (isDevelopment) {
+		// In development, find the directory containing package.json
+		let currentDir = __dirname;
+		while (
+			!fs.existsSync(path.join(currentDir, 'package.json')) &&
+			currentDir !== path.parse(currentDir).root
+		) {
+			currentDir = path.dirname(currentDir);
+		}
+		if (fs.existsSync(path.join(currentDir, 'package.json'))) {
+			return currentDir;
+		} else {
+			// Fallback if package.json not found
+			return path.resolve(__dirname, '..', '..');
+		}
+	} else {
+		// In production, use resources path
+		const processAny = process as any;
+		const electron = require('electron');
+		const resourcesPath =
+			processAny.resourcesPath ||
+			(electron.app
+				? path.dirname(electron.app.getAppPath())
+				: path.resolve(__dirname, '..', '..'));
+		return resourcesPath;
+	}
+}
+
 class BenchmarkManager {
 	private activeProcesses: Map<string, ChildProcess> = new Map();
-	private readonly executablesPath = 'C:\\Users\\brand\\executables';
+	private getBenchmarkBinPath(): string {
+		const projectRoot = getProjectRoot();
+		return path.join(projectRoot, 'benchmarks', 'bin');
+	}
+
+	/**
+	 * Verify that benchmark executables exist and log their paths
+	 * This is used for diagnostics at startup
+	 */
+	verifyBenchmarkExecutables(): void {
+		const benchmarkPath = this.getBenchmarkBinPath();
+		console.log(
+			`[BenchmarkManager] Verifying benchmark executables in: ${benchmarkPath}`
+		);
+
+		// Check if directory exists
+		if (!fs.existsSync(benchmarkPath)) {
+			console.error(
+				`[BenchmarkManager] ERROR: Benchmark directory does not exist: ${benchmarkPath}`
+			);
+			return;
+		}
+
+		// List all benchmark executables
+		const benchmarkFiles = fs
+			.readdirSync(benchmarkPath)
+			.filter((file) => file.startsWith('benchmark_') && file.endsWith('.exe'));
+
+		if (benchmarkFiles.length === 0) {
+			console.error(
+				`[BenchmarkManager] ERROR: No benchmark executables found in ${benchmarkPath}`
+			);
+		} else {
+			console.log(
+				`[BenchmarkManager] Found ${benchmarkFiles.length} benchmark executables:`
+			);
+			benchmarkFiles.forEach((file) => {
+				const filePath = path.join(benchmarkPath, file);
+				console.log(
+					`  - ${file} (${fs.existsSync(filePath) ? 'exists' : 'MISSING!'})`
+				);
+			});
+		}
+	}
+
+	/**
+	 * Get list of available benchmark algorithms based on executable files
+	 */
+	getAvailableBenchmarks(): string[] {
+		try {
+			const benchmarkPath = this.getBenchmarkBinPath();
+			if (!fs.existsSync(benchmarkPath)) return [];
+
+			return fs
+				.readdirSync(benchmarkPath)
+				.filter(
+					(file) => file.startsWith('benchmark_') && file.endsWith('.exe')
+				)
+				.map((file) => file.replace('benchmark_', '').replace('.exe', ''));
+		} catch (error) {
+			console.error(
+				'[BenchmarkManager] Error getting available benchmarks:',
+				error
+			);
+			return [];
+		}
+	}
+
 	private progressCallback: ((data: BenchmarkProgressData) => void) | null =
 		null;
 
@@ -57,7 +158,7 @@ class BenchmarkManager {
 
 		const benchmarkId = uuidv4();
 		const executablePath = path.join(
-			this.executablesPath,
+			this.getBenchmarkBinPath(),
 			`benchmark_${params.algorithm}.exe`
 		);
 

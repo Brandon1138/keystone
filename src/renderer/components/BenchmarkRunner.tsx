@@ -66,6 +66,21 @@ export const BenchmarkRunner: React.FC = () => {
 		setSelectedParam(SECURITY_PARAMS[algorithm][0]);
 		setJustCompleted(false);
 
+		// Reset metrics when algorithm changes
+		setPerformanceMetrics({
+			avgTime: '0',
+			minTime: '0',
+			maxTime: '0',
+		});
+		setSystemMetrics({
+			throughput: '0',
+			avgMemory: '0',
+			peakMemory: '0',
+		});
+		setCurrentPhase('Ready');
+		setProgress(0);
+		setCurrentBenchmark(null);
+
 		// Set default iterations based on algorithm type
 		if (['kyber', 'aes'].includes(algorithm)) {
 			setIterations(10000);
@@ -79,6 +94,21 @@ export const BenchmarkRunner: React.FC = () => {
 	const handleParamChange = (event: SelectChangeEvent) => {
 		setSelectedParam(event.target.value);
 		setJustCompleted(false);
+
+		// Reset metrics when security parameter changes
+		setPerformanceMetrics({
+			avgTime: '0',
+			minTime: '0',
+			maxTime: '0',
+		});
+		setSystemMetrics({
+			throughput: '0',
+			avgMemory: '0',
+			peakMemory: '0',
+		});
+		setCurrentPhase('Ready');
+		setProgress(0);
+		setCurrentBenchmark(null);
 	};
 
 	const handleIterationsChange = (
