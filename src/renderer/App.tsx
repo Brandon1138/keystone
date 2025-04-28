@@ -42,6 +42,7 @@ import {
 	StartupAnimation,
 	EyeToggle,
 } from './components';
+import LightingSwitchEasterEgg from './components/ui/LightingSwitchEasterEgg';
 
 // Create theme based on mode
 const createAppTheme = (mode: 'light' | 'dark') =>
@@ -239,6 +240,8 @@ const AppContent: React.FC = () => {
 	const appContentRef = useRef<HTMLDivElement>(null);
 	// Add state for UI visibility
 	const [isUIVisible, setIsUIVisible] = useState(true);
+	// Add state for button disabling
+	const [isButtonDisabled, setIsButtonDisabled] = useState(false);
 
 	// Media query for detecting system color scheme
 	const prefersDarkScheme = window.matchMedia('(prefers-color-scheme: dark)');
@@ -314,7 +317,15 @@ const AppContent: React.FC = () => {
 	const toggleUIVisibility = () => {
 		if (!appContentRef.current) return;
 
-		setIsUIVisible(!isUIVisible);
+		const newVisibility = !isUIVisible;
+		setIsUIVisible(newVisibility);
+
+		// Dispatch custom event for QuantumLatticeBackground to listen to
+		window.dispatchEvent(
+			new CustomEvent('ui-visibility-change', {
+				detail: { visible: newVisibility },
+			})
+		);
 	};
 
 	// Toggle light/dark mode (only between light and dark, not system)
@@ -368,7 +379,13 @@ const AppContent: React.FC = () => {
 								</>
 							)}
 
-							<div className="container mx-auto p-2 relative z-10">
+							{/* Remove the fixed position eye toggle */}
+							<div
+								className="container mx-auto p-2 relative z-10"
+								style={{
+									pointerEvents: isUIVisible ? 'auto' : 'none',
+								}}
+							>
 								{/* Header */}
 								<header className="mb-4">
 									<div className="flex justify-between items-center">
@@ -385,16 +402,19 @@ const AppContent: React.FC = () => {
 											/>
 										</div>
 
-										{/* Header Controls - Keep eye toggle outside the hidden content */}
+										{/* Header Controls - Theme toggle and other controls */}
 										<div className="flex items-center gap-3 p-3">
-											<EyeToggle
-												isVisible={isUIVisible}
-												onToggle={toggleUIVisibility}
-												isEnabled={true}
-												appContentRef={
-													appContentRef as React.RefObject<HTMLDivElement>
-												}
-											/>
+											{/* Eye Toggle - Outside the hidden container to remain clickable */}
+											<div style={{ pointerEvents: 'auto' }}>
+												<EyeToggle
+													isVisible={isUIVisible}
+													onToggle={toggleUIVisibility}
+													isEnabled={true}
+													appContentRef={
+														appContentRef as React.RefObject<HTMLDivElement>
+													}
+												/>
+											</div>
 											<div
 												style={{
 													visibility: isUIVisible ? 'visible' : 'hidden',
@@ -438,8 +458,19 @@ const AppContent: React.FC = () => {
 													checked={!lightMode}
 													onChange={toggleTheme}
 													color="primary"
-													disabled={settings.themePreference === 'system'}
+													disabled={
+														settings.themePreference === 'system' ||
+														isButtonDisabled
+													}
 												/>
+
+												{/* Easter egg - only active when not in system mode */}
+												{settings.themePreference !== 'system' && (
+													<LightingSwitchEasterEgg
+														enabled={!lightMode}
+														onDisableButton={setIsButtonDisabled}
+													/>
+												)}
 											</div>
 										</div>
 									</div>
@@ -451,6 +482,7 @@ const AppContent: React.FC = () => {
 									style={{
 										visibility: isUIVisible ? 'visible' : 'hidden',
 										opacity: isUIVisible ? 1 : 0,
+										pointerEvents: isUIVisible ? 'auto' : 'none',
 									}}
 								>
 									{/* Introductory Text */}

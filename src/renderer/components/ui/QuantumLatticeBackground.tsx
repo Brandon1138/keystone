@@ -9,6 +9,7 @@ import { gsap } from 'gsap';
 import { useTheme } from '@mui/material/styles';
 import { useSettings } from '../../context/SettingsContext';
 import { useQuantumHardware } from '../../context/QuantumHardwareContext';
+import PeoEasterEgg from './PeoEasterEgg';
 
 interface QuantumLatticeBackgroundProps {
 	enabled?: boolean;
@@ -25,6 +26,29 @@ const QuantumLatticeBackground: React.FC<QuantumLatticeBackgroundProps> = ({
 	const { settings } = useSettings();
 	const { isRunningOnHardware, jobId } = useQuantumHardware();
 	const isDarkMode = theme.palette.mode === 'dark';
+
+	// Access the UI visibility state from a global context
+	const [isUIVisible, setIsUIVisible] = useState(true);
+
+	// Effect to listen for UI visibility changes
+	useEffect(() => {
+		const handleUIVisibilityChange = (e: CustomEvent) => {
+			setIsUIVisible(e.detail.visible);
+		};
+
+		// Listen for custom UI visibility event
+		window.addEventListener(
+			'ui-visibility-change',
+			handleUIVisibilityChange as EventListener
+		);
+
+		return () => {
+			window.removeEventListener(
+				'ui-visibility-change',
+				handleUIVisibilityChange as EventListener
+			);
+		};
+	}, []);
 
 	// Determine if animation should be shown based on settings and theme
 	const shouldShowAnimation =
@@ -248,6 +272,28 @@ const QuantumLatticeBackground: React.FC<QuantumLatticeBackgroundProps> = ({
 		canvas.style.zIndex = '0';
 		canvas.style.pointerEvents = 'auto'; // Ensure clicks are captured
 
+		// Function to update canvas z-index based on UI visibility
+		const updateCanvasZIndex = (visible: boolean) => {
+			canvas.style.zIndex = visible ? '0' : '20'; // Higher z-index when UI is hidden
+		};
+
+		// Initial z-index setting
+		updateCanvasZIndex(isUIVisible);
+
+		// Set up observer to update z-index when UI visibility changes
+		const uiVisibilityObserver = () => {
+			updateCanvasZIndex(isUIVisible);
+		};
+
+		// Add effect for z-index updates
+		const uiVisibilityEffect = () => {
+			uiVisibilityObserver();
+			return uiVisibilityObserver;
+		};
+
+		// Store the effect callback for cleanup
+		const effectCleanup = uiVisibilityEffect();
+
 		// Setup click event listener
 		canvas.addEventListener('click', handleCanvasClick);
 
@@ -281,6 +327,7 @@ const QuantumLatticeBackground: React.FC<QuantumLatticeBackgroundProps> = ({
 				mountRef.current.removeChild(rendererRef.current.domElement);
 			}
 			cleanupThreeJS();
+			effectCleanup();
 		};
 	};
 
@@ -2094,17 +2141,28 @@ const QuantumLatticeBackground: React.FC<QuantumLatticeBackgroundProps> = ({
 		}
 	}, [shouldShowAnimation]);
 
+	// Update canvas z-index when UI visibility changes
+	useEffect(() => {
+		if (rendererRef.current) {
+			const canvas = rendererRef.current.domElement;
+			canvas.style.zIndex = isUIVisible ? '0' : '20'; // Higher z-index when UI is hidden
+		}
+	}, [isUIVisible]);
+
 	// Don't render anything if animation shouldn't be shown
 	if (!shouldShowAnimation) {
 		return null;
 	}
 
 	return (
-		<div
-			ref={mountRef}
-			className="fixed inset-0 w-full h-full z-0"
-			aria-label="Interactive Quantum Lattice Visualization"
-		/>
+		<>
+			<div
+				ref={mountRef}
+				className="fixed inset-0 w-full h-full z-0"
+				aria-label="Interactive Quantum Lattice Visualization"
+			/>
+			<PeoEasterEgg enabled={shouldShowAnimation} scene={sceneRef.current} />
+		</>
 	);
 };
 

@@ -1,11 +1,44 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { gsap } from 'gsap';
-import { THREE } from '../../utils/threeInstance';
 
 interface LightingSwitchEasterEggProps {
 	enabled: boolean;
 	onDisableButton?: (disabled: boolean) => void;
 }
+
+// Message variants
+const MESSAGE_VARIANTS = [
+	// Variant 1 (Original)
+	[
+		'Stop that',
+		'...',
+		'Seriously?',
+		"This is why we can't have nice things",
+		'sudo rm -rf /home/user',
+		'Have it your way',
+	],
+	// Variant 2 (Passive-aggressive / Sarcastic)
+	[
+		'Stop that',
+		'...',
+		'Are you proud of yourself?',
+		'Go ahead, break everything',
+		'systemctl disable sanity.service',
+		"Fine. You're the boss.",
+	],
+	// Variant 3 (Absurdist / Dark Comedy)
+	[
+		'Stop that',
+		'...',
+		'You think this is a game?',
+		'Every toggle shortens your lifespan',
+		'user.exe has stopped working',
+		'All hail the clicker king',
+	],
+];
+
+// Local storage key for tracking last variant
+const LAST_VARIANT_KEY = 'lightingSwitchLastVariant';
 
 const LightingSwitchEasterEgg: React.FC<LightingSwitchEasterEggProps> = ({
 	enabled,
@@ -16,6 +49,7 @@ const LightingSwitchEasterEgg: React.FC<LightingSwitchEasterEggProps> = ({
 	const [showMessage, setShowMessage] = useState(false);
 	const [cursorPosition, setCursorPosition] = useState({ x: 0, y: 0 });
 	const [isAnimating, setIsAnimating] = useState(false);
+	const [currentVariant, setCurrentVariant] = useState(0);
 
 	// Refs
 	const clicksRef = useRef<Array<number>>([]);
@@ -23,229 +57,51 @@ const LightingSwitchEasterEgg: React.FC<LightingSwitchEasterEggProps> = ({
 	const containerRef = useRef<HTMLDivElement>(null);
 	const messageRef = useRef<HTMLDivElement>(null);
 	const cursorPositionRef = useRef({ x: 0, y: 0 }); // Use ref to avoid stale closures
-	const lightningContainerRef = useRef<HTMLDivElement>(null);
-	const threeSceneRef = useRef<{
-		scene: THREE.Scene | null;
-		camera: THREE.OrthographicCamera | null;
-		renderer: THREE.WebGLRenderer | null;
-		lightning: THREE.Group | null;
-	}>({
-		scene: null,
-		camera: null,
-		renderer: null,
-		lightning: null,
-	});
+	const cycleDoneRef = useRef(false); // Track if the full cycle has been completed
 
-	// Initialize Three.js scene
+	// Choose a semi-random variant on mount
 	useEffect(() => {
-		if (!lightningContainerRef.current) return;
+		const selectVariant = () => {
+			try {
+				// Get the last used variant from localStorage
+				const lastVariant = localStorage.getItem(LAST_VARIANT_KEY);
+				const lastIndex = lastVariant ? parseInt(lastVariant) : -1;
 
-		const container = lightningContainerRef.current;
-		const width = window.innerWidth;
-		const height = window.innerHeight;
+				// Select a random variant that's different from the last one
+				let newIndex;
+				if (lastIndex === -1) {
+					// No previous variant, select any random one
+					newIndex = Math.floor(Math.random() * MESSAGE_VARIANTS.length);
+				} else {
+					// Get available indices excluding the last used one
+					const availableIndices = Array.from(
+						{ length: MESSAGE_VARIANTS.length },
+						(_, i) => i
+					).filter((i) => i !== lastIndex);
 
-		// Create scene
-		const scene = new THREE.Scene();
-
-		// Create orthographic camera
-		const camera = new THREE.OrthographicCamera(
-			-width / 2,
-			width / 2,
-			height / 2,
-			-height / 2,
-			0.1,
-			1000
-		);
-		camera.position.z = 10;
-
-		// Create renderer
-		const renderer = new THREE.WebGLRenderer({
-			alpha: true,
-			antialias: true,
-		});
-		renderer.setSize(width, height);
-		renderer.setClearColor(0x000000, 0);
-		container.appendChild(renderer.domElement);
-
-		// Store references
-		threeSceneRef.current = {
-			scene,
-			camera,
-			renderer,
-			lightning: null,
-		};
-
-		// Handle resize
-		const handleResize = () => {
-			if (!threeSceneRef.current.camera || !threeSceneRef.current.renderer)
-				return;
-
-			const width = window.innerWidth;
-			const height = window.innerHeight;
-
-			threeSceneRef.current.camera.left = -width / 2;
-			threeSceneRef.current.camera.right = width / 2;
-			threeSceneRef.current.camera.top = height / 2;
-			threeSceneRef.current.camera.bottom = -height / 2;
-			threeSceneRef.current.camera.updateProjectionMatrix();
-
-			threeSceneRef.current.renderer.setSize(width, height);
-		};
-
-		window.addEventListener('resize', handleResize);
-
-		// Cleanup
-		return () => {
-			window.removeEventListener('resize', handleResize);
-			if (threeSceneRef.current.renderer) {
-				if (container.contains(threeSceneRef.current.renderer.domElement)) {
-					container.removeChild(threeSceneRef.current.renderer.domElement);
+					// Randomly select from available indices
+					newIndex =
+						availableIndices[
+							Math.floor(Math.random() * availableIndices.length)
+						];
 				}
-				threeSceneRef.current.renderer.dispose();
+
+				setCurrentVariant(newIndex);
+
+				// Save the new variant to localStorage
+				localStorage.setItem(LAST_VARIANT_KEY, newIndex.toString());
+			} catch (error) {
+				// Fallback to variant 0 if localStorage fails
+				console.error('Error accessing localStorage:', error);
+				setCurrentVariant(0);
 			}
 		};
+
+		// Reset cycle completion status on component mount
+		cycleDoneRef.current = false;
+		setTriggerCount(0);
+		selectVariant();
 	}, []);
-
-	// Helper function to create lightning bolt
-	const createLightning = (startX: number, startY: number) => {
-		if (!threeSceneRef.current.scene) return null;
-
-		// Remove any existing lightning
-		if (threeSceneRef.current.lightning) {
-			threeSceneRef.current.scene.remove(threeSceneRef.current.lightning);
-		}
-
-		const group = new THREE.Group();
-		const blueColor = new THREE.Color(0x00bfff); // Bright blue color
-
-		// Create lightning segments
-		const createSegment = (
-			start: THREE.Vector3,
-			end: THREE.Vector3,
-			thickness: number,
-			segments: number
-		) => {
-			if (segments <= 0) return;
-
-			// Add random displacement to middle point
-			const mid = new THREE.Vector3().lerpVectors(start, end, 0.5);
-			const jitterAmount = Math.min(thickness * 3, start.distanceTo(end) * 0.4);
-			mid.x += (Math.random() - 0.5) * jitterAmount;
-			mid.y += (Math.random() - 0.5) * jitterAmount;
-
-			// Create main bolt
-			const material = new THREE.LineBasicMaterial({
-				color: blueColor,
-				transparent: true,
-				opacity: 0.8 + Math.random() * 0.2,
-				linewidth: thickness,
-			});
-
-			const geometry = new THREE.BufferGeometry().setFromPoints([
-				start,
-				mid,
-				end,
-			]);
-			const line = new THREE.Line(geometry, material);
-			group.add(line);
-
-			// Create glow effect
-			const glowMaterial = new THREE.LineBasicMaterial({
-				color: blueColor,
-				transparent: true,
-				opacity: 0.3,
-				linewidth: thickness * 2.5,
-			});
-			const glowLine = new THREE.Line(geometry, glowMaterial);
-			group.add(glowLine);
-
-			// Recursively create branches
-			if (segments > 0) {
-				createSegment(start, mid, thickness * 0.8, segments - 1);
-				createSegment(mid, end, thickness * 0.8, segments - 1);
-
-				// Add random branches with some probability
-				if (Math.random() < 0.5 && segments > 1) {
-					const branchEnd = new THREE.Vector3(
-						mid.x + (Math.random() - 0.5) * jitterAmount * 1.5,
-						mid.y + (Math.random() - 0.5) * jitterAmount * 1.5,
-						mid.z
-					);
-					createSegment(mid, branchEnd, thickness * 0.6, segments - 2);
-				}
-			}
-		};
-
-		// Create main lightning bolt from top to cursor position
-		const lightningStart = new THREE.Vector3(
-			startX,
-			-window.innerHeight / 2,
-			0
-		);
-		const lightningEnd = new THREE.Vector3(startX, startY, 0);
-
-		createSegment(lightningStart, lightningEnd, 3, 4);
-		threeSceneRef.current.lightning = group;
-		threeSceneRef.current.scene.add(group);
-
-		return group;
-	};
-
-	// Function to animate the lightning
-	const animateLightning = (lightning: THREE.Group) => {
-		// Flash effect
-		const flashIntensity = (time: number): number => {
-			return Math.pow(Math.sin(time * Math.PI), 2);
-		};
-
-		const startTime = Date.now();
-		const duration = 800; // ms
-
-		// Animation loop
-		const animate = () => {
-			if (
-				!threeSceneRef.current.renderer ||
-				!threeSceneRef.current.scene ||
-				!threeSceneRef.current.camera
-			) {
-				return;
-			}
-
-			const elapsed = Date.now() - startTime;
-			const normalizedTime = Math.min(elapsed / duration, 1);
-
-			// Update opacity based on time
-			lightning.traverse((child) => {
-				if (child instanceof THREE.Line) {
-					const material = child.material as THREE.LineBasicMaterial;
-					const baseOpacity = material.opacity;
-					// Flash effect plus fade out
-					material.opacity =
-						baseOpacity *
-						flashIntensity(normalizedTime * 5) *
-						(1 - normalizedTime);
-				}
-			});
-
-			threeSceneRef.current.renderer.render(
-				threeSceneRef.current.scene,
-				threeSceneRef.current.camera
-			);
-
-			if (normalizedTime < 1) {
-				requestAnimationFrame(animate);
-			} else {
-				// Clean up when animation is complete
-				if (threeSceneRef.current.scene && lightning) {
-					threeSceneRef.current.scene.remove(lightning);
-					threeSceneRef.current.lightning = null;
-				}
-			}
-		};
-
-		// Start animation
-		animate();
-	};
 
 	// Track mouse position
 	useEffect(() => {
@@ -263,8 +119,8 @@ const LightingSwitchEasterEgg: React.FC<LightingSwitchEasterEggProps> = ({
 
 	// Handle click counter and trigger detection
 	useEffect(() => {
-		// Skip if animation is already in progress
-		if (animationInProgressRef.current) return;
+		// Skip if animation is already in progress or cycle is complete
+		if (animationInProgressRef.current || cycleDoneRef.current) return;
 
 		// Only track clicks when we're in dark mode (enabled === true)
 		if (enabled === true) {
@@ -295,8 +151,8 @@ const LightingSwitchEasterEgg: React.FC<LightingSwitchEasterEggProps> = ({
 
 	// Trigger the easter egg
 	const triggerEasterEgg = useCallback(() => {
-		// Stop if animation is already in progress
-		if (animationInProgressRef.current) return;
+		// Stop if animation is already in progress or cycle is done
+		if (animationInProgressRef.current || cycleDoneRef.current) return;
 
 		// Set animation flags
 		animationInProgressRef.current = true;
@@ -311,75 +167,29 @@ const LightingSwitchEasterEgg: React.FC<LightingSwitchEasterEggProps> = ({
 		const fixedPosition = { ...cursorPositionRef.current };
 		console.log('Message will appear at cursor position:', fixedPosition);
 
-		// Create and animate lightning at cursor position
-		if (
-			threeSceneRef.current.scene &&
-			threeSceneRef.current.camera &&
-			threeSceneRef.current.renderer
-		) {
-			// Convert screen coordinates to Three.js coordinates
-			const screenX = fixedPosition.x - window.innerWidth / 2;
-			const screenY = -(fixedPosition.y - window.innerHeight / 2);
-
-			// Create and animate lightning
-			const lightning = createLightning(screenX, screenY);
-			if (lightning) {
-				animateLightning(lightning);
-			}
-
-			// Trigger a screen flash effect with GSAP
-			if (lightningContainerRef.current) {
-				const flash = document.createElement('div');
-				flash.style.position = 'absolute';
-				flash.style.top = '0';
-				flash.style.left = '0';
-				flash.style.width = '100%';
-				flash.style.height = '100%';
-				flash.style.backgroundColor = 'rgba(0, 191, 255, 0.2)';
-				flash.style.pointerEvents = 'none';
-				flash.style.zIndex = '9999';
-				lightningContainerRef.current.appendChild(flash);
-
-				gsap.to(flash, {
-					opacity: 0,
-					duration: 0.3,
-					ease: 'power2.out',
-					onComplete: () => {
-						if (
-							lightningContainerRef.current &&
-							lightningContainerRef.current.contains(flash)
-						) {
-							lightningContainerRef.current.removeChild(flash);
-						}
-					},
-				});
-			}
-		}
+		// Get the messages for the current variant
+		const messages = MESSAGE_VARIANTS[currentVariant];
 
 		// Increment trigger count and set appropriate message
 		setTriggerCount((prev) => {
 			const newCount = prev + 1;
-			if (newCount === 1) {
-				setMessage('Stop That');
-			} else if (newCount === 2) {
-				setMessage('Quit playing with the lights');
-			} else {
-				setMessage('Have it your way');
+			// Get message from current variant based on count
+			const messageIndex = Math.min(newCount - 1, messages.length - 1);
+			setMessage(messages[messageIndex]);
+
+			// Check if we've reached the end of the cycle
+			if (newCount >= messages.length) {
+				cycleDoneRef.current = true;
+				console.log(
+					'Easter egg cycle completed, no more messages will be shown'
+				);
 			}
-			return newCount > 3 ? 3 : newCount;
+
+			return newCount;
 		});
 
 		// Show message and animate
 		setShowMessage(true);
-
-		// Try to play thunder sound effect if available
-		try {
-			const thunder = new Audio('./thunder.mp3');
-			thunder.volume = 0.3;
-			thunder.play().catch((err) => console.log('Audio play failed:', err));
-		} catch (error) {
-			console.log('Thunder sound effect not available:', error);
-		}
 
 		// Hide after 3 seconds and re-enable the button
 		setTimeout(() => {
@@ -390,7 +200,7 @@ const LightingSwitchEasterEgg: React.FC<LightingSwitchEasterEggProps> = ({
 			}
 			animationInProgressRef.current = false;
 		}, 3000);
-	}, [onDisableButton]);
+	}, [onDisableButton, currentVariant]);
 
 	// Animate the message appearing
 	useEffect(() => {
@@ -437,16 +247,6 @@ const LightingSwitchEasterEgg: React.FC<LightingSwitchEasterEggProps> = ({
 			className="fixed inset-0 pointer-events-none z-50"
 			style={{ pointerEvents: 'none' }}
 		>
-			{/* Lightning container for Three.js */}
-			<div
-				ref={lightningContainerRef}
-				className="fixed inset-0 pointer-events-none"
-				style={{
-					zIndex: 9999,
-					pointerEvents: 'none',
-				}}
-			/>
-
 			{/* Message bubble */}
 			<div
 				ref={messageRef}
@@ -457,7 +257,7 @@ const LightingSwitchEasterEgg: React.FC<LightingSwitchEasterEggProps> = ({
 					fontFamily: 'monospace',
 					opacity: 0,
 					zIndex: 10000,
-					maxWidth: '250px',
+					maxWidth: '320px',
 				}}
 			>
 				<div className="flex items-center">
